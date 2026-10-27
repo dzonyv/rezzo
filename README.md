@@ -4,7 +4,7 @@ Rezzo is a desktop app for cutting vertical clips out of podcasts and talk shows
 
 I post podcast clips on social media, and the work is the same every time: find a good moment, crop a wide shot down to 9:16, keep whoever is talking in frame, add captions. The apps that handle this well either stamp a watermark on the video or put the useful parts behind a monthly subscription. Rezzo does the same job for free, and every feature is in the free version because there is no other version.
 
-It's built for Serbian, Croatian and Bosnian content first, since that's what I work with. Other languages should work too.
+It's built for Serbian (Balkan) content first, since that's what I work with. Other languages should work too.
 
 ## Where it stands
 
