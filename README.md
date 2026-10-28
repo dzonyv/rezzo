@@ -8,7 +8,7 @@ It's built for Serbian (Balkan) content first, since that's what I work with. Ot
 
 ## Where it stands
 
-There's nothing to download yet. Right now we're in Phase 0, checking that the hard parts (transcription, face tracking, GPU export) actually work on an ordinary PC before building the app around them. The full plan is in [ROADMAP.md](ROADMAP.md).
+There's nothing to download yet. Phase 0 is done: we checked that the hard parts (transcription, face tracking, GPU export) work on an ordinary PC before building the app around them, and wrote down what we found in [spikes/REPORT.md](spikes/REPORT.md). Next up is Phase 1, the first version you can actually use. The full plan is in [ROADMAP.md](ROADMAP.md).
 
 ## What it will do
 
@@ -16,7 +16,7 @@ There's nothing to download yet. Right now we're in Phase 0, checking that the h
 - Frame the clip for 9:16 in one of three ways: follow the person talking, stack two people on top of each other, or show the full shot over a blurred copy of itself. You can switch between them in the middle of a clip.
 - Captions that appear word by word and highlight the word being spoken.
 - Images, animations, green screen and effects on a timeline.
-- Follow the speaker automatically by noticing camera cuts and working out who's talking from faces, lips and audio.
+- Follow the speaker automatically, mostly from camera cuts and the audio, with a quick click to fix it when it guesses wrong.
 - Export at 1080×1920 using the graphics card when there is one. The preview and the export use the same renderer, so the file looks like what you saw while editing.
 
 Transcripts are always in Latin script. If Cyrillic comes out of the speech model, it gets converted.

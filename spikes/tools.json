@@ -1,0 +1,143 @@
+{
+  "$comment": "Third-party binaries and models used by the Phase 0 spikes. Pinned URLs, sizes and checksums; fetched by scripts/fetch-tools.ts into vendor/ and models/ (both ignored by git).",
+  "items": [
+    {
+      "id": "ffmpeg",
+      "group": "ffmpeg",
+      "name": "FFmpeg 9.0.2 (BtbN gpl-shared build, autobuild-2026-10-27-18-38)",
+      "url": "https://github.com/BtbN/FFmpeg-Builds/releases/download/autobuild-2026-10-27-18-38/ffmpeg-n9.0.2-36-g6882969ce9-win64-gpl-shared-9.0.zip",
+      "size": 87215453,
+      "sha256": "dbfef481021a393424c9bd4e588c8d568f0ebba780c01c63dfcb87c87be901c7",
+      "dest": "vendor/bin/ffmpeg",
+      "extract": true,
+      "license": "GPL-3.0-or-later (gpl variant: includes x264/x265; built without --enable-nonfree)",
+      "source": "https://github.com/BtbN/FFmpeg-Builds"
+    },
+    {
+      "id": "whisper-cuda",
+      "group": "whisper",
+      "name": "whisper.cpp b5454 (v1.9.5) Windows x64, CUDA 12.4",
+      "url": "https://github.com/ggml-org/whisper.cpp/releases/download/b5454/whisper-bin-win-cuda-12.4.0-x64.zip",
+      "size": 684913404,
+      "sha256": "afef0b881c500958921c3f5523b50e59ee2ec9b6f5cbd25b324c51ed308a957a",
+      "dest": "vendor/bin/whisper",
+      "extract": true,
+      "license": "MIT (whisper.cpp); bundled NVIDIA CUDA runtime DLLs fall under the NVIDIA CUDA EULA",
+      "source": "https://github.com/ggml-org/whisper.cpp"
+    },
+    {
+      "id": "large-v3-turbo",
+      "group": "models",
+      "name": "Whisper large-v3-turbo (f16, ggml)",
+      "url": "https://huggingface.co/ggerganov/whisper.cpp/resolve/main/ggml-large-v3-turbo.bin",
+      "size": 1624555275,
+      "sha256": "1fc70f774d38eb169993ac391eea357ef47c88757ef72ee5943879b7e8e2bc69",
+      "dest": "models/whisper",
+      "license": "MIT (OpenAI Whisper weights)",
+      "source": "https://huggingface.co/ggerganov/whisper.cpp"
+    },
+    {
+      "id": "large-v3-turbo-q5_0",
+      "group": "models",
+      "name": "Whisper large-v3-turbo (q5_0, ggml)",
+      "url": "https://huggingface.co/ggerganov/whisper.cpp/resolve/main/ggml-large-v3-turbo-q5_0.bin",
+      "size": 574041195,
+      "sha256": "394221709cd5ad1f40c46e6031ca61bce88931e6e088c188294c6d5a55ffa7e2",
+      "dest": "models/whisper",
+      "license": "MIT (OpenAI Whisper weights)",
+      "source": "https://huggingface.co/ggerganov/whisper.cpp"
+    },
+    {
+      "id": "large-v3",
+      "group": "models",
+      "name": "Whisper large-v3 (f16, ggml)",
+      "url": "https://huggingface.co/ggerganov/whisper.cpp/resolve/main/ggml-large-v3.bin",
+      "size": 3095033483,
+      "sha256": "64d182b440b98d5203c4f9bd541544d84c605196c4f7b845dfa11fb23594d1e2",
+      "dest": "models/whisper",
+      "license": "MIT (OpenAI Whisper weights)",
+      "source": "https://huggingface.co/ggerganov/whisper.cpp"
+    },
+    {
+      "id": "large-v3-q5_0",
+      "group": "models",
+      "name": "Whisper large-v3 (q5_0, ggml)",
+      "url": "https://huggingface.co/ggerganov/whisper.cpp/resolve/main/ggml-large-v3-q5_0.bin",
+      "size": 1081140203,
+      "sha256": "d75795ecff3f83b5faa89d1900604ad8c780abd5739fae406de19f23ecd98ad1",
+      "dest": "models/whisper",
+      "license": "MIT (OpenAI Whisper weights)",
+      "source": "https://huggingface.co/ggerganov/whisper.cpp"
+    },
+    {
+      "id": "medium",
+      "group": "models",
+      "name": "Whisper medium (f16, ggml)",
+      "url": "https://huggingface.co/ggerganov/whisper.cpp/resolve/main/ggml-medium.bin",
+      "size": 1533763059,
+      "sha256": "6c14d5adee5f86394037b4e4e8b59f1673b6cee10e3cf0b11bbdbee79c156208",
+      "dest": "models/whisper",
+      "license": "MIT (OpenAI Whisper weights)",
+      "source": "https://huggingface.co/ggerganov/whisper.cpp"
+    },
+    {
+      "id": "medium-q5_0",
+      "group": "models",
+      "name": "Whisper medium (q5_0, ggml)",
+      "url": "https://huggingface.co/ggerganov/whisper.cpp/resolve/main/ggml-medium-q5_0.bin",
+      "size": 539212467,
+      "sha256": "19fea4b380c3a618ec4723c3eef2eb785ffba0d0538cf43f8f235e7b3b34220f",
+      "dest": "models/whisper",
+      "license": "MIT (OpenAI Whisper weights)",
+      "source": "https://huggingface.co/ggerganov/whisper.cpp"
+    },
+    {
+      "id": "blaze-face-short-range",
+      "group": "mediapipe",
+      "name": "MediaPipe BlazeFace short-range face detector (float16, v1)",
+      "url": "https://storage.googleapis.com/mediapipe-models/face_detector/blaze_face_short_range/float16/1/blaze_face_short_range.tflite",
+      "size": 229746,
+      "sha256": "b4578f35940bf5a1a655214a1cce5cab13eba73c1297cd78e1a04c2380b0152f",
+      "md5Base64": "o91uwxclKQdwuXzsDL+UyQ==",
+      "dest": "models/mediapipe",
+      "license": "Apache-2.0",
+      "source": "https://ai.google.dev/edge/mediapipe/solutions/vision/face_detector"
+    },
+    {
+      "id": "face-landmarker",
+      "group": "mediapipe",
+      "name": "MediaPipe Face Landmarker with blendshapes (float16, v1)",
+      "url": "https://storage.googleapis.com/mediapipe-models/face_landmarker/face_landmarker/float16/1/face_landmarker.task",
+      "size": 3758596,
+      "sha256": "64184e229b263107bc2b804c6625db1341ff2bb731874b0bcc2fe6544e0bc9ff",
+      "md5Base64": "sOcnSQehZEQE/vZrKN1thQ==",
+      "dest": "models/mediapipe",
+      "license": "Apache-2.0",
+      "source": "https://ai.google.dev/edge/mediapipe/solutions/vision/face_landmarker"
+    },
+    {
+      "id": "pose-landmarker-lite",
+      "group": "mediapipe",
+      "name": "MediaPipe Pose Landmarker lite (float16, v1)",
+      "url": "https://storage.googleapis.com/mediapipe-models/pose_landmarker/pose_landmarker_lite/float16/1/pose_landmarker_lite.task",
+      "size": 5777746,
+      "sha256": "59929e1d1ee95287735ddd833b19cf4ac46d29bc7afddbbf6753c459690d574a",
+      "md5Base64": "BKdd33yBGsehpFIyZt19iA==",
+      "dest": "models/mediapipe",
+      "license": "Apache-2.0",
+      "source": "https://ai.google.dev/edge/mediapipe/solutions/vision/pose_landmarker"
+    },
+    {
+      "id": "pose-landmarker-full",
+      "group": "mediapipe",
+      "name": "MediaPipe Pose Landmarker full (float16, v1)",
+      "url": "https://storage.googleapis.com/mediapipe-models/pose_landmarker/pose_landmarker_full/float16/1/pose_landmarker_full.task",
+      "size": 9398198,
+      "sha256": "5134a3aad27a58b93da0088d431f366da362b44e3ccfbe3462b3827a839011b1",
+      "md5Base64": "g4eWidNz0UO+CUyXI1Xkjg==",
+      "dest": "models/mediapipe",
+      "license": "Apache-2.0",
+      "source": "https://ai.google.dev/edge/mediapipe/solutions/vision/pose_landmarker"
+    }
+  ]
+}

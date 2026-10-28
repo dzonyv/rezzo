@@ -36,6 +36,17 @@ Windows 11, NVIDIA GTX 1660 6 GB (Turing NVENC: H.264/HEVC, no AV1), Ryzen 7 570
 - **Working file:** when a clip is selected, FFmpeg converts that segment once into a working file of a known format; everything downstream operates on it.
 - **Framing layouts:** Follow (the speaker), Split (two speakers stacked), Full frame with blurred background. The layout can change during a clip.
 
+## Settled in Phase 0
+
+Details and numbers in `spikes/REPORT.md`.
+
+- Transcription: whisper.cpp **large-v3-turbo q5_0** with DTW word timings (`-dtw`, flash attention off). The user picks the language (sr/hr/bs); no auto-detect, no initial prompts.
+- Export: WebGL renders, a shader converts to BT.709 YUV 4:2:0, pixels are read back asynchronously and piped to FFmpeg (`h264_nvenc`, `libx264` fallback). Not WebCodecs.
+- Working file: H.264, no B-frames, keyframe every 15 frames, constant frame rate, BT.709 tags, first video stream only.
+- WebCodecs decoding: close every decoded frame you don't keep right away; the hardware decoder's pool is small.
+- People: MediaPipe Pose for heads, Face Landmarker on head crops for faces and lips. Face/pose analysis runs on the selected clip only.
+- Who is talking: not from lips alone; camera cuts and audio first, manual correction by clicking.
+
 ## Workflow
 
 - Each phase (see ROADMAP.md) is developed on its own branch and merged via a PR.

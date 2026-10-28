@@ -1,0 +1,32 @@
+{
+  "name": "rezzo-spikes",
+  "private": true,
+  "description": "Phase 0 technical spikes for Rezzo. Throwaway code: measures, not product.",
+  "license": "GPL-3.0-only",
+  "type": "module",
+  "engines": {
+    "node": ">=24"
+  },
+  "scripts": {
+    "test": "node --test \"**/*.test.ts\"",
+    "typecheck": "tsc --noEmit",
+    "fetch-tools": "node scripts/fetch-tools.ts",
+    "make-source": "node export/make-source.ts",
+    "lab": "node export/lab/build.ts && electron export/lab/dist/main.cjs",
+    "verify": "node export/verify.ts",
+    "whisper:run": "node whisper/run-matrix.ts",
+    "whisper:speed": "node whisper/bench-speed.ts",
+    "whisper:review": "node whisper/make-review.ts",
+    "whisper:metrics": "node whisper/metrics.ts",
+    "faces:lab": "node faces/lab/build.ts && electron faces/lab/dist/main.cjs",
+    "faces:speakers": "node faces/speakers.ts"
+  },
+  "devDependencies": {
+    "@mediapipe/tasks-vision": "^1.1.1",
+    "@types/node": "^26.6.5",
+    "electron": "^45.1.0",
+    "esbuild": "^0.28.2",
+    "mp4box": "^2.5.0",
+    "typescript": "^7.0.2"
+  }
+}
