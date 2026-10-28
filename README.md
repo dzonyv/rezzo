@@ -1,35 +1,33 @@
 # Rezzo
 
-Rezzo is a free, open-source desktop app for turning podcast and talk-show footage into vertical short-form clips (9:16). No watermark, no subscription, no features locked behind a paywall.
+Rezzo is a desktop app for cutting vertical clips out of podcasts and talk shows.
 
-> **Status:** early development (Phase 0 — technical spikes). Nothing is usable yet. See [ROADMAP.md](ROADMAP.md).
+I post podcast clips on social media, and the work is the same every time: find a good moment, crop a wide shot down to 9:16, keep whoever is talking in frame, add captions. The apps that handle this well either stamp a watermark on the video or put the useful parts behind a monthly subscription. Rezzo does the same job for free, and every feature is in the free version because there is no other version.
+
+It's built for Serbian, Croatian and Bosnian content first, since that's what I work with. Other languages should work too.
+
+## Where it stands
+
+There's nothing to download yet. Right now we're in Phase 0, checking that the hard parts (transcription, face tracking, GPU export) actually work on an ordinary PC before building the app around them. The full plan is in [ROADMAP.md](ROADMAP.md).
 
 ## What it will do
 
-- Import a full episode and get a searchable, word-level transcript (Serbian, Croatian, Bosnian and more), always in Latin script.
-- Pick a clip by selecting text in the transcript.
-- Frame it for 9:16 with three layouts that can change during the clip:
-  - **Follow** — the frame follows the active speaker.
-  - **Split** — two speakers stacked one above the other.
-  - **Full frame** — the whole shot over a blurred background.
-- Word-by-word animated captions with ready-made and custom styles.
-- Layers on a multi-track timeline with keyframes: images with animations, green screen, transparent videos, Lottie animations, effects.
-- Automatic speaker tracking: camera cut detection, active speaker from faces, lips and audio, smooth reframing.
-- Export 1080×1920 with GPU encoding (NVENC) and a software fallback. The export is rendered by the same WebGL renderer as the preview, so what you see is what you get.
+- Transcribe the whole episode with timing for every word, so you can search it and pick a clip by selecting text.
+- Frame the clip for 9:16 in one of three ways: follow the person talking, stack two people on top of each other, or show the full shot over a blurred copy of itself. You can switch between them in the middle of a clip.
+- Captions that appear word by word and highlight the word being spoken.
+- Images, animations, green screen and effects on a timeline.
+- Follow the speaker automatically by noticing camera cuts and working out who's talking from faces, lips and audio.
+- Export at 1080×1920 using the graphics card when there is one. The preview and the export use the same renderer, so the file looks like what you saw while editing.
 
-## Tech stack
+Transcripts are always in Latin script. If Cyrillic comes out of the speech model, it gets converted.
 
-- Electron + React + TypeScript
-- FFmpeg (bundled) for decoding, cutting, audio and muxing
-- whisper.cpp (CUDA) for transcription with word timestamps
-- MediaPipe for face and lip detection (no Python)
-- WebGL renderer shared by preview and export
+## Under the hood
 
-Windows first; macOS and Linux later.
+Electron, React and TypeScript. FFmpeg comes bundled with the app, whisper.cpp handles transcription and MediaPipe finds faces. Windows only for now; macOS and Linux will come later.
 
 ## Contributing
 
-The project is in its earliest stage. Issues and ideas are welcome. Please read [CLAUDE.md](CLAUDE.md) for project rules — in particular: **never commit podcast or show footage**. Tests use only openly licensed material.
+Issues and ideas are welcome. Project rules are in [CLAUDE.md](CLAUDE.md). The most important one: never commit podcast or show footage. Anything used for testing has to be openly licensed.
 
 ## License
 
