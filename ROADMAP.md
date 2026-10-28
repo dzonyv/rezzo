@@ -1,0 +1,49 @@
+# Roadmap
+
+Each phase is developed on its own branch and merged through a pull request that includes testing instructions.
+
+## Phase 0 — Risk check (spikes)
+
+Prove the riskiest parts work before building the app.
+
+- **0a — Transcription:** whisper.cpp on Serbian, Croatian and Bosnian: accuracy, script (Cyrillic → Latin), word timestamp accuracy, speed on a GTX 1660.
+- **0b — Faces and lips:** MediaPipe face detection and mouth movement on 3–4 kinds of footage (wide shot, multi-camera with cuts, small faces, segments without faces).
+- **0c — GPU export from Electron:** WebGL-rendered frames encoded with NVENC (software fallback), frame-accurate, preview identical to export.
+
+## Phase 1 — Foundation
+
+- Import an episode; transcript with search.
+- Select a clip by highlighting transcript text.
+- Manual 9:16 framing with all three layouts (Follow, Split, Full frame with blurred background); layout can change during the clip.
+- Export 1080×1920.
+- Save/open project; undo/redo.
+
+## Phase 2 — Captions
+
+- Word-by-word captions with the spoken word highlighted.
+- Built-in and custom styles.
+- Editing caption text and timing.
+
+## Phase 3 — Layers
+
+- Images with animations: pop, slide, zoom, bounce, shake, Ken Burns.
+- Green screen with adjustable keying.
+- Videos with transparent background.
+- Lottie animations.
+- Effects library.
+- Multi-layer timeline.
+
+## Phase 4 — Speaker tracking
+
+- Camera cut detection.
+- Active speaker from faces, lips and audio.
+- Smooth reframing.
+- Automatic split layout.
+- Manual corrections by clicking.
+
+## Phase 5 — Later
+
+- AI suggestions for interesting moments.
+- Silence removal.
+- Music.
+- macOS and Linux.

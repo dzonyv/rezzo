@@ -1,0 +1,51 @@
+# Dependencies
+node_modules/
+
+# Build output
+out/
+dist/
+release/
+build/
+*.tsbuildinfo
+
+# Logs and env
+*.log
+npm-debug.log*
+.env
+.env.*
+
+# OS / editor
+.DS_Store
+Thumbs.db
+desktop.ini
+.vscode/*
+!.vscode/extensions.json
+.idea/
+
+# Media — podcast/show footage must NEVER be committed.
+# Openly licensed fixtures are fetched by script, not stored in git.
+*.mp4
+*.mov
+*.mkv
+*.avi
+*.webm
+*.m4v
+*.m2ts
+*.mts
+*.wav
+*.mp3
+*.m4a
+*.aac
+*.flac
+*.ogg
+*.opus
+media/
+fixtures/media/
+
+# Downloaded binaries and models (fetched by script)
+vendor/bin/
+models/
+*.gguf
+*.bin
+*.task
+*.tflite
