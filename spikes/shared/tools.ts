@@ -22,7 +22,7 @@ export function run(cmd: string, args: string[]): Promise<{ stdout: string; stde
     child.stdout.on('data', (d) => (stdout += d));
     child.stderr.on('data', (d) => (stderr += d));
     child.on('error', reject);
-    child.on('exit', (code) =>
+    child.on('close', (code) =>
       code === 0
         ? resolve({ stdout, stderr })
         : reject(new Error(`${path.basename(cmd)} exited with ${code}\n${stderr.slice(-2000)}`)),

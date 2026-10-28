@@ -102,6 +102,7 @@ async function* frames(file: string, w: number, h: number): AsyncGenerator<Uint8
   let current = new Uint8ClampedArray(size);
   let filled = 0;
   let ended = false;
+  let failure: Error | undefined;
   let wake: (() => void) | undefined;
 
   ff.stdout.on('data', (chunk: Buffer) => {
@@ -120,7 +121,15 @@ async function* frames(file: string, w: number, h: number): AsyncGenerator<Uint8
     if (queue.length > 4) ff.stdout.pause();
     wake?.();
   });
-  ff.stdout.on('end', () => {
+  // 'close' comes after stdout has ended and carries the exit code, so a
+  // decode error can't pass for a short clip.
+  ff.on('error', (e) => {
+    failure = e;
+    ended = true;
+    wake?.();
+  });
+  ff.on('close', (code) => {
+    if (code !== 0) failure ??= new Error(`ffmpeg exited with ${code} while decoding ${path.basename(file)}`);
     ended = true;
     wake?.();
   });
@@ -131,6 +140,7 @@ async function* frames(file: string, w: number, h: number): AsyncGenerator<Uint8
       if (queue.length < 2) ff.stdout.resume();
       yield next;
     } else if (ended) {
+      if (failure) throw failure;
       return;
     } else {
       await new Promise<void>((r) => (wake = r));

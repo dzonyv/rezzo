@@ -59,7 +59,7 @@ function decodeFrames(file: string, onFrame: (rgb: Buffer, index: number) => voi
       }
     });
     ff.on('error', reject);
-    ff.on('exit', (code) => (code === 0 ? resolve(index) : reject(new Error(`ffmpeg exited with ${code}`))));
+    ff.on('close', (code) => (code === 0 ? resolve(index) : reject(new Error(`ffmpeg exited with ${code}`))));
   });
 }
 
@@ -71,7 +71,7 @@ async function decodeAudio(file: string): Promise<Int16Array> {
     const chunks: Buffer[] = [];
     ff.stdout.on('data', (c: Buffer) => chunks.push(c));
     ff.on('error', reject);
-    ff.on('exit', (code) => {
+    ff.on('close', (code) => {
       if (code !== 0) return reject(new Error(`ffmpeg exited with ${code}`));
       const all = Buffer.concat(chunks);
       resolve(new Int16Array(all.buffer, all.byteOffset, all.length / 2));

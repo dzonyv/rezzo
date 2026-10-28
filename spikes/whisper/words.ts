@@ -32,18 +32,23 @@ export interface WhisperJson {
 }
 
 const isSpecial = (t: Token) => t.text.startsWith('[_') || t.text.startsWith('<|');
+const PUNCTUATION = /^\s*[.,!?;:…"'»«„“”()\-–—]+$/;
 
 export function wordsOf(json: WhisperJson): Word[] {
   const words: Word[] = [];
   // Byte-level BPE can split one UTF-8 character across tokens, so build the
   // word text from bytes and decode at the end.
   let bytes: number[] = [];
+  // Punctuation preceded by a space (an opening quote, a dash) belongs to
+  // the word after it, so it waits here until that word starts.
+  let pending: number[] = [];
   let current: Omit<Word, 'text'> | undefined;
 
   const finish = () => {
-    if (!current) return;
-    const text = toLatin(Buffer.from(bytes).toString('utf8')).trim();
-    if (text) words.push({ text, ...current });
+    if (current) {
+      const text = toLatin(Buffer.from(bytes).toString('utf8')).trim();
+      if (text) words.push({ text, ...current });
+    }
     current = undefined;
     bytes = [];
   };
@@ -51,9 +56,18 @@ export function wordsOf(json: WhisperJson): Word[] {
   for (const segment of json.transcription) {
     for (const t of segment.tokens) {
       if (isSpecial(t)) continue;
-      const startsWord = t.text.startsWith(' ') || !current;
-      const isPunctuation = /^[\s]*[.,!?;:…"'»«„“”)-]+$/.test(t.text);
-      if (startsWord && !isPunctuation) {
+      const tokenBytes = [...Buffer.from(t.text, 'utf8')];
+
+      if (PUNCTUATION.test(t.text)) {
+        if (t.text.startsWith(' ') || !current) {
+          pending.push(...tokenBytes);
+        } else {
+          bytes.push(...tokenBytes);
+        }
+        continue;
+      }
+
+      if (t.text.startsWith(' ') || !current || pending.length > 0) {
         finish();
         current = {
           start: t.offsets.from / 1000,
@@ -61,11 +75,14 @@ export function wordsOf(json: WhisperJson): Word[] {
           startDtw: t.t_dtw >= 0 ? t.t_dtw / 100 : undefined,
           p: t.p,
         };
-      } else if (current) {
+        // "- Da" -> "-Da": drop the word's own leading space after pending punctuation.
+        bytes = pending.length > 0 ? [...pending, ...Buffer.from(t.text.trimStart(), 'utf8')] : tokenBytes;
+        pending = [];
+      } else {
         current.end = t.offsets.to / 1000;
         current.p = Math.min(current.p, t.p);
+        bytes.push(...tokenBytes);
       }
-      bytes.push(...Buffer.from(t.text, 'utf8'));
     }
   }
   finish();

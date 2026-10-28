@@ -119,6 +119,7 @@ export class FrameSource {
     let next = this.keyframeAtOrBefore(start);
     const end = Math.min(start + count, this.frameCount);
     let flushed = false;
+    let drained = false;
     let wanted = start;
 
     while (wanted < end) {
@@ -127,10 +128,19 @@ export class FrameSource {
       }
       if (next >= this.frameCount && !flushed) {
         flushed = true;
-        void this.decoder.flush();
+        // Once the flush settles no more frames will come. It rejects if the
+        // decoder is reset meanwhile, which only means the same.
+        const done = () => {
+          drained = true;
+          this.notify();
+        };
+        this.decoder.flush().then(done, done);
       }
       const frame = this.ready.shift();
       if (!frame) {
+        // Fewer frames than expected (a sample failed to decode): stop and
+        // let the caller notice the shortfall instead of waiting forever.
+        if (drained) return;
         await this.nextEvent();
         continue;
       }

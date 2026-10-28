@@ -22,7 +22,7 @@ Phase 0 asked whether the three riskiest parts work on ordinary hardware and on 
 | Fixing recurring mistakes | **A user-editable replacement list** applied to words after transcription, keeping their timings | "futbal" for "fudbal" is systematic in every model and prompts don't fix it |
 | Word timing | Turbo's DTW times, **with a correction to be tuned in Phase 2** | They run about 120 ms late on the words that needed fixing; alternative: re-align only the selected clip with large-v3 q5_0 |
 | Transcript text | Always Latin via `transliterate.ts` | Only medium with `sr` wrote Cyrillic, but the step is cheap and tested |
-| Export | **WebGL → YUV 4:2:0 in a shader → async readback → FFmpeg `h264_nvenc`, `libx264` as fallback** | Frame-exact, matches the preview (≥ 45.7 dB), 232 fps; WebCodecs' software encoder drops frames and its hardware one writes no colour tags |
+| Export | **WebGL → YUV 4:2:0 in a shader → async readback → FFmpeg `h264_nvenc`, `libx264` as fallback** | Frame-exact, matches the preview (≥ 45.7 dB), 230–245 fps; WebCodecs' software encoder drops frames and its hardware one writes no colour tags |
 | Working file | **H.264, no B-frames, keyframe every 15 frames, constant frame rate, BT.709 tags, first video stream only** | Seeks in ≤ 20 ms, frame-accurate; the clips showed variable frame rate, missing colour tags and a cover-image stream, all of which the conversion has to normalise |
 | Decoding | WebCodecs; **close every frame you don't keep, immediately** | Holding ~14 decoded frames crashed the GPU process |
 | Finding people | **MediaPipe Pose** for heads (works in profile and in wide shots), **Face Landmarker** on head crops for faces and lips | BlazeFace alone found nobody in the wide shot |
@@ -31,7 +31,7 @@ Phase 0 asked whether the three riskiest parts work on ordinary hardware and on 
 
 ### What changes
 
-- **Phase 4, who is talking:** lips don't decide it on this footage (3 points better than guessing in single shots, nothing in the one usable two-shot). The plan becomes: camera cuts first (the director already chose: right 79% of the time), then speaker turns from audio, then lips as a tie-breaker on close shots. **Manual correction by clicking** is a main tool, not a fallback, at least for single-camera wide shots. Telling voices apart from audio (diarization, without Python) needs its own short spike at the start of Phase 4.
+- **Phase 4, who is talking:** lips don't decide it on this footage (3 points better than guessing in single shots, nothing in the one usable two-shot). The plan becomes: camera cuts first (the director already chose: right 78% of the time), then speaker turns from audio, then lips as a tie-breaker on close shots. **Manual correction by clicking** is a main tool, not a fallback, at least for single-camera wide shots. Telling voices apart from audio (diarization, without Python) needs its own short spike at the start of Phase 4.
 - **Phase 2, captions:** transcript editing has to be fast. Expect to fix one word in seven on good studio audio and one in three on dialect or bad audio. The replacement list belongs here too.
 
 ### Still open
@@ -80,7 +80,7 @@ The quantized models are about twice as fast as f16 on this card (whisper.cpp wa
 2. **Diacritics:** no model drops them wholesale. 9–18% of words contain č/ć/š/ž/đ for every model, with similar shares. Whether they're on the right words needs the corrected text.
 3. **Hallucination:** large-v3 (f16 and q5_0) adds 22–26% extra words on the noisy wide-shot clip by repeating the same segment up to four times. Turbo and medium don't. No other clip loops.
 4. **Language auto-detection is a coin toss between sr, hr and bs:** the Serbian clip D is detected as `bs` by every model, the Bosnian clip A as `hr` or `sr`. The app should let the user pick the language (per project) rather than auto-detect.
-5. **The language setting barely moves the dialect:** the share of ijekavian forms stays about the same whichever of `sr`/`hr`/`bs` is set. Word-level effects (e.g. hiljada/tisuća) come with scoring.
+5. **Dialect drift can't be measured this way on one-minute clips.** Counting only words that actually differ between ekavian and ijekavian (vreme/vrijeme, gde/gdje, ...; `whisper/dialect.ts`) leaves 1–5 such words per clip. One pattern still stands out: on Serbian clip D, turbo keeps every one of them ekavian under all language settings, while large-v3 turns 33–67% of them ijekavian. That matches the "pobedi" → "pobjedi" substitutions in the scored transcripts below. (An earlier version of this point used a pattern that also counted words like "jedan" and "nije", and its conclusion didn't hold.)
 
 6. **A Latin initial prompt** (one sentence with č, ć, š, ž, đ and no ekavian/ijekavian words; 36 runs on turbo, turbo q5_0 and large-v3 q5_0) changes little before scoring. The script was already Latin, and the diacritic share moves by at most 2 points. It makes large-v3 q5_0 loop more on clip C (4 repeated segments instead of 1), and turbo q5_0 with `hr` drops about 10% of the words on clip D. So far it looks risky rather than helpful; scoring will tell.
 
@@ -174,18 +174,18 @@ When the mouth can be measured, it points at the right person, but on this wide 
 |---|---|---|
 | mouth movement | 91% | 78% |
 | largest head | 100% | 76% |
-| the only person in frame (the director's cut) | 89% | 79% |
+| the only person in frame (the director's cut) | 90% | 78% |
 | mouth movement, both men in frame | 2% (13 frames) | 46% |
 
 In single-person shots, can the mouth tell whether the person shown is talking (79% of the time) or listening (a reaction shot)?
 
 | Signal | Mean when talking / listening | Best threshold | Always "talking" |
 |---|---|---|---|
-| mouth movement (std of opening, ±0.4 s) | 0.0174 / 0.0147 | 82% | 79% |
-| mouth follows the sound (correlation with loudness, ±1 s) | 0.03 / 0.05 | 79% | 79% |
+| mouth movement (std of opening, ±0.4 s) | 0.0179 / 0.0143 | 82% | 79% |
+| mouth follows the sound (correlation with loudness, ±1 s) | 0.02 / 0.03 | 79% | 79% |
 
 8. **Lip-based speaker detection doesn't work on this footage.** In single-person shots, mouth movement adds 3 points over guessing "talking". Correlating the mouth with the sound adds nothing. Listeners laugh, nod and mouth along, and at 10 fps on 480p crops the lip signal is noisy. The one real two-person case (the wide shot) is too short to measure.
-9. **The director's cut is the strongest signal we have for multi-camera shows:** the person shown is the one talking 79% of the time.
+9. **The director's cut is the strongest signal we have for multi-camera shows:** the person shown is the one talking 78% of the time.
 
 ### Proposed approach for Phase 4
 
@@ -212,15 +212,15 @@ Readback in A uses three pixel buffer objects so the GPU, the readback and FFmpe
 
 ### Results
 
-Export of a 50 s clip (1500 frames):
+Export of a 50 s clip (1500 frames), second run (after the code review fixes); speeds vary noticeably between runs, the first run is in brackets:
 
 | Path | Time | Speed | Frames correct | Drops / dups | Min PSNR vs preview | Colour shift on bars (R, G, B) | Colour tags |
 |---|---|---|---|---|---|---|---|
-| A-rgba-nvenc | 11.8 s | 128 fps | 1500/1500 | 0 / 0 | 45.7 dB | 0.04, 0.02, 0.05 | matrix and range only |
-| **A-yuv-nvenc** | **6.5 s** | **232 fps** | 1500/1500 | 0 / 0 | 45.9 dB | 0.04, 0.01, 0.06 | complete |
-| **A-yuv-x264** | **8.3 s** | **182 fps** | 1500/1500 | 0 / 0 | 46.2 dB | 0.02, 0.00, 0.04 | complete |
-| B-webcodecs-hw | 5.4 s | 280 fps | 1500/1500 | 0 / 0 | 45.7 dB | 0.04, 0.01, 0.04 | none |
-| B-webcodecs-sw | 4.7 s | — | 1/1500 | encoder dropped 93% of frames | 20.5 dB | — | — |
+| A-rgba-nvenc | 11.5 s | 131 fps (128) | 1500/1500 | 0 / 0 | 45.7 dB | 0.04, 0.02, 0.05 | matrix and range only |
+| **A-yuv-nvenc** | **6.2 s** | **243 fps** (232) | 1500/1500 | 0 / 0 | 45.9 dB | 0.04, 0.01, 0.06 | complete |
+| **A-yuv-x264** | **6.5 s** | **231 fps** (182) | 1500/1500 | 0 / 0 | 46.2 dB | 0.02, 0.00, 0.04 | complete |
+| B-webcodecs-hw | 8.5 s | 178 fps (280) | 1500/1500 | 0 / 0 | 45.7 dB | 0.04, 0.01, 0.04 | none |
+| B-webcodecs-sw | 10.1 s | — | 1/1500 | encoder dropped 93% of frames | 20.5 dB | — | — |
 
 A/V sync (all working paths): 49 of 50 beeps start 0.04 ms after their flash. The first one, sitting exactly on the cut point, starts 13 ms late because of AAC encoder priming at the cut. That is less than half a frame and not a drift.
 
@@ -243,7 +243,7 @@ Preview: decode + render + display runs at 192 fps uncapped; at 30 fps paced pla
 | Dropped or duplicated frames | none | none (A paths, B-hw) |
 | Export vs preview | PSNR ≥ 40 dB, no colour shift | 45.7–46.2 dB, shift ≤ 0.06 levels |
 | A/V sync | ≤ 1 frame | 0.04 ms (13 ms on the first beep at the cut) |
-| Export speed | 60 s clip in ≤ 60 s | 50 s clip in 6.5 s (NVENC), 8.3 s (x264) |
+| Export speed | 60 s clip in ≤ 60 s | 50 s clip in 6.2 s (NVENC), 6.5 s (x264) |
 | Seek in working file | ≤ 100 ms | ≤ 69 ms worst case, all frame-accurate |
 
 ### Findings
@@ -255,7 +255,7 @@ Preview: decode + render + display runs at 192 fps uncapped; at 30 fps paced pla
 
 ### Decision (proposed)
 
-- **Export pipeline:** path A-yuv. WebGL renders the frame, a shader converts it to BT.709 YUV 4:2:0, the result is read back asynchronously and piped to FFmpeg, which encodes with `h264_nvenc` and falls back to `libx264` with the same pipeline. B-hw is about 20% faster, but A gives us full control of colour, bitrate and tags, a working software fallback, and the same code path for macOS/Linux encoders later.
+- **Export pipeline:** path A-yuv. WebGL renders the frame, a shader converts it to BT.709 YUV 4:2:0, the result is read back asynchronously and piped to FFmpeg, which encodes with `h264_nvenc` and falls back to `libx264` with the same pipeline. B-hw was 20% faster in the first run and 27% slower in the second, so it has no reliable speed edge, while A gives us full control of colour, bitrate and tags, a working software fallback, and the same code path for macOS/Linux encoders later.
 - **Working file:** H.264, no B-frames, keyframe every 15 frames (seek ≤ 20 ms). To be re-checked on real footage, where decoding is heavier and files grow faster with short keyframe intervals.
 
 ### Still open

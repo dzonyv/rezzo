@@ -58,7 +58,7 @@ function thumbnails(file: string, fps: number, w: number, h: number): Promise<Bu
     const chunks: Buffer[] = [];
     ff.stdout.on('data', (c: Buffer) => chunks.push(c));
     ff.on('error', reject);
-    ff.on('exit', (code) => {
+    ff.on('close', (code) => {
       if (code !== 0) return reject(new Error(`ffmpeg exited with ${code}`));
       const all = Buffer.concat(chunks);
       const size = w * h * 3;
@@ -169,10 +169,29 @@ async function labelsFromTranscript(clip: Clip): Promise<Label[] | undefined> {
     .map(([li, s]) => ({ start: s.start, end: s.end, who: lines[li].who! }));
 }
 
+/**
+ * The 16-bit samples of a PCM WAV file. The header isn't always 44 bytes:
+ * FFmpeg adds a LIST chunk, so walk the chunks until "data".
+ */
+function pcmSamples(wav: Buffer): Int16Array {
+  let offset = 12;
+  while (offset + 8 <= wav.length) {
+    const id = wav.toString('ascii', offset, offset + 4);
+    const size = wav.readUInt32LE(offset + 4);
+    if (id === 'data') {
+      const start = offset + 8;
+      const length = Math.min(size, wav.length - start) & ~1;
+      // Copy so the samples start on a 2-byte boundary whatever the offset.
+      return new Int16Array(wav.buffer.slice(wav.byteOffset + start, wav.byteOffset + start + length));
+    }
+    offset += 8 + size + (size & 1);
+  }
+  throw new Error('WAV file has no data chunk');
+}
+
 /** Audio loudness (RMS) per lab frame, from whisper's 16 kHz mono WAV. */
 async function loudness(clip: Clip, fps: number): Promise<number[]> {
-  const wav = await readFile(audioPath(clip));
-  const samples = new Int16Array(wav.buffer, wav.byteOffset + 44, (wav.length - 44) >> 1);
+  const samples = pcmSamples(await readFile(audioPath(clip)));
   const step = 16000 / fps;
   const out: number[] = [];
   for (let k = 0; k * step < samples.length; k++) {

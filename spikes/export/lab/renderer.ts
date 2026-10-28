@@ -155,7 +155,7 @@ function ffmpeg(args: string[]) {
   child.stderr.on('data', (d) => (stderr += d));
   const done = new Promise<void>((resolve, reject) => {
     child.on('error', reject);
-    child.on('exit', (code) => (code === 0 ? resolve() : reject(new Error(`ffmpeg exited with ${code}: ${stderr}`))));
+    child.on('close', (code) => (code === 0 ? resolve() : reject(new Error(`ffmpeg exited with ${code}: ${stderr}`))));
   });
   return { child, done };
 }
