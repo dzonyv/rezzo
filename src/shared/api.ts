@@ -3,17 +3,51 @@
  * sandboxed and reaches the rest of the app only through `window.rezzo`,
  * which the preload script builds from these channel lists.
  */
+import type { Project, ProjectFormatError } from './project.ts';
 import type { Settings } from './settings.ts';
+
+export type OpenResult =
+  | { ok: true; path: string; project: Project }
+  | { ok: false; path: string; error: 'not-found' | 'unreadable' | ProjectFormatError['code'] };
+
+export type SaveResult = { ok: true; path: string } | { ok: false; error: 'write-failed'; detail: string };
+
+export interface RecentProject {
+  path: string;
+  name: string;
+  openedAt: string;
+}
+
+export interface RecoveredProject {
+  /** The file it belongs to, or null if it was never saved. */
+  filePath: string | null;
+  savedAt: string;
+  project: Project;
+}
 
 /** Request/response calls from the renderer, handled in the main process. */
 export interface InvokeApi {
   'settings:get': () => Settings;
   'settings:set': (patch: Partial<Settings>) => Settings;
+
+  /** Opens `path`, or asks for a file when it's null. Null result: the user cancelled. */
+  'project:open': (path: string | null) => OpenResult | null;
+  /** Saves to `path`, or asks where when it's null ("Save as"). Null result: the user cancelled. */
+  'project:save': (project: Project, path: string | null) => SaveResult | null;
+  'project:recent': () => RecentProject[];
+  'project:autosave': (project: Project, filePath: string | null) => void;
+  'project:recovered': () => RecoveredProject[];
+  'project:discard-recovery': (projectId: string) => void;
+
+  /** Closes the window for real, after the renderer has dealt with unsaved work. */
+  'app:close': () => void;
 }
 
 /** Messages the main process pushes to the renderer. */
 export interface EventApi {
   'settings:changed': Settings;
+  /** The user tried to close the window; the renderer decides what happens. */
+  'app:close-requested': null;
 }
 
 export type InvokeChannel = keyof InvokeApi;
@@ -25,10 +59,18 @@ export type InvokeResult<C extends InvokeChannel> = Awaited<ReturnType<InvokeApi
 export const INVOKE_CHANNELS = {
   'settings:get': true,
   'settings:set': true,
+  'project:open': true,
+  'project:save': true,
+  'project:recent': true,
+  'project:autosave': true,
+  'project:recovered': true,
+  'project:discard-recovery': true,
+  'app:close': true,
 } as const satisfies Record<InvokeChannel, true>;
 
 export const EVENT_CHANNELS = {
   'settings:changed': true,
+  'app:close-requested': true,
 } as const satisfies Record<EventChannel, true>;
 
 /** What `window.rezzo` looks like to the renderer. */

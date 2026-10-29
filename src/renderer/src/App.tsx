@@ -1,36 +1,17 @@
-import { useTranslation } from 'react-i18next';
-import { UI_LANGUAGES, type UiLanguage } from '../../shared/settings.ts';
+import { useProject } from './project/store.ts';
+import { useProjectChrome } from './project/useProjectChrome.ts';
+import { Editor } from './ui/Editor.tsx';
+import { Home } from './ui/Home.tsx';
+import { Prompts } from './ui/Prompts.tsx';
 
 export function App() {
-  const { t, i18n } = useTranslation();
+  const hasProject = useProject((s) => s.project !== null);
+  useProjectChrome();
 
   return (
-    <main className="home">
-      <h1>{t('app.name')}</h1>
-      <p className="tagline">{t('app.tagline')}</p>
-
-      <div className="actions">
-        <button type="button" disabled>
-          {t('home.newProject')}
-        </button>
-        <button type="button" disabled>
-          {t('home.openProject')}
-        </button>
-      </div>
-
-      <label className="language">
-        {t('settings.uiLanguage')}
-        <select
-          value={i18n.language}
-          onChange={(e) => void window.rezzo.invoke('settings:set', { uiLanguage: e.target.value as UiLanguage })}
-        >
-          {UI_LANGUAGES.map((lng) => (
-            <option key={lng} value={lng}>
-              {t(`language.${lng}`)}
-            </option>
-          ))}
-        </select>
-      </label>
-    </main>
+    <>
+      {hasProject ? <Editor /> : <Home />}
+      <Prompts />
+    </>
   );
 }

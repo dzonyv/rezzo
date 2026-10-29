@@ -5,7 +5,53 @@
   },
   "home": {
     "newProject": "New project",
-    "openProject": "Open project…"
+    "openProject": "Open project…",
+    "recent": "Recent projects",
+    "recovered": "Unsaved work from last time",
+    "restore": "Restore",
+    "discard": "Discard"
+  },
+  "editor": {
+    "projectName": "Project name",
+    "save": "Save",
+    "saveAs": "Save as…",
+    "undo": "Undo",
+    "redo": "Redo",
+    "undoWhat": "Undo: {{what}}",
+    "redoWhat": "Redo: {{what}}",
+    "close": "Close project",
+    "unsavedMarker": "Unsaved changes"
+  },
+  "history": {
+    "rename": "rename project"
+  },
+  "project": {
+    "untitled": "Untitled"
+  },
+  "files": {
+    "project": "Rezzo project"
+  },
+  "unsaved": {
+    "title": "Save changes to “{{name}}”?",
+    "body": "If you don't save, your changes will be lost.",
+    "save": "Save",
+    "dontSave": "Don't save",
+    "cancel": "Cancel"
+  },
+  "errors": {
+    "open": {
+      "not-found": "The file {{path}} doesn't exist anymore.",
+      "unreadable": "The file {{path}} couldn't be read.",
+      "not-json": "{{path}} isn't a Rezzo project.",
+      "not-a-project": "{{path}} isn't a Rezzo project.",
+      "too-new": "{{path}} was saved by a newer version of Rezzo. Update the app to open it.",
+      "invalid": "The project {{path}} is damaged and can't be opened."
+    },
+    "save": "Saving failed: {{detail}}",
+    "unexpected": "Something went wrong: {{detail}}"
+  },
+  "common": {
+    "dismiss": "Dismiss"
   },
   "settings": {
     "uiLanguage": "Interface language"

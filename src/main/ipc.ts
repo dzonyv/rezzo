@@ -15,17 +15,24 @@ function assertTrusted(event: IpcMainInvokeEvent): void {
   }
 }
 
+export interface HandlerContext {
+  /** The window the call came from. */
+  window: BrowserWindow;
+}
+
 /**
  * Registers the handler for one invoke channel. Arguments come from the
  * renderer, so handlers validate them before use.
  */
 export function handle<C extends InvokeChannel>(
   channel: C,
-  handler: (...args: InvokeArgs<C>) => InvokeResult<C> | Promise<InvokeResult<C>>,
+  handler: (context: HandlerContext, ...args: InvokeArgs<C>) => InvokeResult<C> | Promise<InvokeResult<C>>,
 ): void {
   ipcMain.handle(channel, (event, ...args) => {
     assertTrusted(event);
-    return handler(...(args as InvokeArgs<C>));
+    const window = BrowserWindow.fromWebContents(event.sender);
+    if (!window) throw new Error('IPC from a page without a window');
+    return handler({ window }, ...(args as InvokeArgs<C>));
   });
 }
 

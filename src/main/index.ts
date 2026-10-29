@@ -2,7 +2,11 @@ import { app, BrowserWindow, shell } from 'electron';
 import path from 'node:path';
 import { pathToFileURL } from 'node:url';
 import { broadcast, handle, trustPagesFrom } from './ipc.ts';
+import {
+  autosave, chooseProjectToOpen, chooseWhereToSave, discardRecovery, openProject, recentProjects, recoveredProjects, saveProject,
+} from './project-files.ts';
 import { getSettings, updateSettings } from './settings.ts';
+import { projectSchema } from '../shared/project.ts';
 
 // Tests run the app against a throwaway profile.
 const userDataOverride = process.env['REZZO_USER_DATA'];
@@ -17,12 +21,34 @@ app.on('second-instance', () => {
   win?.focus();
 });
 
+/** Set once the renderer has dealt with unsaved work, so the next close goes through. */
+const closeApproved = new WeakSet<BrowserWindow>();
+
 function registerHandlers(): void {
   handle('settings:get', () => getSettings());
-  handle('settings:set', async (patch) => {
+  handle('settings:set', async (_ctx, patch) => {
     const settings = await updateSettings(patch);
     broadcast('settings:changed', settings);
     return settings;
+  });
+
+  handle('project:open', async ({ window }, file) => {
+    const chosen = file ?? (await chooseProjectToOpen(window));
+    return chosen ? openProject(chosen) : null;
+  });
+  handle('project:save', async ({ window }, project, file) => {
+    const valid = projectSchema.parse(project);
+    const target = file ?? (await chooseWhereToSave(window, valid.name, valid.source?.path));
+    return target ? saveProject(valid, target) : null;
+  });
+  handle('project:recent', () => recentProjects());
+  handle('project:autosave', (_ctx, project, filePath) => autosave(project, filePath));
+  handle('project:recovered', () => recoveredProjects());
+  handle('project:discard-recovery', (_ctx, id) => discardRecovery(id));
+
+  handle('app:close', ({ window }) => {
+    closeApproved.add(window);
+    window.close();
   });
 }
 
@@ -43,6 +69,13 @@ function createWindow(): void {
     },
   });
   win.once('ready-to-show', () => win.show());
+
+  // Closing goes through the renderer first: it may have unsaved work to ask about.
+  win.on('close', (event) => {
+    if (closeApproved.has(win)) return;
+    event.preventDefault();
+    win.webContents.send('app:close-requested', null);
+  });
 
   // The app never navigates; links to the web open in the default browser.
   win.webContents.on('will-navigate', (event) => event.preventDefault());

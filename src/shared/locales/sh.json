@@ -5,7 +5,53 @@
   },
   "home": {
     "newProject": "Novi projekat",
-    "openProject": "Otvori projekat…"
+    "openProject": "Otvori projekat…",
+    "recent": "Nedavni projekti",
+    "recovered": "Nesačuvan rad od prošlog puta",
+    "restore": "Vrati",
+    "discard": "Odbaci"
+  },
+  "editor": {
+    "projectName": "Naziv projekta",
+    "save": "Sačuvaj",
+    "saveAs": "Sačuvaj kao…",
+    "undo": "Poništi",
+    "redo": "Ponovi",
+    "undoWhat": "Poništi: {{what}}",
+    "redoWhat": "Ponovi: {{what}}",
+    "close": "Zatvori projekat",
+    "unsavedMarker": "Nesačuvane izmene"
+  },
+  "history": {
+    "rename": "promena naziva projekta"
+  },
+  "project": {
+    "untitled": "Bez naziva"
+  },
+  "files": {
+    "project": "Rezzo projekat"
+  },
+  "unsaved": {
+    "title": "Sačuvati izmene u „{{name}}”?",
+    "body": "Ako ne sačuvaš, izmene će biti izgubljene.",
+    "save": "Sačuvaj",
+    "dontSave": "Ne čuvaj",
+    "cancel": "Otkaži"
+  },
+  "errors": {
+    "open": {
+      "not-found": "Fajl {{path}} više ne postoji.",
+      "unreadable": "Fajl {{path}} nije moguće pročitati.",
+      "not-json": "{{path}} nije Rezzo projekat.",
+      "not-a-project": "{{path}} nije Rezzo projekat.",
+      "too-new": "{{path}} je sačuvan u novijoj verziji Rezzo-a. Ažuriraj aplikaciju da ga otvoriš.",
+      "invalid": "Projekat {{path}} je oštećen i ne može da se otvori."
+    },
+    "save": "Čuvanje nije uspelo: {{detail}}",
+    "unexpected": "Nešto je pošlo naopako: {{detail}}"
+  },
+  "common": {
+    "dismiss": "Zatvori"
   },
   "settings": {
     "uiLanguage": "Jezik interfejsa"
