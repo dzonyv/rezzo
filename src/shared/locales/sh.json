@@ -1,0 +1,17 @@
+{
+  "app": {
+    "name": "Rezzo",
+    "tagline": "Vertikalni klipovi iz podkasta i tok-šoua"
+  },
+  "home": {
+    "newProject": "Novi projekat",
+    "openProject": "Otvori projekat…"
+  },
+  "settings": {
+    "uiLanguage": "Jezik interfejsa"
+  },
+  "language": {
+    "en": "English",
+    "sh": "BCS (bosanski, hrvatski, srpski)"
+  }
+}

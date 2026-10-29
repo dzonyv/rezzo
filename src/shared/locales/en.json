@@ -1,0 +1,17 @@
+{
+  "app": {
+    "name": "Rezzo",
+    "tagline": "Vertical clips from podcasts and talk shows"
+  },
+  "home": {
+    "newProject": "New project",
+    "openProject": "Open project…"
+  },
+  "settings": {
+    "uiLanguage": "Interface language"
+  },
+  "language": {
+    "en": "English",
+    "sh": "BCS (bosanski, hrvatski, srpski)"
+  }
+}

@@ -1,0 +1,22 @@
+{
+  // Main process, preload, utility processes, shared code and scripts.
+  // The renderer has its own config in src/renderer/tsconfig.json.
+  "compilerOptions": {
+    "target": "ES2024",
+    "lib": ["ES2024"],
+    "module": "preserve",
+    "moduleResolution": "bundler",
+    "types": ["node", "electron-vite/node"],
+    "strict": true,
+    "noEmit": true,
+    "allowImportingTsExtensions": true,
+    "verbatimModuleSyntax": true,
+    "erasableSyntaxOnly": true,
+    "resolveJsonModule": true,
+    "isolatedModules": true,
+    "noUncheckedIndexedAccess": true,
+    "noFallthroughCasesInSwitch": true,
+    "skipLibCheck": true
+  },
+  "include": ["src/main", "src/preload", "src/workers", "src/shared", "scripts", "e2e", "*.config.mts"]
+}
