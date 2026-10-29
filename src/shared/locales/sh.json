@@ -24,7 +24,11 @@
     "unsavedMarker": "Nesačuvane izmene"
   },
   "history": {
-    "rename": "promena naziva projekta"
+    "rename": "promena naziva projekta",
+    "createClip": "novi klip",
+    "deleteClip": "brisanje klipa",
+    "renameClip": "promena naziva klipa",
+    "trimClip": "promena opsega klipa"
   },
   "files": {
     "project": "Rezzo projekat",
@@ -117,5 +121,17 @@
   "player": {
     "preparing": "Ovaj video ne može da se pusti direktno, pa Rezzo pravi kopiju za pregled: {{percent}}%",
     "failed": "Ovaj video ne može da se pusti ovde: {{detail}}"
+  },
+  "clips": {
+    "title": "Klipovi",
+    "empty": "Izaberi reči u transkriptu da od njih napraviš klip.",
+    "selected": "Izabrano: {{duration}}",
+    "tooLong": "Klip može da traje najviše {{minutes}} minuta.",
+    "create": "Napravi klip",
+    "useForOpen": "Primeni na „{{name}}”",
+    "clearSelection": "Poništi",
+    "untitled": "Klip bez naziva",
+    "delete": "Obriši klip",
+    "length": "{{start}}, traje {{length}}"
   }
 }

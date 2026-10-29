@@ -24,7 +24,11 @@
     "unsavedMarker": "Unsaved changes"
   },
   "history": {
-    "rename": "rename project"
+    "rename": "rename project",
+    "createClip": "new clip",
+    "deleteClip": "delete clip",
+    "renameClip": "rename clip",
+    "trimClip": "change clip range"
   },
   "files": {
     "project": "Rezzo project",
@@ -117,5 +121,17 @@
   "player": {
     "preparing": "This video can't be played directly, so Rezzo is making a preview copy: {{percent}}%",
     "failed": "This video can't be played here: {{detail}}"
+  },
+  "clips": {
+    "title": "Clips",
+    "empty": "Select words in the transcript to make a clip from them.",
+    "selected": "Selected: {{duration}}",
+    "tooLong": "A clip can be at most {{minutes}} minutes long.",
+    "create": "Make clip",
+    "useForOpen": "Use for “{{name}}”",
+    "clearSelection": "Clear",
+    "untitled": "Untitled clip",
+    "delete": "Delete clip",
+    "length": "{{start}}, {{length}} long"
   }
 }

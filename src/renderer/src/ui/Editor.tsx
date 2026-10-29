@@ -3,6 +3,7 @@ import { closeProject, save } from '../project/actions.ts';
 import { isDirty, projectStore, useProject } from '../project/store.ts';
 import { EpisodePlayer } from '../player/EpisodePlayer.tsx';
 import { TranscriptView } from '../transcript/TranscriptView.tsx';
+import { ClipList } from './ClipList.tsx';
 import { SourcePanel } from './SourcePanel.tsx';
 import { TranscribePanel } from './TranscribePanel.tsx';
 
@@ -62,9 +63,10 @@ export function Editor() {
           {project?.source && <EpisodePlayer key={project.source.fingerprint} source={project.source} />}
           {project?.source && <SourcePanel source={project.source} />}
           {project?.source && !project.transcript && <TranscribePanel project={project} />}
+          {project?.source && project.transcript && <ClipList />}
         </div>
-        {project?.transcript ? (
-          <TranscriptView transcript={project.transcript} />
+        {project?.source && project.transcript ? (
+          <TranscriptView transcript={project.transcript} source={project.source} />
         ) : (
           <p className="transcript-empty">{t('transcript.empty')}</p>
         )}
