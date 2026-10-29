@@ -9,7 +9,7 @@ import { z } from 'zod';
 import type { OpenResult, RecentProject, RecoveredProject, SaveResult } from '../shared/api.ts';
 import { parseProject, PROJECT_EXTENSION, ProjectFormatError, projectSchema, serializeProject } from '../shared/project.ts';
 import { translate } from '../shared/translate.ts';
-import { writeFileAtomic } from './files.ts';
+import { writeFileAtomic } from '../node/files.ts';
 import { getSettings } from './settings.ts';
 
 const recentFile = () => path.join(app.getPath('userData'), 'recent.json');

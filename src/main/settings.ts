@@ -3,7 +3,7 @@ import { app } from 'electron';
 import { readFile } from 'node:fs/promises';
 import path from 'node:path';
 import { defaultUiLanguage, settingsPatchSchema, settingsSchema, type Settings } from '../shared/settings.ts';
-import { writeFileAtomic } from './files.ts';
+import { writeFileAtomic } from '../node/files.ts';
 
 const settingsFile = () => path.join(app.getPath('userData'), 'settings.json');
 
@@ -23,7 +23,7 @@ export async function updateSettings(patch: unknown): Promise<Settings> {
 }
 
 async function load(): Promise<Settings> {
-  const defaults: Settings = { uiLanguage: defaultUiLanguage(app.getLocale()) };
+  const defaults: Settings = { uiLanguage: defaultUiLanguage(app.getLocale()), transcriptLanguage: 'sr' };
   try {
     const stored = JSON.parse(await readFile(settingsFile(), 'utf8'));
     // Unknown keys (from a newer version) are ignored; a damaged file falls

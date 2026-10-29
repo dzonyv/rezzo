@@ -4,8 +4,8 @@
  * downloads itself (whisper.cpp, the model) can be fetched ahead of time;
  * they go where the app looks for them, %LOCALAPPDATA%\Rezzo\tools.
  *
- *   node scripts/fetch-tools.ts                                  # bundled tools
- *   node scripts/fetch-tools.ts whisper-cuda large-v3-turbo-q5_0
+ *   node scripts/fetch-tools.mts                                  # bundled tools
+ *   node scripts/fetch-tools.mts whisper-cuda large-v3-turbo-q5_0
  */
 import path from 'node:path';
 import { install } from '../src/node/tools/download.ts';

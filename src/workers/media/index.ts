@@ -5,7 +5,11 @@
  */
 import type { WorkerMethod, WorkerMethods, WorkerReply, WorkerRequest } from '../../shared/worker-api.ts';
 import { fingerprint } from './fingerprint.ts';
+import { makePreview } from './preview.ts';
 import { probe } from './probe.ts';
+import { transcribe } from './transcribe.ts';
+import { install } from '../../node/tools/download.ts';
+import { tool } from '../../node/tools/manifest.ts';
 
 export interface JobContext {
   signal: AbortSignal;
@@ -19,6 +23,9 @@ type Handlers = {
 const handlers: Handlers = {
   probe: (_ctx, file) => probe(file),
   fingerprint: (_ctx, file) => fingerprint(file),
+  installTool: (ctx, id, dir) => install(tool(id), dir, { onProgress: ctx.progress, signal: ctx.signal }),
+  transcribe: (ctx, request) => transcribe(ctx, request),
+  makePreview: (ctx, request) => makePreview(ctx, request),
 };
 
 const running = new Map<number, AbortController>();

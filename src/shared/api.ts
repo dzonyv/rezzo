@@ -3,8 +3,9 @@
  * sandboxed and reaches the rest of the app only through `window.rezzo`,
  * which the preload script builds from these channel lists.
  */
-import type { Project, ProjectFormatError, Source } from './project.ts';
+import type { Project, ProjectFormatError, Source, Transcript, TranscriptLanguage } from './project.ts';
 import type { Settings } from './settings.ts';
+import type { TranscribeProgress } from './worker-api.ts';
 
 export type OpenResult =
   | { ok: true; path: string; project: Project }
@@ -18,6 +19,18 @@ export type LocateResult = ImportResult | { ok: false; error: 'different-file' }
 
 /** "changed": the file is there but its size differs from when it was imported. */
 export type SourceStatus = 'ok' | 'missing' | 'changed';
+
+export interface TranscriptionStatus {
+  /** Where whisper.cpp will run: an NVIDIA card, or the processor (much slower). */
+  device: 'gpu' | 'cpu';
+  /** Bytes still to download before the first transcription; 0 once installed. */
+  downloadBytes: number;
+}
+
+export type TranscribeResult =
+  | { ok: true; transcript: Transcript }
+  | { ok: false; error: 'cancelled' | 'no-audio' }
+  | { ok: false; error: 'download-failed' | 'whisper-failed'; detail: string };
 
 export interface RecentProject {
   path: string;
@@ -52,6 +65,15 @@ export interface InvokeApi {
   'episode:check': (source: Source) => SourceStatus;
   /** Asks where the source went; only the same video is accepted. Null: cancelled. */
   'episode:locate': (source: Source) => LocateResult | null;
+  /** A rezzo-media:// URL the page can play the source from. */
+  'episode:media-url': (source: Source) => string;
+  /** Makes (once) a playable 480p copy of the source; progress as episode:preview-progress. */
+  'episode:preview': (source: Source) => string;
+
+  'transcribe:status': () => TranscriptionStatus;
+  /** Runs until the transcript is ready; progress comes as transcribe:progress events. */
+  'transcribe:start': (request: { projectId: string; source: Source; language: TranscriptLanguage }) => TranscribeResult;
+  'transcribe:cancel': () => void;
 
   /** Closes the window for real, after the renderer has dealt with unsaved work. */
   'app:close': () => void;
@@ -62,6 +84,8 @@ export interface EventApi {
   'settings:changed': Settings;
   /** The user tried to close the window; the renderer decides what happens. */
   'app:close-requested': null;
+  'transcribe:progress': { projectId: string; progress: TranscribeProgress };
+  'episode:preview-progress': { fingerprint: string; fraction: number };
 }
 
 export type InvokeChannel = keyof InvokeApi;
@@ -83,12 +107,19 @@ export const INVOKE_CHANNELS = {
   'episode:import': true,
   'episode:check': true,
   'episode:locate': true,
+  'episode:media-url': true,
+  'episode:preview': true,
+  'transcribe:status': true,
+  'transcribe:start': true,
+  'transcribe:cancel': true,
   'app:close': true,
 } as const satisfies Record<InvokeChannel, true>;
 
 export const EVENT_CHANNELS = {
   'settings:changed': true,
   'app:close-requested': true,
+  'transcribe:progress': true,
+  'episode:preview-progress': true,
 } as const satisfies Record<EventChannel, true>;
 
 /** What `window.rezzo` looks like to the renderer. */

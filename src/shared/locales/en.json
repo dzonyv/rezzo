@@ -56,6 +56,11 @@
     },
     "locate": {
       "different": "That's a different video. Choose the file this project was made from."
+    },
+    "transcribe": {
+      "download-failed": "Speech recognition couldn't be downloaded: {{detail}}",
+      "whisper-failed": "Transcription failed: {{detail}}",
+      "no-audio": "This video has no sound to transcribe."
     }
   },
   "common": {
@@ -79,5 +84,27 @@
     "missing": "The video isn't at {{path}} anymore.",
     "changed": "The video at {{path}} has changed since it was imported.",
     "locate": "Find it…"
+  },
+  "transcribe": {
+    "title": "Transcript",
+    "language": "Spoken language",
+    "languageHelp": "Pick the language people speak in this video. The transcript is always written in Latin script.",
+    "languages": {
+      "sr": "Serbian",
+      "hr": "Croatian",
+      "bs": "Bosnian"
+    },
+    "start": "Transcribe",
+    "cancel": "Cancel",
+    "download": "The first transcription downloads speech recognition once ({{size}} GB).",
+    "cpu": "No NVIDIA graphics card found, so this runs on the processor. Expect it to take about half as long as the video.",
+    "noAudio": "This video has no sound to transcribe.",
+    "words": "{{count}} words",
+    "phase": {
+      "starting": "Starting…",
+      "download": "Downloading speech recognition: {{received}} / {{total}} MB",
+      "audio": "Preparing audio: {{percent}}%",
+      "transcribe": "Transcribing: {{percent}}%"
+    }
   }
 }

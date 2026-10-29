@@ -1,18 +1,22 @@
 import { app, BrowserWindow, shell } from 'electron';
 import path from 'node:path';
 import { pathToFileURL } from 'node:url';
-import { checkEpisode, chooseEpisode, importEpisode, locateEpisode } from './episode.ts';
+import { checkEpisode, chooseEpisode, episodeMediaUrl, importEpisode, locateEpisode, makePreview } from './episode.ts';
+import { handleMediaProtocol, registerMediaScheme } from './media-protocol.ts';
 import { broadcast, handle, trustPagesFrom } from './ipc.ts';
 import {
   autosave, chooseProjectToOpen, chooseWhereToSave, discardRecovery, openProject, recentProjects, recoveredProjects, saveProject,
 } from './project-files.ts';
 import { getSettings, updateSettings } from './settings.ts';
+import { cancelTranscription, startTranscription, transcriptionStatus } from './transcription.ts';
 import { stopWorker } from './worker-host.ts';
 import { projectSchema } from '../shared/project.ts';
 
 // Tests run the app against a throwaway profile.
 const userDataOverride = process.env['REZZO_USER_DATA'];
 if (userDataOverride) app.setPath('userData', userDataOverride);
+
+registerMediaScheme();
 
 // One running copy; a second launch focuses the first window instead.
 if (!app.requestSingleInstanceLock()) app.quit();
@@ -52,6 +56,12 @@ function registerHandlers(): void {
   handle('episode:import', (_ctx, file) => importEpisode(String(file)));
   handle('episode:check', (_ctx, source) => checkEpisode(source));
   handle('episode:locate', ({ window }, source) => locateEpisode(window, source));
+  handle('episode:media-url', (_ctx, source) => episodeMediaUrl(source));
+  handle('episode:preview', ({ window }, source) => makePreview(window.webContents, source));
+
+  handle('transcribe:status', () => transcriptionStatus());
+  handle('transcribe:start', ({ window }, request) => startTranscription(window.webContents, request));
+  handle('transcribe:cancel', () => cancelTranscription());
 
   handle('app:close', ({ window }) => {
     closeApproved.add(window);
@@ -107,6 +117,7 @@ function createWindow(): void {
 }
 
 app.whenReady().then(() => {
+  handleMediaProtocol();
   registerHandlers();
   createWindow();
 });

@@ -7,6 +7,7 @@ import { newProject, type Project } from '../../../shared/project.ts';
 import { baseName } from '../format.ts';
 import { askUnsaved, notify } from '../ui/prompts.ts';
 import { isDirty, projectStore } from './store.ts';
+import { cancelTranscription } from './transcription.ts';
 
 const api = () => window.rezzo;
 
@@ -16,11 +17,14 @@ const api = () => window.rezzo;
  */
 export async function settleUnsaved(): Promise<boolean> {
   const state = projectStore.getState();
-  if (!state.project || !isDirty(state)) return true;
-  const answer = await askUnsaved(state.project.name);
-  if (answer === 'cancel') return false;
-  if (answer === 'save') return save(false);
-  await api().invoke('project:discard-recovery', state.project.id);
+  if (state.project && isDirty(state)) {
+    const answer = await askUnsaved(state.project.name);
+    if (answer === 'cancel') return false;
+    if (answer === 'save' && !(await save(false))) return false;
+    if (answer === 'discard') await api().invoke('project:discard-recovery', state.project.id);
+  }
+  // The project is about to go away; so is any work running for it.
+  cancelTranscription();
   return true;
 }
 

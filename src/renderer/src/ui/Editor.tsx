@@ -2,11 +2,12 @@ import { useTranslation } from 'react-i18next';
 import { closeProject, save } from '../project/actions.ts';
 import { isDirty, projectStore, useProject } from '../project/store.ts';
 import { SourcePanel } from './SourcePanel.tsx';
+import { TranscribePanel } from './TranscribePanel.tsx';
 
 export function Editor() {
   const { t } = useTranslation();
   const name = useProject((s) => s.project?.name ?? '');
-  const source = useProject((s) => s.project?.source ?? null);
+  const project = useProject((s) => s.project);
   const dirty = useProject(isDirty);
   const undoLabel = useProject((s) => s.undoLabel);
   const redoLabel = useProject((s) => s.redoLabel);
@@ -54,7 +55,15 @@ export function Editor() {
           {t('editor.close')}
         </button>
       </header>
-      <section className="workspace">{source && <SourcePanel source={source} />}</section>
+      <section className="workspace">
+        {project?.source && <SourcePanel source={project.source} />}
+        {project?.source && !project.transcript && <TranscribePanel project={project} />}
+        {project?.transcript && (
+          <p className="transcript-summary">
+            {t('transcribe.words', { count: project.transcript.segments.reduce((n, s) => n + s.words.length, 0) })}
+          </p>
+        )}
+      </section>
     </div>
   );
 }

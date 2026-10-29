@@ -56,6 +56,11 @@
     },
     "locate": {
       "different": "To je drugi video. Izaberi fajl od kog je ovaj projekat napravljen."
+    },
+    "transcribe": {
+      "download-failed": "Prepoznavanje govora nije moglo da se preuzme: {{detail}}",
+      "whisper-failed": "Transkripcija nije uspela: {{detail}}",
+      "no-audio": "Ovaj video nema zvuk koji bi se transkribovao."
     }
   },
   "common": {
@@ -79,5 +84,27 @@
     "missing": "Video više nije na {{path}}.",
     "changed": "Video na {{path}} se promenio od uvoza.",
     "locate": "Pronađi…"
+  },
+  "transcribe": {
+    "title": "Transkript",
+    "language": "Jezik govora",
+    "languageHelp": "Izaberi jezik kojim se govori u ovom videu. Transkript je uvek na latinici.",
+    "languages": {
+      "sr": "srpski",
+      "hr": "hrvatski",
+      "bs": "bosanski"
+    },
+    "start": "Transkribuj",
+    "cancel": "Otkaži",
+    "download": "Prva transkripcija jednom preuzima prepoznavanje govora ({{size}} GB).",
+    "cpu": "Nije pronađena NVIDIA grafička kartica, pa ovo radi procesor. Trajaće otprilike upola kraće od samog videa.",
+    "noAudio": "Ovaj video nema zvuk koji bi se transkribovao.",
+    "words": "Reči: {{count}}",
+    "phase": {
+      "starting": "Pokrećem…",
+      "download": "Preuzimam prepoznavanje govora: {{received}} / {{total}} MB",
+      "audio": "Pripremam zvuk: {{percent}}%",
+      "transcribe": "Transkribujem: {{percent}}%"
+    }
   }
 }

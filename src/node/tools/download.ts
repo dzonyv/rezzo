@@ -4,7 +4,7 @@
  * ".installed" marker. The marker names the checksum, so a tool whose
  * pinned version changes gets installed again.
  *
- * Node only; used by the app's media worker and by scripts/fetch-tools.ts.
+ * Node only; used by the app's media worker and by scripts/fetch-tools.mts.
  */
 import { spawn } from 'node:child_process';
 import { createHash, type Hash } from 'node:crypto';

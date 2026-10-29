@@ -317,3 +317,58 @@ button.link:hover {
 .source-panel dd {
   margin: 0;
 }
+
+.workspace {
+  overflow: auto;
+}
+
+.dim {
+  color: var(--text-dim);
+}
+
+.transcribe-panel {
+  margin: 0 16px 16px;
+  padding: 16px;
+  max-width: 560px;
+  border: 1px solid var(--border);
+  border-radius: var(--radius);
+  background: var(--surface);
+}
+
+.transcribe-panel h2 {
+  margin: 0 0 8px;
+  font-size: 15px;
+}
+
+.transcribe-panel p {
+  margin: 8px 0;
+}
+
+.transcribe-panel .row {
+  display: flex;
+  gap: 12px;
+  align-items: center;
+}
+
+.transcribe-panel label {
+  display: flex;
+  gap: 8px;
+  align-items: center;
+}
+
+.progress-line {
+  display: flex;
+  flex-direction: column;
+  gap: 6px;
+  margin-bottom: 12px;
+}
+
+.progress-line progress {
+  width: 100%;
+  accent-color: var(--accent);
+}
+
+.transcript-summary {
+  margin: 0 16px;
+  color: var(--text-dim);
+}
