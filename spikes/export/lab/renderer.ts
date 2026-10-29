@@ -98,7 +98,7 @@ async function seek(c: Compositor, only: string[] | undefined) {
   const results: Record<string, unknown> = {};
 
   for (const name of variants.filter((v) => !only || only.includes(v))) {
-    const media = await demux(path.join(dir, name));
+    const media = await demux(await readFile(path.join(dir, name)), name);
     const src = new FrameSource(media);
 
     let t0 = performance.now();
@@ -329,7 +329,7 @@ async function main() {
   };
 
   const c = new Compositor(document.getElementById('view') as HTMLCanvasElement);
-  const media = await demux(WORKING);
+  const media = await demux(await readFile(WORKING), WORKING);
   log(`working file: ${media.samples.length} frames, ${media.config.codec}`);
 
   if (runs.includes('preview')) results.preview = await preview(c, media);

@@ -19,7 +19,9 @@
     "whisper:review": "node whisper/make-review.ts",
     "whisper:metrics": "node whisper/metrics.ts",
     "faces:lab": "node faces/lab/build.ts && electron faces/lab/dist/main.cjs",
-    "faces:speakers": "node faces/speakers.ts"
+    "faces:speakers": "node faces/speakers.ts",
+    "ipc:working": "node ipc/make-working.ts",
+    "ipc:lab": "node ipc/build.ts && electron ipc/dist/main.cjs"
   },
   "devDependencies": {
     "@mediapipe/tasks-vision": "^1.1.1",

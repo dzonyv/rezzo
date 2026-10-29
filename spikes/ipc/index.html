@@ -1,0 +1,19 @@
+<!doctype html>
+<html>
+  <head>
+    <meta charset="utf-8" />
+    <meta http-equiv="Content-Security-Policy" content="default-src 'self'; connect-src media:; script-src 'self'; style-src 'unsafe-inline'" />
+    <title>Rezzo IPC lab</title>
+    <style>
+      html, body { margin: 0; height: 100%; background: #111; color: #ddd; font: 12px system-ui; }
+      body { display: flex; gap: 8px; padding: 8px; box-sizing: border-box; }
+      canvas { height: 100%; aspect-ratio: 9 / 16; background: #000; }
+      #log { white-space: pre-wrap; overflow: auto; flex: 1; }
+    </style>
+  </head>
+  <body>
+    <canvas id="view" width="1080" height="1920"></canvas>
+    <div id="log"></div>
+    <script src="renderer.js"></script>
+  </body>
+</html>
