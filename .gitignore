@@ -41,7 +41,7 @@ desktop.ini
 *.flac
 *.ogg
 *.opus
-media/
+/media/
 fixtures/media/
 
 # Downloaded binaries and models (fetched by script)
