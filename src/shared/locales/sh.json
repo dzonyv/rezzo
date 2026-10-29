@@ -9,7 +9,8 @@
     "recent": "Nedavni projekti",
     "recovered": "Nesačuvan rad od prošlog puta",
     "restore": "Vrati",
-    "discard": "Odbaci"
+    "discard": "Odbaci",
+    "dropHint": "ili prevuci video ovde"
   },
   "editor": {
     "projectName": "Naziv projekta",
@@ -25,11 +26,10 @@
   "history": {
     "rename": "promena naziva projekta"
   },
-  "project": {
-    "untitled": "Bez naziva"
-  },
   "files": {
-    "project": "Rezzo projekat"
+    "project": "Rezzo projekat",
+    "video": "Video",
+    "all": "Svi fajlovi"
   },
   "unsaved": {
     "title": "Sačuvati izmene u „{{name}}”?",
@@ -48,7 +48,15 @@
       "invalid": "Projekat {{path}} je oštećen i ne može da se otvori."
     },
     "save": "Čuvanje nije uspelo: {{detail}}",
-    "unexpected": "Nešto je pošlo naopako: {{detail}}"
+    "unexpected": "Nešto je pošlo naopako: {{detail}}",
+    "import": {
+      "not-found": "{{path}} nije pronađen.",
+      "unreadable": "{{path}} ne može da se pročita kao video.",
+      "no-video": "{{path}} nema sliku, samo zvuk."
+    },
+    "locate": {
+      "different": "To je drugi video. Izaberi fajl od kog je ovaj projekat napravljen."
+    }
   },
   "common": {
     "dismiss": "Zatvori"
@@ -59,5 +67,17 @@
   "language": {
     "en": "English",
     "sh": "BCS (bosanski, hrvatski, srpski)"
+  },
+  "episode": {
+    "duration": "Trajanje",
+    "video": "Slika",
+    "videoInfo": "{{width}}×{{height}}, {{fps}} fps, {{codec}}",
+    "variableFrameRate": "promenljiv broj frejmova",
+    "audio": "Zvuk",
+    "audioInfo": "{{rate}} kHz, {{channels}} kan., {{codec}}",
+    "noAudio": "Nema zvuka",
+    "missing": "Video više nije na {{path}}.",
+    "changed": "Video na {{path}} se promenio od uvoza.",
+    "locate": "Pronađi…"
   }
 }

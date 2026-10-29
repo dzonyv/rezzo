@@ -1,0 +1,48 @@
+{
+  "$comment": "Third-party binaries and models the app uses. FFmpeg ships inside the installer (fetched into vendor/ for development); whisper.cpp and the model are downloaded by the app the first time you transcribe. Pinned URLs, sizes and checksums.",
+  "items": [
+    {
+      "id": "ffmpeg",
+      "kind": "bundled",
+      "name": "FFmpeg 9.0.2 (BtbN gpl-shared build, autobuild-2026-10-27-18-38)",
+      "url": "https://github.com/BtbN/FFmpeg-Builds/releases/download/autobuild-2026-10-27-18-38/ffmpeg-n9.0.2-36-g6882969ce9-win64-gpl-shared-9.0.zip",
+      "size": 87215453,
+      "sha256": "dbfef481021a393424c9bd4e588c8d568f0ebba780c01c63dfcb87c87be901c7",
+      "extract": true,
+      "license": "GPL-3.0-or-later (gpl variant: includes x264/x265; built without --enable-nonfree)",
+      "source": "https://github.com/BtbN/FFmpeg-Builds"
+    },
+    {
+      "id": "whisper-cuda",
+      "kind": "download",
+      "name": "whisper.cpp b5454 (v1.9.5) Windows x64, CUDA 12.4",
+      "url": "https://github.com/ggml-org/whisper.cpp/releases/download/b5454/whisper-bin-win-cuda-12.4.0-x64.zip",
+      "size": 684913404,
+      "sha256": "afef0b881c500958921c3f5523b50e59ee2ec9b6f5cbd25b324c51ed308a957a",
+      "extract": true,
+      "license": "MIT (whisper.cpp); the NVIDIA CUDA runtime DLLs in the archive fall under the NVIDIA CUDA EULA",
+      "source": "https://github.com/ggml-org/whisper.cpp"
+    },
+    {
+      "id": "whisper-cpu",
+      "kind": "download",
+      "name": "whisper.cpp b5454 (v1.9.5) Windows x64, CPU with OpenBLAS",
+      "url": "https://github.com/ggml-org/whisper.cpp/releases/download/b5454/whisper-blas-bin-x64.zip",
+      "size": 21715607,
+      "sha256": "b1158bd10edf92c9799149a6fc5d3e58da3f495241d6fb3423088130e88ffbf3",
+      "extract": true,
+      "license": "MIT (whisper.cpp); BSD-3-Clause (OpenBLAS)",
+      "source": "https://github.com/ggml-org/whisper.cpp"
+    },
+    {
+      "id": "large-v3-turbo-q5_0",
+      "kind": "download",
+      "name": "Whisper large-v3-turbo (q5_0, ggml)",
+      "url": "https://huggingface.co/ggerganov/whisper.cpp/resolve/main/ggml-large-v3-turbo-q5_0.bin",
+      "size": 574041195,
+      "sha256": "394221709cd5ad1f40c46e6031ca61bce88931e6e088c188294c6d5a55ffa7e2",
+      "license": "MIT (OpenAI Whisper weights)",
+      "source": "https://huggingface.co/ggerganov/whisper.cpp"
+    }
+  ]
+}

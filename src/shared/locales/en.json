@@ -9,7 +9,8 @@
     "recent": "Recent projects",
     "recovered": "Unsaved work from last time",
     "restore": "Restore",
-    "discard": "Discard"
+    "discard": "Discard",
+    "dropHint": "or drop a video here"
   },
   "editor": {
     "projectName": "Project name",
@@ -25,11 +26,10 @@
   "history": {
     "rename": "rename project"
   },
-  "project": {
-    "untitled": "Untitled"
-  },
   "files": {
-    "project": "Rezzo project"
+    "project": "Rezzo project",
+    "video": "Video",
+    "all": "All files"
   },
   "unsaved": {
     "title": "Save changes to “{{name}}”?",
@@ -48,7 +48,15 @@
       "invalid": "The project {{path}} is damaged and can't be opened."
     },
     "save": "Saving failed: {{detail}}",
-    "unexpected": "Something went wrong: {{detail}}"
+    "unexpected": "Something went wrong: {{detail}}",
+    "import": {
+      "not-found": "{{path}} can't be found.",
+      "unreadable": "{{path}} can't be read as a video.",
+      "no-video": "{{path}} has no picture, only sound."
+    },
+    "locate": {
+      "different": "That's a different video. Choose the file this project was made from."
+    }
   },
   "common": {
     "dismiss": "Dismiss"
@@ -59,5 +67,17 @@
   "language": {
     "en": "English",
     "sh": "BCS (bosanski, hrvatski, srpski)"
+  },
+  "episode": {
+    "duration": "Length",
+    "video": "Video",
+    "videoInfo": "{{width}}×{{height}}, {{fps}} fps, {{codec}}",
+    "variableFrameRate": "variable frame rate",
+    "audio": "Audio",
+    "audioInfo": "{{rate}} kHz, {{channels}} ch, {{codec}}",
+    "noAudio": "No audio",
+    "missing": "The video isn't at {{path}} anymore.",
+    "changed": "The video at {{path}} has changed since it was imported.",
+    "locate": "Find it…"
   }
 }

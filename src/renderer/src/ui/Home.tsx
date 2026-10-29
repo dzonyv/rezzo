@@ -23,7 +23,15 @@ export function Home() {
     new Date(iso).toLocaleString(i18n.language === 'sh' ? 'sr-Latn' : 'en', { dateStyle: 'medium', timeStyle: 'short' });
 
   return (
-    <main className="home">
+    <main
+      className="home"
+      onDragOver={(e) => e.preventDefault()}
+      onDrop={(e) => {
+        e.preventDefault();
+        const file = e.dataTransfer.files[0];
+        if (file) void createProject(window.rezzo.pathForFile(file));
+      }}
+    >
       <h1>{t('app.name')}</h1>
       <p className="tagline">{t('app.tagline')}</p>
 
@@ -35,6 +43,7 @@ export function Home() {
           {t('home.openProject')}
         </button>
       </div>
+      <p className="hint">{t('home.dropHint')}</p>
 
       {recovered.length > 0 && (
         <section className="home-list recovered">

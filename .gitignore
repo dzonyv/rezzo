@@ -45,7 +45,7 @@ media/
 fixtures/media/
 
 # Downloaded binaries and models (fetched by script)
-vendor/bin/
+vendor/
 models/
 *.gguf
 *.bin

@@ -2,7 +2,7 @@
  * Runs before the page, in the sandbox. Exposes `window.rezzo`, the page's
  * only way to reach the main process, limited to the channels in shared/api.ts.
  */
-import { contextBridge, ipcRenderer, type IpcRendererEvent } from 'electron';
+import { contextBridge, ipcRenderer, webUtils, type IpcRendererEvent } from 'electron';
 import { EVENT_CHANNELS, INVOKE_CHANNELS, type RezzoApi } from '../shared/api.ts';
 
 const api: RezzoApi = {
@@ -16,6 +16,7 @@ const api: RezzoApi = {
     ipcRenderer.on(channel, handler);
     return () => ipcRenderer.removeListener(channel, handler);
   },
+  pathForFile: (file) => webUtils.getPathForFile(file),
 };
 
 contextBridge.exposeInMainWorld('rezzo', api);

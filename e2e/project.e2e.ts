@@ -2,50 +2,49 @@
  * Project lifecycle against the built app. Native file dialogs are replaced
  * in the main process so the tests can choose the file.
  */
-import { mkdtemp, readFile, rm, writeFile } from 'node:fs/promises';
+import { copyFile, mkdtemp, readFile, rename, rm, writeFile } from 'node:fs/promises';
 import { tmpdir } from 'node:os';
 import path from 'node:path';
-import { _electron as electron, type ElectronApplication, type Page } from 'playwright-core';
-import { afterEach, beforeEach, describe, expect, it } from 'vitest';
+import type { ElectronApplication, Page } from 'playwright-core';
+import { afterEach, beforeAll, beforeEach, describe, expect, it } from 'vitest';
 import type { RezzoApi } from '../src/shared/api.ts';
+import { answerOpenDialog, answerSaveDialog, launchApp, makeTestVideo, stopApp, type Launched } from './helpers.ts';
 
 type PageGlobal = typeof globalThis & { rezzo: RezzoApi };
 
+let fixtures: string;
+let video: string;
 let dir: string;
 let app: ElectronApplication | undefined;
 
-async function launch(): Promise<{ app: ElectronApplication; page: Page }> {
-  app = await electron.launch({
-    args: [path.resolve('out/main/index.js')],
-    env: { ...process.env, REZZO_USER_DATA: path.join(dir, 'profile'), ELECTRON_RENDERER_URL: '' },
-  });
-  const page = await app.firstWindow();
-  await page.locator('h1, .topbar').first().waitFor();
-  return { app, page };
+async function launch(): Promise<Launched> {
+  const launched = await launchApp(dir);
+  app = launched.app;
+  return launched;
 }
 
-/** The next Save dialog answers with `file`. */
-async function answerSaveDialog(a: ElectronApplication, file: string) {
-  await a.evaluate(({ dialog }, f) => {
-    dialog.showSaveDialog = (async () => ({ canceled: false, filePath: f })) as typeof dialog.showSaveDialog;
-  }, file);
+async function stop(): Promise<void> {
+  await stopApp(app);
+  app = undefined;
 }
 
 const nameField = (page: Page) => page.getByRole('textbox', { name: 'Project name' });
 
+/** New project from `file` through the (stubbed) Open dialog. */
+async function newProjectFrom(a: ElectronApplication, page: Page, file: string) {
+  await answerOpenDialog(a, file);
+  await page.getByRole('button', { name: 'New project' }).click();
+}
+
+beforeAll(async () => {
+  fixtures = await mkdtemp(path.join(tmpdir(), 'rezzo-fixtures-'));
+  video = await makeTestVideo(path.join(fixtures, 'test-episode.mp4'));
+  return () => rm(fixtures, { recursive: true, force: true });
+});
+
 beforeEach(async () => {
   dir = await mkdtemp(path.join(tmpdir(), 'rezzo-e2e-'));
 });
-
-/** Ends the app without the unsaved-changes question a normal close would ask. */
-async function stop(): Promise<void> {
-  const a = app;
-  app = undefined;
-  if (!a) return;
-  const exited = a.waitForEvent('close').catch(() => {});
-  await a.evaluate(({ app: electronApp }) => electronApp.exit(0)).catch(() => {});
-  await exited;
-}
 
 afterEach(async () => {
   await stop();
@@ -53,15 +52,17 @@ afterEach(async () => {
 });
 
 describe('projects', () => {
-  it('creates, renames with undo, saves and reopens', async () => {
+  it('starts from a video, renames with undo, saves and reopens', async () => {
     const { app: a, page } = await launch();
-    await page.getByRole('button', { name: 'New project' }).click();
-    await expect.poll(() => nameField(page).inputValue()).toBe('Untitled');
+    await newProjectFrom(a, page, video);
+    await expect.poll(() => nameField(page).inputValue()).toBe('test-episode');
+    await expect.poll(() => page.locator('.source-panel dd').first().textContent()).toBe('0:03');
+    expect(await page.locator('.source-panel').textContent()).toContain('640×360, 30 fps, h264');
 
     await nameField(page).fill('Episode 12');
     await nameField(page).press('Enter');
     await page.getByRole('button', { name: 'Undo', exact: true }).click();
-    await expect.poll(() => nameField(page).inputValue()).toBe('Untitled');
+    await expect.poll(() => nameField(page).inputValue()).toBe('test-episode');
     await page.getByRole('button', { name: 'Redo', exact: true }).click();
     await expect.poll(() => nameField(page).inputValue()).toBe('Episode 12');
 
@@ -77,9 +78,44 @@ describe('projects', () => {
     await expect.poll(() => nameField(page).inputValue()).toBe('Episode 12');
   });
 
+  it('refuses files without a picture', async () => {
+    const { app: a, page } = await launch();
+    const audio = await makeTestVideo(path.join(dir, 'only-sound.m4a'), { audioOnly: true });
+    await newProjectFrom(a, page, audio);
+    await expect.poll(() => page.locator('.notice.error').textContent()).toContain('has no picture');
+  });
+
+  it('finds the video again after it moved, but only the same video', async () => {
+    const moved = path.join(dir, 'moved.mp4');
+    await copyFile(video, path.join(dir, 'original.mp4'));
+    let { app: a, page } = await launch();
+    await newProjectFrom(a, page, path.join(dir, 'original.mp4'));
+    await nameField(page).waitFor();
+    const file = path.join(dir, 'p.rezzo');
+    await answerSaveDialog(a, file);
+    await page.getByRole('button', { name: 'Save', exact: true }).click();
+    await expect.poll(() => page.locator('.dirty').count()).toBe(0);
+    await stop();
+
+    await rename(path.join(dir, 'original.mp4'), moved);
+    ({ app: a, page } = await launch());
+    await page.getByRole('button', { name: /original/ }).click();
+    await expect.poll(() => page.locator('.banner.warning').count()).toBe(1);
+
+    const other = await makeTestVideo(path.join(dir, 'other.mp4'), { seconds: 2 });
+    await answerOpenDialog(a, other);
+    await page.getByRole('button', { name: 'Find it…' }).click();
+    await expect.poll(() => page.locator('.notice.error').textContent()).toContain('different video');
+
+    await answerOpenDialog(a, moved);
+    await page.getByRole('button', { name: 'Find it…' }).click();
+    await expect.poll(() => page.locator('.banner.warning').count()).toBe(0);
+    expect(await page.locator('.source-panel h2').textContent()).toBe('moved.mp4');
+  });
+
   it('asks about unsaved changes when the window closes', async () => {
     const { app: a, page } = await launch();
-    await page.getByRole('button', { name: 'New project' }).click();
+    await newProjectFrom(a, page, video);
     await nameField(page).fill('Draft');
     await nameField(page).press('Enter');
 
@@ -112,9 +148,7 @@ describe('projects', () => {
     const { app: a, page } = await launch();
     const bogus = path.join(dir, 'bogus.rezzo');
     await writeFile(bogus, 'hello');
-    await a.evaluate(({ dialog }, f) => {
-      dialog.showOpenDialog = (async () => ({ canceled: false, filePaths: [f] })) as typeof dialog.showOpenDialog;
-    }, bogus);
+    await answerOpenDialog(a, bogus);
     await page.getByRole('button', { name: 'Open project…' }).click();
     await expect.poll(() => page.locator('.notice.error').textContent()).toContain("isn't a Rezzo project");
   });

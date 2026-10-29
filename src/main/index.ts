@@ -1,11 +1,13 @@
 import { app, BrowserWindow, shell } from 'electron';
 import path from 'node:path';
 import { pathToFileURL } from 'node:url';
+import { checkEpisode, chooseEpisode, importEpisode, locateEpisode } from './episode.ts';
 import { broadcast, handle, trustPagesFrom } from './ipc.ts';
 import {
   autosave, chooseProjectToOpen, chooseWhereToSave, discardRecovery, openProject, recentProjects, recoveredProjects, saveProject,
 } from './project-files.ts';
 import { getSettings, updateSettings } from './settings.ts';
+import { stopWorker } from './worker-host.ts';
 import { projectSchema } from '../shared/project.ts';
 
 // Tests run the app against a throwaway profile.
@@ -45,6 +47,11 @@ function registerHandlers(): void {
   handle('project:autosave', (_ctx, project, filePath) => autosave(project, filePath));
   handle('project:recovered', () => recoveredProjects());
   handle('project:discard-recovery', (_ctx, id) => discardRecovery(id));
+
+  handle('episode:choose', ({ window }) => chooseEpisode(window));
+  handle('episode:import', (_ctx, file) => importEpisode(String(file)));
+  handle('episode:check', (_ctx, source) => checkEpisode(source));
+  handle('episode:locate', ({ window }, source) => locateEpisode(window, source));
 
   handle('app:close', ({ window }) => {
     closeApproved.add(window);
@@ -105,3 +112,4 @@ app.whenReady().then(() => {
 });
 
 app.on('window-all-closed', () => app.quit());
+app.on('will-quit', () => stopWorker());

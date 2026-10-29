@@ -3,7 +3,7 @@
  * sandboxed and reaches the rest of the app only through `window.rezzo`,
  * which the preload script builds from these channel lists.
  */
-import type { Project, ProjectFormatError } from './project.ts';
+import type { Project, ProjectFormatError, Source } from './project.ts';
 import type { Settings } from './settings.ts';
 
 export type OpenResult =
@@ -11,6 +11,13 @@ export type OpenResult =
   | { ok: false; path: string; error: 'not-found' | 'unreadable' | ProjectFormatError['code'] };
 
 export type SaveResult = { ok: true; path: string } | { ok: false; error: 'write-failed'; detail: string };
+
+export type ImportResult = { ok: true; source: Source } | { ok: false; error: 'not-found' | 'unreadable' | 'no-video' };
+
+export type LocateResult = ImportResult | { ok: false; error: 'different-file' };
+
+/** "changed": the file is there but its size differs from when it was imported. */
+export type SourceStatus = 'ok' | 'missing' | 'changed';
 
 export interface RecentProject {
   path: string;
@@ -39,6 +46,13 @@ export interface InvokeApi {
   'project:recovered': () => RecoveredProject[];
   'project:discard-recovery': (projectId: string) => void;
 
+  /** Asks for a video file. Null: the user cancelled. */
+  'episode:choose': () => string | null;
+  'episode:import': (path: string) => ImportResult;
+  'episode:check': (source: Source) => SourceStatus;
+  /** Asks where the source went; only the same video is accepted. Null: cancelled. */
+  'episode:locate': (source: Source) => LocateResult | null;
+
   /** Closes the window for real, after the renderer has dealt with unsaved work. */
   'app:close': () => void;
 }
@@ -65,6 +79,10 @@ export const INVOKE_CHANNELS = {
   'project:autosave': true,
   'project:recovered': true,
   'project:discard-recovery': true,
+  'episode:choose': true,
+  'episode:import': true,
+  'episode:check': true,
+  'episode:locate': true,
   'app:close': true,
 } as const satisfies Record<InvokeChannel, true>;
 
@@ -78,4 +96,6 @@ export interface RezzoApi {
   invoke<C extends InvokeChannel>(channel: C, ...args: InvokeArgs<C>): Promise<InvokeResult<C>>;
   /** Subscribes to an event; returns a function that unsubscribes. */
   on<C extends EventChannel>(channel: C, listener: (payload: EventApi[C]) => void): () => void;
+  /** The path of a file dropped on the window. */
+  pathForFile(file: File): string;
 }

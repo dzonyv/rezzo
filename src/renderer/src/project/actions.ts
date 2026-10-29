@@ -4,6 +4,7 @@
  */
 import i18n from 'i18next';
 import { newProject, type Project } from '../../../shared/project.ts';
+import { baseName } from '../format.ts';
 import { askUnsaved, notify } from '../ui/prompts.ts';
 import { isDirty, projectStore } from './store.ts';
 
@@ -23,9 +24,37 @@ export async function settleUnsaved(): Promise<boolean> {
   return true;
 }
 
-export async function createProject(): Promise<void> {
+/** Starts a project from a video: `file`, or one the user picks. */
+export async function createProject(file: string | null = null): Promise<void> {
   if (!(await settleUnsaved())) return;
-  projectStore.getState().load(newProject(i18n.t('project.untitled')), null);
+  const chosen = file ?? (await api().invoke('episode:choose'));
+  if (!chosen) return;
+  const result = await api().invoke('episode:import', chosen);
+  if (!result.ok) {
+    notify('error', i18n.t(`errors.import.${result.error}`, { path: chosen }));
+    return;
+  }
+  projectStore.getState().load({ ...newProject(baseName(chosen)), source: result.source }, null);
+}
+
+/** Points the project at its source video after the file has moved. */
+export async function locateSource(): Promise<boolean> {
+  const source = projectStore.getState().project?.source;
+  if (!source) return false;
+  const result = await api().invoke('episode:locate', source);
+  if (!result) return false;
+  if (!result.ok) {
+    notify(
+      'error',
+      result.error === 'different-file'
+        ? i18n.t('errors.locate.different')
+        : i18n.t(`errors.import.${result.error}`, { path: source.path }),
+    );
+    return false;
+  }
+  // Moving the file isn't an edit to undo.
+  projectStore.getState().replace((d) => void (d.source = result.source));
+  return true;
 }
 
 /** Opens `path`, or asks for a file when it's null. */
