@@ -1,0 +1,121 @@
+{
+  "app": {
+    "name": "Rezzo",
+    "tagline": "Vertikalni klipovi iz podkasta i tok-šoua"
+  },
+  "home": {
+    "newProject": "Novi projekat",
+    "openProject": "Otvori projekat…",
+    "recent": "Nedavni projekti",
+    "recovered": "Nesačuvan rad od prošlog puta",
+    "restore": "Vrati",
+    "discard": "Odbaci",
+    "dropHint": "ili prevuci video ovde"
+  },
+  "editor": {
+    "projectName": "Naziv projekta",
+    "save": "Sačuvaj",
+    "saveAs": "Sačuvaj kao…",
+    "undo": "Poništi",
+    "redo": "Ponovi",
+    "undoWhat": "Poništi: {{what}}",
+    "redoWhat": "Ponovi: {{what}}",
+    "close": "Zatvori projekat",
+    "unsavedMarker": "Nesačuvane izmene"
+  },
+  "history": {
+    "rename": "promena naziva projekta"
+  },
+  "files": {
+    "project": "Rezzo projekat",
+    "video": "Video",
+    "all": "Svi fajlovi"
+  },
+  "unsaved": {
+    "title": "Sačuvati izmene u „{{name}}”?",
+    "body": "Ako ne sačuvaš, izmene će biti izgubljene.",
+    "save": "Sačuvaj",
+    "dontSave": "Ne čuvaj",
+    "cancel": "Otkaži"
+  },
+  "errors": {
+    "open": {
+      "not-found": "Fajl {{path}} više ne postoji.",
+      "unreadable": "Fajl {{path}} nije moguće pročitati.",
+      "not-json": "{{path}} nije Rezzo projekat.",
+      "not-a-project": "{{path}} nije Rezzo projekat.",
+      "too-new": "{{path}} je sačuvan u novijoj verziji Rezzo-a. Ažuriraj aplikaciju da ga otvoriš.",
+      "invalid": "Projekat {{path}} je oštećen i ne može da se otvori."
+    },
+    "save": "Čuvanje nije uspelo: {{detail}}",
+    "unexpected": "Nešto je pošlo naopako: {{detail}}",
+    "import": {
+      "not-found": "{{path}} nije pronađen.",
+      "unreadable": "{{path}} ne može da se pročita kao video.",
+      "no-video": "{{path}} nema sliku, samo zvuk."
+    },
+    "locate": {
+      "different": "To je drugi video. Izaberi fajl od kog je ovaj projekat napravljen."
+    },
+    "transcribe": {
+      "download-failed": "Prepoznavanje govora nije moglo da se preuzme: {{detail}}",
+      "whisper-failed": "Transkripcija nije uspela: {{detail}}",
+      "no-audio": "Ovaj video nema zvuk koji bi se transkribovao."
+    }
+  },
+  "common": {
+    "dismiss": "Zatvori"
+  },
+  "settings": {
+    "uiLanguage": "Jezik interfejsa"
+  },
+  "language": {
+    "en": "English",
+    "sh": "BCS (bosanski, hrvatski, srpski)"
+  },
+  "episode": {
+    "duration": "Trajanje",
+    "video": "Slika",
+    "videoInfo": "{{width}}×{{height}}, {{fps}} fps, {{codec}}",
+    "variableFrameRate": "promenljiv broj frejmova",
+    "audio": "Zvuk",
+    "audioInfo": "{{rate}} kHz, {{channels}} kan., {{codec}}",
+    "noAudio": "Nema zvuka",
+    "missing": "Video više nije na {{path}}.",
+    "changed": "Video na {{path}} se promenio od uvoza.",
+    "locate": "Pronađi…"
+  },
+  "transcribe": {
+    "title": "Transkript",
+    "language": "Jezik govora",
+    "languageHelp": "Izaberi jezik kojim se govori u ovom videu. Transkript je uvek na latinici.",
+    "languages": {
+      "sr": "srpski",
+      "hr": "hrvatski",
+      "bs": "bosanski"
+    },
+    "start": "Transkribuj",
+    "cancel": "Otkaži",
+    "download": "Prva transkripcija jednom preuzima prepoznavanje govora ({{size}} GB).",
+    "cpu": "Nije pronađena NVIDIA grafička kartica, pa ovo radi procesor. Trajaće otprilike upola kraće od samog videa.",
+    "noAudio": "Ovaj video nema zvuk koji bi se transkribovao.",
+    "phase": {
+      "starting": "Pokrećem…",
+      "download": "Preuzimam prepoznavanje govora: {{received}} / {{total}} MB",
+      "audio": "Pripremam zvuk: {{percent}}%",
+      "transcribe": "Transkribujem: {{percent}}%"
+    }
+  },
+  "transcript": {
+    "search": "Pretraži transkript (Ctrl+F)",
+    "matches": "{{current}} od {{total}}",
+    "noMatches": "Nema rezultata",
+    "previous": "Prethodni rezultat (Shift+Enter)",
+    "next": "Sledeći rezultat (Enter)",
+    "empty": "Transkript će se pojaviti ovde."
+  },
+  "player": {
+    "preparing": "Ovaj video ne može da se pusti direktno, pa Rezzo pravi kopiju za pregled: {{percent}}%",
+    "failed": "Ovaj video ne može da se pusti ovde: {{detail}}"
+  }
+}

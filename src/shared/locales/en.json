@@ -1,0 +1,121 @@
+{
+  "app": {
+    "name": "Rezzo",
+    "tagline": "Vertical clips from podcasts and talk shows"
+  },
+  "home": {
+    "newProject": "New project",
+    "openProject": "Open project…",
+    "recent": "Recent projects",
+    "recovered": "Unsaved work from last time",
+    "restore": "Restore",
+    "discard": "Discard",
+    "dropHint": "or drop a video here"
+  },
+  "editor": {
+    "projectName": "Project name",
+    "save": "Save",
+    "saveAs": "Save as…",
+    "undo": "Undo",
+    "redo": "Redo",
+    "undoWhat": "Undo: {{what}}",
+    "redoWhat": "Redo: {{what}}",
+    "close": "Close project",
+    "unsavedMarker": "Unsaved changes"
+  },
+  "history": {
+    "rename": "rename project"
+  },
+  "files": {
+    "project": "Rezzo project",
+    "video": "Video",
+    "all": "All files"
+  },
+  "unsaved": {
+    "title": "Save changes to “{{name}}”?",
+    "body": "If you don't save, your changes will be lost.",
+    "save": "Save",
+    "dontSave": "Don't save",
+    "cancel": "Cancel"
+  },
+  "errors": {
+    "open": {
+      "not-found": "The file {{path}} doesn't exist anymore.",
+      "unreadable": "The file {{path}} couldn't be read.",
+      "not-json": "{{path}} isn't a Rezzo project.",
+      "not-a-project": "{{path}} isn't a Rezzo project.",
+      "too-new": "{{path}} was saved by a newer version of Rezzo. Update the app to open it.",
+      "invalid": "The project {{path}} is damaged and can't be opened."
+    },
+    "save": "Saving failed: {{detail}}",
+    "unexpected": "Something went wrong: {{detail}}",
+    "import": {
+      "not-found": "{{path}} can't be found.",
+      "unreadable": "{{path}} can't be read as a video.",
+      "no-video": "{{path}} has no picture, only sound."
+    },
+    "locate": {
+      "different": "That's a different video. Choose the file this project was made from."
+    },
+    "transcribe": {
+      "download-failed": "Speech recognition couldn't be downloaded: {{detail}}",
+      "whisper-failed": "Transcription failed: {{detail}}",
+      "no-audio": "This video has no sound to transcribe."
+    }
+  },
+  "common": {
+    "dismiss": "Dismiss"
+  },
+  "settings": {
+    "uiLanguage": "Interface language"
+  },
+  "language": {
+    "en": "English",
+    "sh": "BCS (bosanski, hrvatski, srpski)"
+  },
+  "episode": {
+    "duration": "Length",
+    "video": "Video",
+    "videoInfo": "{{width}}×{{height}}, {{fps}} fps, {{codec}}",
+    "variableFrameRate": "variable frame rate",
+    "audio": "Audio",
+    "audioInfo": "{{rate}} kHz, {{channels}} ch, {{codec}}",
+    "noAudio": "No audio",
+    "missing": "The video isn't at {{path}} anymore.",
+    "changed": "The video at {{path}} has changed since it was imported.",
+    "locate": "Find it…"
+  },
+  "transcribe": {
+    "title": "Transcript",
+    "language": "Spoken language",
+    "languageHelp": "Pick the language people speak in this video. The transcript is always written in Latin script.",
+    "languages": {
+      "sr": "Serbian",
+      "hr": "Croatian",
+      "bs": "Bosnian"
+    },
+    "start": "Transcribe",
+    "cancel": "Cancel",
+    "download": "The first transcription downloads speech recognition once ({{size}} GB).",
+    "cpu": "No NVIDIA graphics card found, so this runs on the processor. Expect it to take about half as long as the video.",
+    "noAudio": "This video has no sound to transcribe.",
+    "phase": {
+      "starting": "Starting…",
+      "download": "Downloading speech recognition: {{received}} / {{total}} MB",
+      "audio": "Preparing audio: {{percent}}%",
+      "transcribe": "Transcribing: {{percent}}%"
+    }
+  },
+  "transcript": {
+    "search": "Search the transcript (Ctrl+F)",
+    "matches": "{{current}} of {{total}}",
+    "noMatches": "No matches",
+    "previous": "Previous match (Shift+Enter)",
+    "next": "Next match (Enter)",
+    "empty": "The transcript will appear here."
+  },
+  "player": {
+    "preparing": "This video can't be played directly, so Rezzo is making a preview copy: {{percent}}%",
+    "failed": "This video can't be played here: {{detail}}"
+  }
+}

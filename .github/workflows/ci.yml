@@ -1,0 +1,24 @@
+name: CI
+
+on:
+  push:
+    branches: [main]
+  pull_request:
+
+jobs:
+  check:
+    runs-on: windows-latest
+    steps:
+      - uses: actions/checkout@v4
+      - uses: actions/setup-node@v4
+        with:
+          node-version: 24
+          cache: npm
+      - run: npm ci
+      # npm doesn't always run Electron's install script; this fetches the binary if it's missing.
+      - run: node node_modules/electron/install.js
+      - run: npm run lint
+      - run: npm run typecheck
+      - run: npm test
+      - run: npm run fetch-tools
+      - run: npm run test:e2e

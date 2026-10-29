@@ -37,10 +37,10 @@ Phase 0 asked whether the three riskiest parts work on ordinary hardware and on 
 ### Still open
 
 - **Bosnian (`bs`)**: the Bosnian clip wasn't corrected, so the setting isn't scored. Given how little the setting mattered for Serbian and Croatian, we don't expect a surprise.
-- **Export speed on real footage**: measured on a synthetic source that is very easy to encode. Re-check in Phase 1 with the first real export.
-- **Bundle size**: the CUDA build of whisper.cpp is 685 MB zipped (285 MB for the CUDA 11.8 build, not yet tested). Licence-wise, its CUDA runtime DLLs fall under NVIDIA's EULA and ship as a separate program next to the GPL app; this needs a closer look before the first release.
-- **Moving FFmpeg out of the renderer**: the spikes run Node in the renderer. The app will use a utility process, and the cost of passing 3.1 MB per frame between processes is not yet measured.
+- **Bundle size**: the CUDA build of whisper.cpp is 685 MB zipped (285 MB for the CUDA 11.8 build, not yet tested), and its CUDA runtime DLLs fall under NVIDIA's EULA. Settled in Phase 1: the app downloads whisper.cpp and the model the first time you transcribe, so we don't redistribute those DLLs.
 - **Head tracking in wide shots** jumps (101 track ids in 67 s) and needs smoothing in Phase 4.
+
+Export speed on real footage and the cost of moving FFmpeg out of the renderer were measured at the start of Phase 1; see [Phase 1 checks](#phase-1-checks).
 
 ## Test clips
 
@@ -260,6 +260,53 @@ Preview: decode + render + display runs at 192 fps uncapped; at 30 fps paced pla
 
 ### Still open
 
-- Speed on real 1080p footage (the synthetic picture is very easy to encode). Re-run once clips are in.
-- Converting the source to the working file: timed on real clips in 0a/0b.
-- In the spike the renderer runs Node directly. The app will keep the renderer sandboxed and move FFmpeg into a utility process. The cost of passing 3.1 MB per frame between processes still needs measuring.
+All three points left open here (speed on real footage, timing the working-file conversion on real clips, the cost of a sandboxed renderer with FFmpeg in a utility process) are answered in [Phase 1 checks](#phase-1-checks).
+
+## Phase 1 checks
+
+Two questions Phase 0 left open, measured before the app is built around them. Same machine; `ipc/` in the spikes.
+
+### FFmpeg in a utility process
+
+The app keeps the renderer sandboxed, so FFmpeg runs in an Electron utility process and every exported frame (3.1 MB of YUV) has to cross over. `ipc/` does the Phase 0 A-yuv export with that layout.
+
+- An ArrayBuffer can't be transferred to the utility process: listed as transferable, the message arrives as `null`. Every frame is copied, about 4.4 ms each (230 fps, 0.7 GB/s) with nothing else running.
+- That copy happens inside `postMessage`, on the thread that calls it. Posting from the rendering thread blocks rendering for the whole copy.
+- Handing the frame to a dedicated Web Worker first (an in-process transfer, no copy) and posting from there takes the copy off the rendering thread.
+
+Export of the same 50 s synthetic clip (1500 frames) and of real clip A (1584 frames, 1920×1080, 30 fps), NVENC unless noted:
+
+| Path | Synthetic | Real clip A | Real clip A, x264 |
+|---|---|---|---|
+| FFmpeg in the renderer (Phase 0 layout, same session) | 240 fps | — | — |
+| Utility process, posted from the rendering thread | 138–179 fps | 139–179 fps | 109–113 fps |
+| **Utility process, posted from a Web Worker** | **180–185 fps** | **192–228 fps** | 93–114 fps |
+
+The Web Worker path passes `export/verify.ts` like the Phase 0 runs did: 1500/1500 frames, no drops or duplicates, 45.9 dB against the preview, A/V within 0.3 ms on average. A 60 s clip exports in about 8 s with NVENC and 14–17 s with x264.
+
+Decision: FFmpeg lives in a utility process; the renderer passes frames through a dedicated Web Worker that owns the MessagePort. The export goal (60 s in ≤ 60 s) holds with plenty of room.
+
+### Converting real clips to working files
+
+The working-file conversion as the app will run it (first video stream, H.264 without B-frames, keyframe every 15 frames, constant frame rate, BT.709 tags, AAC audio):
+
+| Clip | Source | x264 veryfast | NVENC p4 | Size (x264 / NVENC) |
+|---|---|---|---|---|
+| A | 1080p30 | 5.3 s (10× realtime) | 3.6 s (15×) | 48 / 73 MB per minute |
+| B | 360p23.976, cover image | 1.1 s (61×) | 1.2 s (61×) | 8 / 11 MB per minute |
+| C | 720p, variable frame rate | 2.5 s (26×) | 2.5 s (27×) | 28 / 42 MB per minute |
+| D | 480p30 | 2.0 s (38×) | 2.0 s (38×) | 10 / 16 MB per minute |
+
+A one-minute 1080p clip is ready in about five seconds. Below 1080p, NVENC isn't faster than x264 and makes bigger files. The working file uses x264.
+
+### Which whisper.cpp build to download
+
+The app downloads whisper.cpp the first time you transcribe. Clip D (76 s), turbo q5_0, DTW on, same settings as above:
+
+| Build | Download | Time | Notes |
+|---|---|---|---|
+| CUDA 12.4 | 685 MB | 13 s | uses the GTX 1660 |
+| CUDA 11.8 | 285 MB | 45 s | reports "no GPU found" on this machine and runs on the CPU |
+| CPU with OpenBLAS | 22 MB | 34 s | 2.2× realtime with 8 threads |
+
+The CUDA 11.8 build would have saved 400 MB, but it doesn't see the card here, so the app uses CUDA 12.4 with an NVIDIA card and the OpenBLAS CPU build otherwise (and when the CUDA build fails to start). On the CPU an hour of audio takes about 27 minutes. GPU and CPU runs don't produce identical text, but each is deterministic from run to run.

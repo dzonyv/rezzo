@@ -5,7 +5,6 @@
  * VideoFrames on the GPU. To get frame N we start at the nearest keyframe at
  * or before N and decode forward, throwing away frames before N.
  */
-import { readFile } from 'node:fs/promises';
 import { createFile, DataStream, Endianness, MP4BoxBuffer, type Sample } from 'mp4box';
 import { FPS } from '../layout.ts';
 
@@ -14,8 +13,8 @@ export interface Demuxed {
   samples: { data: Uint8Array; timestampUs: number; durationUs: number; isKey: boolean }[];
 }
 
-export async function demux(file: string): Promise<Demuxed> {
-  const bytes = await readFile(file);
+/** Splits an MP4 that is already in memory. Uses no Node APIs, so a sandboxed renderer can call it too. */
+export async function demux(bytes: Uint8Array, file = 'working file'): Promise<Demuxed> {
   const mp4 = createFile();
 
   return new Promise((resolve, reject) => {

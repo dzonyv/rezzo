@@ -12,6 +12,8 @@ Prove the riskiest parts work before building the app. Done; results and decisio
 
 ## Phase 1 — Foundation
 
+Built in three parts, each with its own pull request: 1a (app skeleton, projects, import, transcription, transcript and search), 1b (choosing a clip, framing, preview) and 1c (export and the installer).
+
 - Import an episode; transcript with search.
 - Select a clip by highlighting transcript text.
 - Manual 9:16 framing with all three layouts (Follow, Split, Full frame with blurred background); layout can change during the clip.

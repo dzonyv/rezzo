@@ -8,7 +8,21 @@ It's built for Serbian (Balkan) content first, since that's what I work with. Ot
 
 ## Where it stands
 
-There's nothing to download yet. Phase 0 is done: we checked that the hard parts (transcription, face tracking, GPU export) work on an ordinary PC before building the app around them, and wrote down what we found in [spikes/REPORT.md](spikes/REPORT.md). Next up is Phase 1, the first version you can actually use. The full plan is in [ROADMAP.md](ROADMAP.md).
+There's nothing to download yet. Phase 0 is done: we checked that the hard parts (transcription, face tracking, GPU export) work on an ordinary PC before building the app around them, and wrote down what we found in [spikes/REPORT.md](spikes/REPORT.md).
+
+Phase 1 is underway. The app can already import an episode, transcribe it and let you search the transcript while the video plays. Picking a clip, framing it and exporting come next. The full plan is in [ROADMAP.md](ROADMAP.md).
+
+## Running it from source
+
+You need Windows and Node 24.
+
+```
+npm install
+npm run fetch-tools
+npm run dev
+```
+
+`fetch-tools` puts FFmpeg in `vendor/`. The first time you transcribe, the app downloads whisper.cpp and the speech model (about 1.3 GB with an NVIDIA card) into `%LOCALAPPDATA%\Rezzo`. `npm run check` runs the linter, the type checker and the unit tests; `npm run test:e2e` builds the app and drives it with Playwright.
 
 ## What it will do
 

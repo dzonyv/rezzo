@@ -32,6 +32,8 @@ desktop.ini
 *.m4v
 *.m2ts
 *.mts
+# ...but not TypeScript config modules
+!*.config.mts
 *.wav
 *.mp3
 *.m4a
@@ -39,11 +41,11 @@ desktop.ini
 *.flac
 *.ogg
 *.opus
-media/
+/media/
 fixtures/media/
 
 # Downloaded binaries and models (fetched by script)
-vendor/bin/
+vendor/
 models/
 *.gguf
 *.bin

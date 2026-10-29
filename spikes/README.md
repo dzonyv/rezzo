@@ -30,6 +30,16 @@ npm run verify               # checks the exported files, prints a table
 
 Raw numbers land in `<media>/export/results.json` and `verify.json`.
 
+## Phase 1 checks: IPC and working files
+
+```
+npm run ipc:working          # converts the real clips to working files, times it
+npm run ipc:lab              # sandboxed renderer -> utility process -> FFmpeg (opens a window)
+npm run ipc:lab -- --link=direct --run=export
+```
+
+`--link=relay` (default) posts frames from a Web Worker, `--link=direct` from the page itself. Results land in `<media>/ipc/`.
+
 ## 0a: transcription
 
 ```
