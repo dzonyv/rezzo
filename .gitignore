@@ -32,6 +32,8 @@ desktop.ini
 *.m4v
 *.m2ts
 *.mts
+# ...but not TypeScript config modules
+!*.config.mts
 *.wav
 *.mp3
 *.m4a
