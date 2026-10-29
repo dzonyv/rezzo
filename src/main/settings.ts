@@ -26,9 +26,14 @@ async function load(): Promise<Settings> {
   const defaults: Settings = { uiLanguage: defaultUiLanguage(app.getLocale()), transcriptLanguage: 'sr' };
   try {
     const stored = JSON.parse(await readFile(settingsFile(), 'utf8'));
-    // Unknown keys (from a newer version) are ignored; a damaged file falls
-    // back to the defaults instead of stopping the app.
-    return { ...defaults, ...settingsSchema.partial().catch({}).parse(stored) };
+    // Each setting stands alone: an unknown or damaged one falls back to its
+    // default without taking the others with it.
+    const settings: Record<string, unknown> = { ...defaults };
+    for (const [key, schema] of Object.entries(settingsSchema.shape)) {
+      const parsed = schema.safeParse(stored?.[key]);
+      if (parsed.success) settings[key] = parsed.data;
+    }
+    return settings as Settings;
   } catch {
     return defaults;
   }

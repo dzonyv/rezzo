@@ -70,6 +70,13 @@ describe('wordAt', () => {
     expect(wordAt(flat, 9)).toBe(2);
   });
 
+  it('copes with a start that steps back', () => {
+    const { words: w } = flatten([
+      { start: 0, end: 3, words: [{ text: 'a', start: 1, end: 1.4, p: 1 }, { text: 'b', start: 0.9, end: 1.6, p: 1 }, { text: 'c', start: 2, end: 2.5, p: 1 }] },
+    ]);
+    expect([0.95, 1.2, 2.1].map((t) => wordAt(w, t))).toEqual([-1, 1, 2]);
+  });
+
   it('numbers words across segments', () => {
     expect(flat.map((w) => [w.index, w.segment])).toEqual([[0, 0], [1, 0], [2, 1]]);
   });

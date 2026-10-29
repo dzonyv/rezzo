@@ -4,14 +4,11 @@
  */
 import { useEffect } from 'react';
 import { useTranslation } from 'react-i18next';
+import { isTypingTarget } from '../ui/focus.ts';
 import { closeWindow, createProject, openProject, save } from './actions.ts';
 import { isDirty, projectStore, useProject } from './store.ts';
 
 const AUTOSAVE_MS = 30_000;
-
-/** Typing in a field keeps the field's own undo and shortcuts. */
-const isTextField = (el: EventTarget | null) =>
-  el instanceof HTMLElement && (el.isContentEditable || el.tagName === 'INPUT' || el.tagName === 'TEXTAREA');
 
 export function useProjectChrome(): void {
   const { t } = useTranslation();
@@ -36,7 +33,8 @@ export function useProjectChrome(): void {
       if (key === 's') run(() => void save(e.shiftKey));
       else if (key === 'o') run(() => void openProject());
       else if (key === 'n') run(() => void createProject());
-      else if (isTextField(e.target)) return;
+      // Typing in a field keeps the field's own undo.
+      else if (isTypingTarget(e.target)) return;
       else if (key === 'z' && !e.shiftKey) run(() => store.undo());
       else if (key === 'y' || (key === 'z' && e.shiftKey)) run(() => store.redo());
     };

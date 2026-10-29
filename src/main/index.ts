@@ -38,10 +38,8 @@ function registerHandlers(): void {
     return settings;
   });
 
-  handle('project:open', async ({ window }, file) => {
-    const chosen = file ?? (await chooseProjectToOpen(window));
-    return chosen ? openProject(chosen) : null;
-  });
+  handle('project:choose', ({ window }) => chooseProjectToOpen(window));
+  handle('project:open', (_ctx, file) => openProject(String(file)));
   handle('project:save', async ({ window }, project, file) => {
     const valid = projectSchema.parse(project);
     const target = file ?? (await chooseWhereToSave(window, valid.name, valid.source?.path));

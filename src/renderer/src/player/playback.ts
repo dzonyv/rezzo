@@ -35,7 +35,8 @@ const onPause = () => {
   playbackStore.setState({ playing: false });
   tick();
 };
-const onSeeked = () => tick();
+// Only the time; while playing, the running loop carries on by itself.
+const onSeeked = () => playbackStore.setState({ time: video?.currentTime ?? 0 });
 
 /** Connects the <video> element; pass null when it goes away. */
 export function attachVideo(el: HTMLVideoElement | null): void {

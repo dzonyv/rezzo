@@ -60,6 +60,8 @@ export async function startTranscription(sender: WebContents, request: unknown):
     if (!sender.isDestroyed()) sender.send('transcribe:progress', { projectId, progress });
   };
 
+  /** Whisper reported progress, i.e. it started fine and failed (if at all) for another reason. */
+  let whisperStarted = false;
   const run = async (build: 'whisper-cuda' | 'whisper-cpu') => {
     await installTools([build, MODEL_ID], send, abort.signal);
     return callWorker(
@@ -73,7 +75,14 @@ export async function startTranscription(sender: WebContents, request: unknown):
         modelId: MODEL_ID,
         modelFile: path.join(downloadedToolDir(MODEL_ID), path.basename(new URL(tool(MODEL_ID).url).pathname)),
       }],
-      { onProgress: (p) => send(p as TranscribeProgress), signal: abort.signal },
+      {
+        onProgress: (p) => {
+          const progress = p as TranscribeProgress;
+          if (progress.phase === 'transcribe' && progress.fraction > 0) whisperStarted = true;
+          send(progress);
+        },
+        signal: abort.signal,
+      },
     );
   };
 
@@ -83,8 +92,10 @@ export async function startTranscription(sender: WebContents, request: unknown):
       return { ok: true, transcript: await run(build) };
     } catch (e) {
       // A CUDA build that won't start on this machine (old driver, odd
-      // card): the CPU build is slow but works everywhere.
-      if (build !== 'whisper-cuda' || !(e instanceof WorkerError) || e.code !== 'whisper-failed') throw e;
+      // card): the CPU build is slow but works everywhere. A run that got
+      // going and then failed would fail the same way on the CPU.
+      const cudaWontStart = build === 'whisper-cuda' && e instanceof WorkerError && e.code === 'whisper-failed' && !whisperStarted;
+      if (!cudaWontStart) throw e;
       return { ok: true, transcript: await run('whisper-cpu') };
     }
   } catch (e) {

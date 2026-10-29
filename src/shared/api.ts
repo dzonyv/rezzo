@@ -50,8 +50,9 @@ export interface InvokeApi {
   'settings:get': () => Settings;
   'settings:set': (patch: Partial<Settings>) => Settings;
 
-  /** Opens `path`, or asks for a file when it's null. Null result: the user cancelled. */
-  'project:open': (path: string | null) => OpenResult | null;
+  /** Asks for a project file. Null: the user cancelled. */
+  'project:choose': () => string | null;
+  'project:open': (path: string) => OpenResult;
   /** Saves to `path`, or asks where when it's null ("Save as"). Null result: the user cancelled. */
   'project:save': (project: Project, path: string | null) => SaveResult | null;
   'project:recent': () => RecentProject[];
@@ -97,6 +98,7 @@ export type InvokeResult<C extends InvokeChannel> = Awaited<ReturnType<InvokeApi
 export const INVOKE_CHANNELS = {
   'settings:get': true,
   'settings:set': true,
+  'project:choose': true,
   'project:open': true,
   'project:save': true,
   'project:recent': true,

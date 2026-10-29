@@ -97,6 +97,13 @@ describe('install', () => {
     expect(err.code).toBe('http');
   });
 
+  it('reuses a complete download instead of fetching it again', async () => {
+    await writeFile(path.join(dir, 'model.bin'), content);
+    await install(tool(), dir);
+    expect(requests).toHaveLength(0);
+    expect(await isInstalled(tool(), dir)).toBe(true);
+  });
+
   it('reinstalls when the pinned checksum changes', async () => {
     await install(tool(), dir);
     expect(await isInstalled(tool({ sha256: 'e'.repeat(64) }), dir)).toBe(false);

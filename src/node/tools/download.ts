@@ -52,12 +52,15 @@ export async function install(
   const file = path.join(dir, fileName);
   const part = `${file}.part`;
 
-  const sha256 = await download(tool, part, options);
-  if (sha256 !== tool.sha256) {
-    await rm(part, { force: true });
-    throw new DownloadError('checksum', `${tool.id}: checksum mismatch, the download was damaged`);
+  // An earlier attempt may have finished the download and failed to unpack.
+  if (!(await isComplete(tool, file))) {
+    const sha256 = await download(tool, part, options);
+    if (sha256 !== tool.sha256) {
+      await rm(part, { force: true });
+      throw new DownloadError('checksum', `${tool.id}: checksum mismatch, the download was damaged`);
+    }
+    await rename(part, file);
   }
-  await rename(part, file);
 
   if (tool.extract) {
     try {
@@ -118,6 +121,13 @@ async function download(
     throw new DownloadError('network', `${tool.id}: ${String(e)}`);
   }
   return hash.digest('hex');
+}
+
+async function isComplete(tool: Tool, file: string): Promise<boolean> {
+  if ((await sizeOf(file)) !== tool.size) return false;
+  const hash = createHash('sha256');
+  await hashFile(file, hash);
+  return hash.digest('hex') === tool.sha256;
 }
 
 async function hashFile(file: string, hash: Hash): Promise<void> {

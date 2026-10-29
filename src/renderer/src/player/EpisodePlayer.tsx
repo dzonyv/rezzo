@@ -1,6 +1,7 @@
 import { useEffect, useRef, useState } from 'react';
 import { useTranslation } from 'react-i18next';
 import type { Source } from '../../../shared/project.ts';
+import { isTypingTarget } from '../ui/focus.ts';
 import { attachVideo, togglePlay } from './playback.ts';
 
 type Preview = { state: 'none' } | { state: 'making'; fraction: number } | { state: 'failed'; detail: string };
@@ -35,8 +36,9 @@ export function EpisodePlayer({ source }: { source: Source }) {
 
   useEffect(() => {
     const onKey = (e: KeyboardEvent) => {
-      const el = e.target as HTMLElement;
-      if (e.code !== 'Space' || ['INPUT', 'TEXTAREA', 'SELECT', 'BUTTON', 'VIDEO'].includes(el.tagName)) return;
+      if (e.code !== 'Space' || isTypingTarget(e.target)) return;
+      // These already do something with Space.
+      if (['SELECT', 'BUTTON', 'VIDEO'].includes((e.target as HTMLElement).tagName)) return;
       e.preventDefault();
       togglePlay();
     };

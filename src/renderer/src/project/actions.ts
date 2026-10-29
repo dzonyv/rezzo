@@ -1,6 +1,7 @@
 /**
  * What the menu-level commands do: new, open, save, close. Each one checks
- * for unsaved work first where it would otherwise be lost.
+ * for unsaved work where it would otherwise be lost, and only after the
+ * user has picked a file, so cancelling a dialog changes nothing.
  */
 import i18n from 'i18next';
 import { newProject, type Project } from '../../../shared/project.ts';
@@ -12,10 +13,25 @@ import { cancelTranscription } from './transcription.ts';
 const api = () => window.rezzo;
 
 /**
- * Makes sure unsaved work is saved or deliberately dropped.
- * Returns false if the user cancelled.
+ * Wraps a command so a failure nobody planned for (a crashed worker, a
+ * missing tool) shows up as a notice instead of disappearing.
  */
-export async function settleUnsaved(): Promise<boolean> {
+function command<A extends unknown[], R>(fn: (...args: A) => Promise<R>, fallback: R): (...args: A) => Promise<R> {
+  return async (...args) => {
+    try {
+      return await fn(...args);
+    } catch (e) {
+      notify('error', i18n.t('errors.unexpected', { detail: e instanceof Error ? e.message : String(e) }));
+      return fallback;
+    }
+  };
+}
+
+/**
+ * Makes sure unsaved work is saved or deliberately dropped, then stops
+ * anything still running for the project. Returns false if the user cancelled.
+ */
+export const settleUnsaved = command(async (): Promise<boolean> => {
   const state = projectStore.getState();
   if (state.project && isDirty(state)) {
     const answer = await askUnsaved(state.project.name);
@@ -23,14 +39,12 @@ export async function settleUnsaved(): Promise<boolean> {
     if (answer === 'save' && !(await save(false))) return false;
     if (answer === 'discard') await api().invoke('project:discard-recovery', state.project.id);
   }
-  // The project is about to go away; so is any work running for it.
   cancelTranscription();
   return true;
-}
+}, false);
 
 /** Starts a project from a video: `file`, or one the user picks. */
-export async function createProject(file: string | null = null): Promise<void> {
-  if (!(await settleUnsaved())) return;
+export const createProject = command(async (file: string | null = null): Promise<void> => {
   const chosen = file ?? (await api().invoke('episode:choose'));
   if (!chosen) return;
   const result = await api().invoke('episode:import', chosen);
@@ -38,11 +52,12 @@ export async function createProject(file: string | null = null): Promise<void> {
     notify('error', i18n.t(`errors.import.${result.error}`, { path: chosen }));
     return;
   }
+  if (!(await settleUnsaved())) return;
   projectStore.getState().load({ ...newProject(baseName(chosen)), source: result.source }, null);
-}
+}, undefined);
 
 /** Points the project at its source video after the file has moved. */
-export async function locateSource(): Promise<boolean> {
+export const locateSource = command(async (): Promise<boolean> => {
   const source = projectStore.getState().project?.source;
   if (!source) return false;
   const result = await api().invoke('episode:locate', source);
@@ -59,29 +74,30 @@ export async function locateSource(): Promise<boolean> {
   // Moving the file isn't an edit to undo.
   projectStore.getState().replace((d) => void (d.source = result.source));
   return true;
-}
+}, false);
 
-/** Opens `path`, or asks for a file when it's null. */
-export async function openProject(path: string | null = null): Promise<void> {
-  if (!(await settleUnsaved())) return;
-  const result = await api().invoke('project:open', path);
-  if (!result) return;
+/** Opens `path`, or one the user picks. */
+export const openProject = command(async (path: string | null = null): Promise<void> => {
+  const chosen = path ?? (await api().invoke('project:choose'));
+  if (!chosen) return;
+  const result = await api().invoke('project:open', chosen);
   if (!result.ok) {
     notify('error', i18n.t(`errors.open.${result.error}`, { path: result.path }));
     return;
   }
+  if (!(await settleUnsaved())) return;
   projectStore.getState().load(result.project, result.path);
-}
+}, undefined);
 
 /** Continues with work rescued from a crash. It stays unsaved until saved. */
-export async function restoreProject(project: Project, filePath: string | null): Promise<void> {
+export const restoreProject = command(async (project: Project, filePath: string | null): Promise<void> => {
   if (!(await settleUnsaved())) return;
   projectStore.getState().load(project, null);
   if (filePath) projectStore.setState({ filePath });
-}
+}, undefined);
 
 /** Saves; `saveAs` (or a project never saved) asks where. Returns true when saved. */
-export async function save(saveAs: boolean): Promise<boolean> {
+export const save = command(async (saveAs: boolean): Promise<boolean> => {
   const { project, filePath } = projectStore.getState();
   if (!project) return false;
   projectStore.getState().endGesture();
@@ -93,15 +109,15 @@ export async function save(saveAs: boolean): Promise<boolean> {
   }
   projectStore.getState().markSaved(project, result.path);
   return true;
-}
+}, false);
 
-export async function closeProject(): Promise<void> {
+export const closeProject = command(async (): Promise<void> => {
   if (!(await settleUnsaved())) return;
   projectStore.getState().close();
-}
+}, undefined);
 
 /** The window's close button: settle unsaved work, then let the window go. */
-export async function closeWindow(): Promise<void> {
+export const closeWindow = command(async (): Promise<void> => {
   if (!(await settleUnsaved())) return;
   await api().invoke('app:close');
-}
+}, undefined);
