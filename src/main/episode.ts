@@ -6,7 +6,7 @@ import type { ImportResult, LocateResult, SourceStatus } from '../shared/api.ts'
 import { sourceSchema, type Source } from '../shared/project.ts';
 import { translate } from '../shared/translate.ts';
 import { WorkerError } from '../shared/worker-api.ts';
-import { allowMedia } from './media-protocol.ts';
+import { allowMedia, rememberSource, sourceUrl } from './media-protocol.ts';
 import { cacheDir } from './paths.ts';
 import { getSettings } from './settings.ts';
 import { callWorker } from './worker-host.ts';
@@ -36,6 +36,7 @@ export async function importEpisode(file: string): Promise<ImportResult> {
   }
   try {
     const [probed, fingerprint] = await Promise.all([callWorker('probe', [file]), callWorker('fingerprint', [file])]);
+    rememberSource(file);
     return { ok: true, source: { path: file, size, fingerprint, ...probed } };
   } catch (e) {
     if (e instanceof WorkerError && (e.code === 'unreadable' || e.code === 'no-video')) return { ok: false, error: e.code };
@@ -66,7 +67,7 @@ export async function locateEpisode(win: BrowserWindow, source: unknown): Promis
 
 /** A URL the page can play the source from. */
 export async function episodeMediaUrl(source: unknown): Promise<string> {
-  return allowMedia(sourceSchema.parse(source).path);
+  return sourceUrl(sourceSchema.parse(source).path);
 }
 
 /**
@@ -75,6 +76,7 @@ export async function episodeMediaUrl(source: unknown): Promise<string> {
  */
 export async function makePreview(sender: WebContents, source: unknown): Promise<string> {
   const { path: file, fingerprint, duration } = sourceSchema.parse(source);
+  sourceUrl(file); // the same check: only a source we know
   const out = path.join(cacheDir(), fingerprint, 'preview-480p.mp4');
   await callWorker('makePreview', [{ sourcePath: file, duration, out }], {
     onProgress: (fraction) => {

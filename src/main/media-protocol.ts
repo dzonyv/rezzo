@@ -12,7 +12,22 @@ import { Readable } from 'node:stream';
 export const MEDIA_SCHEME = 'rezzo-media';
 
 const allowed = new Set<string>();
+/** Source videos the main process has seen in an import or a project file it read itself. */
+const knownSources = new Set<string>();
 const key = (file: string) => path.resolve(file).toLowerCase();
+
+export function rememberSource(file: string): void {
+  knownSources.add(key(file));
+}
+
+/**
+ * A URL for playing a source video. Only sources the main process came
+ * across itself qualify, so a page can't use this to read arbitrary files.
+ */
+export function sourceUrl(file: string): string {
+  if (!knownSources.has(key(file))) throw new Error('Not a known source video');
+  return allowMedia(file);
+}
 
 /** Lets the page play `file`; returns the URL to use. */
 export function allowMedia(file: string): string {

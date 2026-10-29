@@ -10,6 +10,7 @@ import type { OpenResult, RecentProject, RecoveredProject, SaveResult } from '..
 import { parseProject, PROJECT_EXTENSION, ProjectFormatError, projectSchema, serializeProject } from '../shared/project.ts';
 import { translate } from '../shared/translate.ts';
 import { writeFileAtomic } from '../node/files.ts';
+import { rememberSource } from './media-protocol.ts';
 import { getSettings } from './settings.ts';
 
 const recentFile = () => path.join(app.getPath('userData'), 'recent.json');
@@ -48,6 +49,7 @@ export async function openProject(file: string): Promise<OpenResult> {
   }
   try {
     const project = parseProject(text);
+    if (project.source) rememberSource(project.source.path);
     await remember(file, project.name);
     return { ok: true, path: file, project };
   } catch (e) {
@@ -119,7 +121,9 @@ export async function recoveredProjects(): Promise<RecoveredProject[]> {
   for (const name of names.filter((n) => n.endsWith('.json'))) {
     try {
       const copy = recoverySchema.parse(JSON.parse(await readFile(path.join(recoveryDir(), name), 'utf8')));
-      found.push({ filePath: copy.filePath, savedAt: copy.savedAt, project: projectSchema.parse(copy.project) });
+      const project = projectSchema.parse(copy.project);
+      if (project.source) rememberSource(project.source.path);
+      found.push({ filePath: copy.filePath, savedAt: copy.savedAt, project });
     } catch {
       // A half-written or outdated copy; nothing to offer.
     }

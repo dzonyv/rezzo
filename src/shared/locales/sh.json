@@ -99,12 +99,23 @@
     "download": "Prva transkripcija jednom preuzima prepoznavanje govora ({{size}} GB).",
     "cpu": "Nije pronađena NVIDIA grafička kartica, pa ovo radi procesor. Trajaće otprilike upola kraće od samog videa.",
     "noAudio": "Ovaj video nema zvuk koji bi se transkribovao.",
-    "words": "Reči: {{count}}",
     "phase": {
       "starting": "Pokrećem…",
       "download": "Preuzimam prepoznavanje govora: {{received}} / {{total}} MB",
       "audio": "Pripremam zvuk: {{percent}}%",
       "transcribe": "Transkribujem: {{percent}}%"
     }
+  },
+  "transcript": {
+    "search": "Pretraži transkript (Ctrl+F)",
+    "matches": "{{current}} od {{total}}",
+    "noMatches": "Nema rezultata",
+    "previous": "Prethodni rezultat (Shift+Enter)",
+    "next": "Sledeći rezultat (Enter)",
+    "empty": "Transkript će se pojaviti ovde."
+  },
+  "player": {
+    "preparing": "Ovaj video ne može da se pusti direktno, pa Rezzo pravi kopiju za pregled: {{percent}}%",
+    "failed": "Ovaj video ne može da se pusti ovde: {{detail}}"
   }
 }

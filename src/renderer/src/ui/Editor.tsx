@@ -1,6 +1,8 @@
 import { useTranslation } from 'react-i18next';
 import { closeProject, save } from '../project/actions.ts';
 import { isDirty, projectStore, useProject } from '../project/store.ts';
+import { EpisodePlayer } from '../player/EpisodePlayer.tsx';
+import { TranscriptView } from '../transcript/TranscriptView.tsx';
 import { SourcePanel } from './SourcePanel.tsx';
 import { TranscribePanel } from './TranscribePanel.tsx';
 
@@ -56,12 +58,15 @@ export function Editor() {
         </button>
       </header>
       <section className="workspace">
-        {project?.source && <SourcePanel source={project.source} />}
-        {project?.source && !project.transcript && <TranscribePanel project={project} />}
-        {project?.transcript && (
-          <p className="transcript-summary">
-            {t('transcribe.words', { count: project.transcript.segments.reduce((n, s) => n + s.words.length, 0) })}
-          </p>
+        <div className="side">
+          {project?.source && <EpisodePlayer key={project.source.fingerprint} source={project.source} />}
+          {project?.source && <SourcePanel source={project.source} />}
+          {project?.source && !project.transcript && <TranscribePanel project={project} />}
+        </div>
+        {project?.transcript ? (
+          <TranscriptView transcript={project.transcript} />
+        ) : (
+          <p className="transcript-empty">{t('transcript.empty')}</p>
         )}
       </section>
     </div>

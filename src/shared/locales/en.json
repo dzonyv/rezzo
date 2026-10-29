@@ -99,12 +99,23 @@
     "download": "The first transcription downloads speech recognition once ({{size}} GB).",
     "cpu": "No NVIDIA graphics card found, so this runs on the processor. Expect it to take about half as long as the video.",
     "noAudio": "This video has no sound to transcribe.",
-    "words": "{{count}} words",
     "phase": {
       "starting": "Starting…",
       "download": "Downloading speech recognition: {{received}} / {{total}} MB",
       "audio": "Preparing audio: {{percent}}%",
       "transcribe": "Transcribing: {{percent}}%"
     }
+  },
+  "transcript": {
+    "search": "Search the transcript (Ctrl+F)",
+    "matches": "{{current}} of {{total}}",
+    "noMatches": "No matches",
+    "previous": "Previous match (Shift+Enter)",
+    "next": "Next match (Enter)",
+    "empty": "The transcript will appear here."
+  },
+  "player": {
+    "preparing": "This video can't be played directly, so Rezzo is making a preview copy: {{percent}}%",
+    "failed": "This video can't be played here: {{detail}}"
   }
 }
