@@ -298,3 +298,15 @@ The working-file conversion as the app will run it (first video stream, H.264 wi
 | D | 480p30 | 2.0 s (38×) | 2.0 s (38×) | 10 / 16 MB per minute |
 
 A one-minute 1080p clip is ready in about five seconds. Below 1080p, NVENC isn't faster than x264 and makes bigger files. The working file uses x264.
+
+### Which whisper.cpp build to download
+
+The app downloads whisper.cpp the first time you transcribe. Clip D (76 s), turbo q5_0, DTW on, same settings as above:
+
+| Build | Download | Time | Notes |
+|---|---|---|---|
+| CUDA 12.4 | 685 MB | 13 s | uses the GTX 1660 |
+| CUDA 11.8 | 285 MB | 45 s | reports "no GPU found" on this machine and runs on the CPU |
+| CPU with OpenBLAS | 22 MB | 34 s | 2.2× realtime with 8 threads |
+
+The CUDA 11.8 build would have saved 400 MB, but it doesn't see the card here, so the app uses CUDA 12.4 with an NVIDIA card and the OpenBLAS CPU build otherwise (and when the CUDA build fails to start). On the CPU an hour of audio takes about 27 minutes. GPU and CPU runs don't produce identical text, but each is deterministic from run to run.
