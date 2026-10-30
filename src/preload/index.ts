@@ -3,7 +3,7 @@
  * only way to reach the main process, limited to the channels in shared/api.ts.
  */
 import { contextBridge, ipcRenderer, webUtils, type IpcRendererEvent } from 'electron';
-import { EVENT_CHANNELS, INVOKE_CHANNELS, type RezzoApi } from '../shared/api.ts';
+import { EVENT_CHANNELS, EXPORT_PORT_MESSAGE, INVOKE_CHANNELS, type RezzoApi } from '../shared/api.ts';
 
 const api: RezzoApi = {
   invoke(channel, ...args) {
@@ -20,3 +20,9 @@ const api: RezzoApi = {
 };
 
 contextBridge.exposeInMainWorld('rezzo', api);
+
+// A MessagePort can't cross the context bridge; the page gets the export's
+// port to the encoder as a window message instead, as Electron's docs suggest.
+// (The preload is built without DOM types.)
+const page = globalThis as unknown as { postMessage(message: unknown, targetOrigin: string, transfer: unknown[]): void };
+ipcRenderer.on(EXPORT_PORT_MESSAGE, (event, job) => page.postMessage({ type: EXPORT_PORT_MESSAGE, job }, '*', event.ports));

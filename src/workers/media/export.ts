@@ -150,6 +150,7 @@ function encode(ctx: JobContext, req: ExportRequest, port: MessagePortMain, part
         finish(new Error(msg.message));
       }
     };
+    port.on('close', () => finish(new Error('the page closed the export')));
     port.on('message', ({ data }) => {
       queue = queue.then(() => handle(data as ExportPortRequest)).catch((e: unknown) => finish(e instanceof Error ? e : new Error(String(e))));
     });

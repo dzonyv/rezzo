@@ -39,7 +39,8 @@
   "files": {
     "project": "Rezzo project",
     "video": "Video",
-    "all": "All files"
+    "all": "All files",
+    "mp4": "MP4 video"
   },
   "unsaved": {
     "title": "Save changes to “{{name}}”?",

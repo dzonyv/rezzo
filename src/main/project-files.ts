@@ -9,7 +9,7 @@ import { z } from 'zod';
 import type { OpenResult, RecentProject, RecoveredProject, SaveResult } from '../shared/api.ts';
 import { parseProject, PROJECT_EXTENSION, ProjectFormatError, projectSchema, serializeProject } from '../shared/project.ts';
 import { translate } from '../shared/translate.ts';
-import { writeFileAtomic } from '../node/files.ts';
+import { safeFileName, writeFileAtomic } from '../node/files.ts';
 import { rememberSource } from './media-protocol.ts';
 import { getSettings } from './settings.ts';
 
@@ -31,7 +31,7 @@ export async function chooseProjectToOpen(win: BrowserWindow): Promise<string | 
 }
 
 export async function chooseWhereToSave(win: BrowserWindow, suggestedName: string, nextTo?: string): Promise<string | null> {
-  const name = `${suggestedName.replace(/[<>:"/\\|?*]/g, '_').trim() || 'project'}.${PROJECT_EXTENSION}`;
+  const name = safeFileName(suggestedName, PROJECT_EXTENSION, 'project');
   const { canceled, filePath } = await dialog.showSaveDialog(win, {
     defaultPath: nextTo ? path.join(path.dirname(nextTo), name) : name,
     filters: await filters(),

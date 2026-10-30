@@ -39,7 +39,8 @@
   "files": {
     "project": "Rezzo projekat",
     "video": "Video",
-    "all": "Svi fajlovi"
+    "all": "Svi fajlovi",
+    "mp4": "MP4 video"
   },
   "unsaved": {
     "title": "Sačuvati izmene u „{{name}}”?",
