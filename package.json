@@ -36,6 +36,7 @@
     "globals": "17.13.0",
     "i18next": "26.5.11",
     "immer": "11.2.9",
+    "mp4box": "2.5.0",
     "playwright-core": "1.64.1",
     "react": "19.3.1",
     "react-dom": "19.3.1",

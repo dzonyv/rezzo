@@ -63,6 +63,10 @@ export function seek(time: number, { play = false } = {}): void {
   if (play) void video.play();
 }
 
+export function pauseEpisode(): void {
+  video?.pause();
+}
+
 export function togglePlay(): void {
   if (!video) return;
   if (video.paused) void video.play();
