@@ -28,6 +28,8 @@ const H = 1920;
 const FIRST = 147;
 const COUNT = 63;
 const SWITCH = 180;
+/** A second clip long enough (about a minute) to cancel partway through. */
+const LONG_COUNT = 1794;
 
 let dir: string;
 let app: ElectronApplication | undefined;
@@ -101,7 +103,7 @@ async function exportFromList(name: string, out: string): Promise<void> {
 
 beforeAll(async () => {
   dir = await mkdtemp(path.join(tmpdir(), 'rezzo-e2e-'));
-  const video = await makeNumberedVideo(path.join(dir, 'numbered.mp4'));
+  const video = await makeNumberedVideo(path.join(dir, 'numbered.mp4'), { seconds: 60 });
   await mkdir(path.join(dir, 'out'));
 
   ({ app, page } = await launchApp(dir));
@@ -123,7 +125,7 @@ beforeAll(async () => {
   };
   project.clips = [
     clip('Kratki', FIRST / 30, (FIRST + COUNT) / 30, [[FIRST / 30, 'full'], [SWITCH / 30, 'follow']]),
-    clip('Dugi', 0.1, 19.9, [[0.1, 'full']]),
+    clip('Dugi', 0.1, 0.1 + LONG_COUNT / 30, [[0.1, 'full']]),
   ];
   await writeFile(file, JSON.stringify(project));
   await page.getByRole('button', { name: /numbered/ }).click();
@@ -201,11 +203,16 @@ describe('export', () => {
     expect(Math.abs(Number(audio.duration) - COUNT / 30)).toBeLessThan(1 / 30 + 0.025);
   });
 
-  it('leaves nothing behind when cancelled', async () => {
+  it('asks before closing the window during an export, and leaves nothing behind when cancelled', async () => {
     const target = path.join(dir, 'out', 'dugi.mp4');
     await exportFromList('Dugi', target);
-    // Cancel while frames are being rendered and encoded.
-    await page.locator('.export-dialog progress[max="594"]').waitFor({ timeout: 30_000 });
+    // While frames are being rendered and encoded:
+    await page.locator(`.export-dialog progress[max="${LONG_COUNT}"]`).waitFor({ timeout: 30_000 });
+    await app!.evaluate(({ BrowserWindow }) => BrowserWindow.getAllWindows()[0]!.close());
+    await page.getByRole('heading', { name: 'An export is running' }).waitFor();
+    await page.getByRole('button', { name: 'Keep exporting' }).click();
+    expect(await page.locator('.export-dialog[open] progress[max]').count()).toBe(1);
+
     await page.locator('.export-dialog').getByRole('button', { name: 'Cancel' }).click();
     await expect.poll(() => page.locator('.export-dialog[open]').count(), { timeout: 20_000 }).toBe(0);
     await expect.poll(async () => (await readdir(path.join(dir, 'out'))).sort()).toEqual(['kratki.mp4']);
@@ -217,7 +224,7 @@ describe('export', () => {
     await page.getByRole('heading', { name: 'Clip exported' }).waitFor({ timeout: 120_000 });
     await page.locator('.export-dialog').getByRole('button', { name: 'Close', exact: true }).click();
     const { stdout } = await run(ffprobeExe(), ['-v', 'error', '-select_streams', 'v:0', '-count_packets', '-show_entries', 'stream=nb_read_packets', '-of', 'csv=p=0', target]);
-    expect(Number(stdout.trim())).toBe(594);
+    expect(Number(stdout.trim())).toBe(LONG_COUNT);
   });
 });
 

@@ -43,23 +43,27 @@ export function exportArgs(req: ExportRequest, out: string): string[] {
   ];
 }
 
-let picked: Promise<Encoder> | undefined;
+let nvencWorks = false;
 
 /**
  * NVENC when a one-frame test encode works (an NVIDIA card with a recent
  * enough driver), x264 otherwise. REZZO_ENCODER forces one, for tests.
+ * Only success is remembered: NVENC can fail for a while (another program
+ * holding all of the card's encoder sessions) and work again later.
  */
-export function pickEncoder(): Promise<Encoder> {
+export async function pickEncoder(): Promise<Encoder> {
   const forced = process.env['REZZO_ENCODER'];
-  if (forced === 'nvenc' || forced === 'x264') return Promise.resolve(forced);
-  picked ??= exec(ffmpegExe(), [
-    '-v', 'error', '-f', 'lavfi', '-i', `color=c=black:s=${OUTPUT.width}x${OUTPUT.height}:r=30`,
-    '-frames:v', '1', '-c:v', 'h264_nvenc', '-f', 'null', '-',
-  ]).then(
-    () => 'nvenc' as const,
-    () => 'x264' as const,
-  );
-  return picked;
+  if (forced === 'nvenc' || forced === 'x264') return forced;
+  if (!nvencWorks) {
+    nvencWorks = await exec(ffmpegExe(), [
+      '-v', 'error', '-f', 'lavfi', '-i', `color=c=black:s=${OUTPUT.width}x${OUTPUT.height}:r=30`,
+      '-frames:v', '1', '-c:v', 'h264_nvenc', '-f', 'null', '-',
+    ]).then(
+      () => true,
+      () => false,
+    );
+  }
+  return nvencWorks ? 'nvenc' : 'x264';
 }
 
 class ExportError extends Error {
@@ -103,7 +107,13 @@ function encode(ctx: JobContext, req: ExportRequest, port: MessagePortMain, part
   child.stderr.setEncoding('utf8').on('data', (d: string) => (stderr += d));
   // Writes after FFmpeg has gone fail with EPIPE; its exit code says why.
   child.stdin.on('error', () => {});
-  const reply = (message: ExportPortReply) => port.postMessage(message);
+  const reply = (message: ExportPortReply) => {
+    try {
+      port.postMessage(message);
+    } catch {
+      // The page has closed its end; the result still goes back through the call.
+    }
+  };
   // Windows won't delete the part file while FFmpeg still has it open.
   const exited = new Promise<void>((resolve) => {
     child.on('close', () => resolve());

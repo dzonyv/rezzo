@@ -92,10 +92,15 @@ export async function exportClip(clip: Clip, source: Source): Promise<void> {
 
   try {
     const result = await window.rezzo.invoke('export:start', source, clip);
+    // A cancel can reach the encoder from this page before main hears of it,
+    // and then come back as a failure; it's still a cancel.
+    const cancelled = controller.signal.aborted;
+    // The export is over either way; rendering stops if it hasn't.
+    controller.abort();
     await rendering?.catch(() => {});
     if (result?.ok) {
       exportStore.setState({ status: 'done', clipName, path: result.path, seconds: result.seconds, encoder: result.encoder }, true);
-    } else if (result?.error === 'failed') {
+    } else if (result?.error === 'failed' && !cancelled) {
       exportStore.setState({ status: 'failed', clipName, detail: result.detail }, true);
     } else {
       // The dialog or the export was cancelled, or another one is running.
@@ -114,8 +119,11 @@ export async function exportClip(clip: Clip, source: Source): Promise<void> {
 
 /** Stops the running export; the partial file is deleted. */
 export async function cancelExport(): Promise<void> {
-  abort?.abort();
-  await window.rezzo.invoke('export:cancel');
+  const running = abort;
+  // Main first, so the result says "cancelled" whenever it can.
+  const told = window.rezzo.invoke('export:cancel');
+  running?.abort();
+  await told;
 }
 
 /** Puts the dialog away after a result. */

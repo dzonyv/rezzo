@@ -65,7 +65,8 @@ class EncoderLink {
     this.relay.postMessage(message, transfer);
   }
 
-  private fail(error: Error): void {
+  /** Stops waiting for the encoder: pending and later sends reject with `error`. */
+  fail(error: Error): void {
     this.failure ??= error;
     for (const w of this.waiting.splice(0)) w.reject(this.failure);
   }
@@ -80,6 +81,9 @@ export interface RenderOptions {
 /** Renders and sends every frame of `job`. Rejects when it fails or is aborted; the encoder is told either way. */
 export async function renderExport(job: ExportJob, port: MessagePort, layer: VideoLayer, { signal, onProgress }: RenderOptions): Promise<void> {
   const link = new EncoderLink(port);
+  // Aborting also stops waiting for acks that may never come (the worker gone).
+  const stop = () => link.fail(new Error('export stopped'));
+  signal.addEventListener('abort', stop, { once: true });
   // A canvas of its own: the export doesn't disturb the preview.
   const canvas = document.createElement('canvas');
   canvas.width = 1;
@@ -131,6 +135,7 @@ export async function renderExport(job: ExportJob, port: MessagePort, layer: Vid
     link.finish({ type: 'fail', message: e instanceof Error ? e.message : String(e) });
     throw e;
   } finally {
+    signal.removeEventListener('abort', stop);
     frames?.close();
     compositor?.dispose();
     // Nothing else will use this canvas, so its GPU context can go now rather than at garbage collection.

@@ -52,7 +52,6 @@ export async function startExport(win: BrowserWindow, sourceArg: unknown, clipAr
   try {
     const out = await chooseExportFile(win, clip.name);
     if (!out) return null;
-    await rememberExportDir(path.dirname(out));
 
     const progress = (fraction: number) => {
       if (!sender.isDestroyed()) sender.send('export:prepare-progress', { fraction });
@@ -85,6 +84,7 @@ export async function startExport(win: BrowserWindow, sourceArg: unknown, clipAr
     await encoding;
 
     lastExport = out;
+    await rememberExportDir(path.dirname(out));
     return { ok: true, path: out, seconds: (performance.now() - started) / 1000, encoder };
   } catch (e) {
     if (abort.signal.aborted) return { ok: false, error: 'cancelled' };
