@@ -7,12 +7,15 @@ import { _electron as electron, type ElectronApplication, type Page } from 'play
 
 const run = promisify(execFile);
 
-function ffmpegExe(): string {
+function ffmpegBin(): string {
   const root = path.resolve('vendor/tools/ffmpeg');
   const build = readdirSync(root, { withFileTypes: true }).find((d) => d.isDirectory());
   if (!build) throw new Error('FFmpeg missing: run `npm run fetch-tools`');
-  return path.join(root, build.name, 'bin', 'ffmpeg.exe');
+  return path.join(root, build.name, 'bin');
 }
+
+export const ffmpegExe = (): string => path.join(ffmpegBin(), 'ffmpeg.exe');
+export const ffprobeExe = (): string => path.join(ffmpegBin(), 'ffprobe.exe');
 
 /**
  * A short synthetic video (test pattern and a tone), so the tests need no
