@@ -116,6 +116,15 @@ export function editAt<T>(keys: Animated<T>, t: number, value: T, rate: FrameRat
   return setKey(keys, t, value, rate);
 }
 
+/**
+ * Switches the layout from `t` on. A keyframe that would repeat the layout
+ * before it is dropped, so switching back and forth leaves no clutter.
+ */
+export function setLayoutAt(keys: Animated<Layout>, t: number, layout: Layout, rate: FrameRate): Animated<Layout> {
+  const next = setKey(keys, t, layout, rate).map((k) => ({ ...k, ease: 'cut' as const }));
+  return next.filter((k, i) => i === 0 || k.value !== next[i - 1]!.value);
+}
+
 /** Removes keyframe `index`; the last one stays. */
 export function removeKey<T>(keys: Animated<T>, index: number): Animated<T> {
   if (keys.length <= 1) return keys;
@@ -178,6 +187,14 @@ export function fullFrameRect(frame: FullFrame, source: Size, out: Size = OUTPUT
   const h = (w * source.height) / source.width;
   const cy = out.height / 2 + (frame.y * (out.height - h)) / 2;
   return { x: (out.width - w) / 2, y: cy - h / 2, w, h };
+}
+
+/** Slides the Full layout's picture by a drag of `dy` output pixels. */
+export function panFull(frame: FullFrame, source: Size, dy: number, out: Size = OUTPUT): FullFrame {
+  const room = (out.height - fullFrameRect(frame, source, out).h) / 2;
+  // A picture that fills the height exactly has nowhere to go.
+  if (Math.abs(room) < 0.5) return frame;
+  return { ...frame, y: clamp(frame.y + dy / room, -1, 1) };
 }
 
 /** Clips a draw to the output, cutting the same share off its source rectangle. */

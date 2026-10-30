@@ -1,9 +1,9 @@
 import { describe, expect, it } from 'vitest';
 import type { FrameRate } from './frames.ts';
 import {
-  clampCrop, cropRect, defaultVideoLayer, editAt, frameRecipe, panCrop, regions, removeKey, setKey, valueAt, zoomCrop,
+  clampCrop, cropRect, defaultVideoLayer, editAt, frameRecipe, panCrop, panFull, regions, removeKey, setKey, setLayoutAt, valueAt, zoomCrop,
 } from './framing.ts';
-import type { Animated, VideoLayer } from './project.ts';
+import type { Animated, Layout, VideoLayer } from './project.ts';
 
 const RATE: FrameRate = [30, 1];
 const HD = { width: 1920, height: 1080 };
@@ -58,6 +58,15 @@ describe('keyframes', () => {
     const single: Animated<{ x: number }> = [{ t: 1, value: { x: 0 }, ease: 'cut' }];
     expect(editAt(single, 4, { x: 1 }, RATE)).toEqual([{ t: 1, value: { x: 1 }, ease: 'cut' }]);
     expect(editAt(keys, 4, { x: 1 }, RATE)).toHaveLength(4);
+  });
+
+  it('switches layout from a point on, without repeating itself', () => {
+    const one: Animated<Layout> = [{ t: 0, value: 'follow', ease: 'cut' }];
+    const split = setLayoutAt(one, 2, 'split', RATE);
+    expect(split.map((k) => [k.t, k.value])).toEqual([[0, 'follow'], [2, 'split']]);
+    expect(setLayoutAt(split, 4, 'split', RATE)).toEqual(split);
+    expect(setLayoutAt(split, 2, 'follow', RATE)).toEqual(one);
+    expect(setLayoutAt(one, 0, 'full', RATE)).toEqual([{ t: 0, value: 'full', ease: 'cut' }]);
   });
 
   it('keeps the last keyframe', () => {
@@ -145,6 +154,14 @@ describe('frame recipes', () => {
     const d = r.draws[0]!;
     expect(d.dst).toEqual({ x: 0, y: 0, w: 1080, h: 1215 });
     close(d.src, { x: 0.25, y: 0, w: 0.5, h: 1 });
+  });
+
+  it('slides the full frame up and down, within the output', () => {
+    const room = (1920 - 607.5) / 2;
+    expect(panFull({ y: 0, zoom: 1 }, HD, room / 2).y).toBeCloseTo(0.5);
+    expect(panFull({ y: 0.9, zoom: 1 }, HD, room).y).toBe(1);
+    // A 9:16 source fills the output exactly: nothing to slide.
+    expect(panFull({ y: 0, zoom: 1 }, { width: 1080, height: 1920 }, 100).y).toBe(0);
   });
 
   it('switches layout at a keyframe', () => {

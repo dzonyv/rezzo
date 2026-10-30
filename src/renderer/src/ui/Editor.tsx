@@ -1,4 +1,6 @@
 import { useTranslation } from 'react-i18next';
+import { ClipEditor } from '../clip/ClipEditor.tsx';
+import { useOpenClip } from '../clip/state.ts';
 import { closeProject, save } from '../project/actions.ts';
 import { isDirty, projectStore, useProject } from '../project/store.ts';
 import { EpisodePlayer } from '../player/EpisodePlayer.tsx';
@@ -14,6 +16,7 @@ export function Editor() {
   const dirty = useProject(isDirty);
   const undoLabel = useProject((s) => s.undoLabel);
   const redoLabel = useProject((s) => s.redoLabel);
+  const openClip = useOpenClip();
   const store = projectStore.getState();
 
   return (
@@ -58,7 +61,7 @@ export function Editor() {
           {t('editor.close')}
         </button>
       </header>
-      <section className="workspace">
+      <section className={openClip ? 'workspace with-clip' : 'workspace'}>
         <div className="side">
           {project?.source && <EpisodePlayer key={project.source.fingerprint} source={project.source} />}
           {project?.source && <SourcePanel source={project.source} />}
@@ -70,6 +73,7 @@ export function Editor() {
         ) : (
           <p className="transcript-empty">{t('transcript.empty')}</p>
         )}
+        {openClip && project?.source && <ClipEditor key={openClip.id} clip={openClip} source={project.source} />}
       </section>
     </div>
   );

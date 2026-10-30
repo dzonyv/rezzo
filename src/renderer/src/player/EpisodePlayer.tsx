@@ -1,6 +1,7 @@
 import { useEffect, useRef, useState } from 'react';
 import { useTranslation } from 'react-i18next';
 import type { Source } from '../../../shared/project.ts';
+import { clipUiStore } from '../clip/state.ts';
 import { isTypingTarget } from '../ui/focus.ts';
 import { attachVideo, togglePlay } from './playback.ts';
 
@@ -37,6 +38,8 @@ export function EpisodePlayer({ source }: { source: Source }) {
   useEffect(() => {
     const onKey = (e: KeyboardEvent) => {
       if (e.code !== 'Space' || isTypingTarget(e.target)) return;
+      // With a clip open, Space plays the clip.
+      if (clipUiStore.getState().openClipId) return;
       // These already do something with Space.
       if (['SELECT', 'BUTTON', 'VIDEO'].includes((e.target as HTMLElement).tagName)) return;
       e.preventDefault();

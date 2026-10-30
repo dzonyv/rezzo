@@ -28,7 +28,13 @@
     "createClip": "new clip",
     "deleteClip": "delete clip",
     "renameClip": "rename clip",
-    "trimClip": "change clip range"
+    "trimClip": "change clip range",
+    "changeLayout": "change layout",
+    "moveFrame": "move framing",
+    "zoomFrame": "zoom",
+    "addKeyframe": "add keyframe",
+    "deleteKeyframe": "delete keyframe",
+    "smoothKeyframe": "keyframe easing"
   },
   "files": {
     "project": "Rezzo project",
@@ -133,5 +139,40 @@
     "untitled": "Untitled clip",
     "delete": "Delete clip",
     "length": "{{start}}, {{length}} long"
+  },
+  "clipEditor": {
+    "name": "Clip name",
+    "close": "Close clip",
+    "start": "Start",
+    "end": "End",
+    "earlier": "{{what}} earlier",
+    "later": "{{what}} later",
+    "preparing": "Preparing the clip: {{percent}}%",
+    "failed": "The clip can't be shown: {{detail}}",
+    "play": "Play",
+    "pause": "Pause",
+    "time": "{{current}} / {{total}}",
+    "timeline": "Clip timeline",
+    "goToKeyframe": "Go to keyframe",
+    "layout": "Layout",
+    "layouts": {
+      "follow": "Follow",
+      "split": "Split",
+      "full": "Full frame"
+    },
+    "layoutHelp": {
+      "follow": "One crop that follows the speaker",
+      "split": "Two crops, one above the other",
+      "full": "The whole picture over a blurred copy of itself"
+    },
+    "dragHint": "Drag the picture to frame it, scroll to zoom.",
+    "editing": "Now moving the {{what}} half.",
+    "top": "top",
+    "bottom": "bottom",
+    "zoom": "Zoom",
+    "addKeyframe": "Add keyframe",
+    "smooth": "Move smoothly to the next one",
+    "deleteKeyframe": "Delete keyframe",
+    "keyframeHelp": "Without keyframes the framing holds for the whole clip. Add one where the framing should change, then move the picture there."
   }
 }
