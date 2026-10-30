@@ -54,14 +54,11 @@ async function frameOnScreen(): Promise<number> {
   return n;
 }
 
+/** Saves and reads the file back once the save has finished (the unsaved marker is gone). */
 async function saved(): Promise<Project> {
   await page.keyboard.press('Control+S');
-  let project: Project | undefined;
-  await until(async () => {
-    project = JSON.parse(await readFile(file, 'utf8')) as Project;
-    return project.clips.length > 0;
-  });
-  return project!;
+  await expect.poll(() => page.locator('.topbar .dirty').count()).toBe(0);
+  return JSON.parse(await readFile(file, 'utf8')) as Project;
 }
 
 beforeAll(async () => {

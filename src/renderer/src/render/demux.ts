@@ -32,7 +32,9 @@ export async function demux(bytes: ArrayBuffer): Promise<Demuxed> {
         codedWidth: track.video.width,
         codedHeight: track.video.height,
         description: avcDescription(mp4.getTrackById(track.id)),
-        hardwareAcceleration: 'prefer-hardware',
+        // Chromium takes "prefer-hardware" as "hardware only" and fails without a
+        // decoder on the GPU; with no preference it still uses the GPU when it can.
+        hardwareAcceleration: 'no-preference',
         optimizeForLatency: true,
       };
       mp4.setExtractionOptions(track.id, undefined, { nbSamples: Infinity });
