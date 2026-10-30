@@ -1,15 +1,17 @@
 /**
  * The project document: what a .rezzo file holds and what undo/redo works on.
  *
- * Times are seconds from the start of the source episode. Anything that can
- * be rebuilt from the source (audio for transcription, working files,
- * thumbnails) lives in the cache, not here; the transcript does live here,
- * because it takes minutes to make and Phase 2 lets the user edit it.
+ * Times are seconds from the start of the source episode, keyframes
+ * included, so trimming a clip never moves its framing relative to the
+ * picture. Anything that can be rebuilt from the source (audio for
+ * transcription, working files, thumbnails) lives in the cache, not here;
+ * the transcript does live here, because it takes minutes to make and
+ * Phase 2 lets the user edit it.
  */
 import { z } from 'zod';
 
 /** Bumped when the file format changes in a way older files need migrating for. */
-export const PROJECT_FORMAT = 1;
+export const PROJECT_FORMAT = 2;
 export const PROJECT_EXTENSION = 'rezzo';
 
 export const TRANSCRIPT_LANGUAGES = ['sr', 'hr', 'bs'] as const;
@@ -71,21 +73,106 @@ export const transcriptSchema = z.object({
 });
 export type Transcript = z.infer<typeof transcriptSchema>;
 
+/** Longest clip; its working file is loaded into memory whole. */
+export const MAX_CLIP_SECONDS = 180;
+/** How far in a crop can zoom: 1 is the largest crop that fits the frame. */
+export const MAX_ZOOM = 4;
+
+/**
+ * How a keyframe leads to the next one: "cut" holds its value until the
+ * next keyframe (like a camera cut), "smooth" eases over to it.
+ */
+export const EASES = ['cut', 'smooth'] as const;
+export type Ease = (typeof EASES)[number];
+
+export interface Key<T> {
+  t: number;
+  value: T;
+  ease: Ease;
+}
+
+/** A value over time: one keyframe means it never changes. Sorted by time. */
+export type Animated<T> = Key<T>[];
+
+function animated<T extends z.ZodType>(value: T) {
+  return z
+    .array(z.object({ t: seconds, value, ease: z.enum(EASES) }))
+    .min(1)
+    .refine((keys) => keys.every((k, i) => i === 0 || keys[i - 1]!.t < k.t), 'keyframes must be in time order');
+}
+
+/** Follow: one crop of the speaker. Split: two crops stacked. Full: the whole frame over a blurred copy. */
+export const LAYOUTS = ['follow', 'split', 'full'] as const;
+export type Layout = (typeof LAYOUTS)[number];
+
+const unit = z.number().min(0).max(1);
+const zoom = z.number().min(1).max(MAX_ZOOM);
+
+/** Centre of the crop in the source (0..1 across and down) and its zoom. */
+export const cropSchema = z.object({ x: unit, y: unit, zoom });
+export type Crop = z.infer<typeof cropSchema>;
+
+/** The whole frame, scaled to the output width times `zoom`; `y` slides it from the top (-1) to the bottom (1). */
+export const fullFrameSchema = z.object({ y: z.number().min(-1).max(1), zoom });
+export type FullFrame = z.infer<typeof fullFrameSchema>;
+
+/**
+ * The source video in the clip. Each layout keeps its own framing, so
+ * switching to Split and back leaves the Follow crop as it was.
+ */
+export const videoLayerSchema = z.object({
+  id: z.uuid(),
+  kind: z.literal('video'),
+  layout: animated(z.enum(LAYOUTS)),
+  follow: animated(cropSchema),
+  splitTop: animated(cropSchema),
+  splitBottom: animated(cropSchema),
+  full: animated(fullFrameSchema),
+});
+export type VideoLayer = z.infer<typeof videoLayerSchema>;
+
+/** Everything in a clip is a layer; Phase 3 adds images, effects and more. */
+export const layerSchema = z.discriminatedUnion('kind', [videoLayerSchema]);
+export type Layer = z.infer<typeof layerSchema>;
+
+export const clipSchema = z
+  .object({
+    id: z.uuid(),
+    name: z.string(),
+    start: seconds,
+    end: seconds,
+    layers: z.array(layerSchema).min(1),
+  })
+  .refine((c) => c.end > c.start, 'a clip ends after it starts')
+  .refine((c) => c.end - c.start <= MAX_CLIP_SECONDS + 1e-6, `a clip is at most ${MAX_CLIP_SECONDS} s long`);
+export type Clip = z.infer<typeof clipSchema>;
+
+/** The clip's source video layer; every clip has one. */
+export function videoLayerOf(clip: Clip): VideoLayer {
+  const layer = clip.layers.find((l) => l.kind === 'video');
+  if (!layer) throw new Error(`clip ${clip.id} has no video layer`);
+  return layer;
+}
+
 export const projectSchema = z.object({
   format: z.literal(PROJECT_FORMAT),
   id: z.uuid(),
   name: z.string(),
   source: sourceSchema.nullable(),
   transcript: transcriptSchema.nullable(),
+  clips: z.array(clipSchema),
 });
 export type Project = z.infer<typeof projectSchema>;
 
 export function newProject(name: string, id: string = crypto.randomUUID()): Project {
-  return { format: PROJECT_FORMAT, id, name, source: null, transcript: null };
+  return { format: PROJECT_FORMAT, id, name, source: null, transcript: null, clips: [] };
 }
 
-/** Older formats, each upgraded one step at a time. Empty until format 2 exists. */
-const MIGRATIONS: Record<number, (old: Record<string, unknown>) => Record<string, unknown>> = {};
+/** Older formats, each upgraded one step at a time. */
+const MIGRATIONS: Record<number, (old: Record<string, unknown>) => Record<string, unknown>> = {
+  // Format 2 added clips.
+  1: (old) => ({ ...old, clips: [] }),
+};
 
 export class ProjectFormatError extends Error {
   readonly code: 'not-json' | 'not-a-project' | 'too-new' | 'invalid';

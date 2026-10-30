@@ -3,6 +3,7 @@
  * sandboxed and reaches the rest of the app only through `window.rezzo`,
  * which the preload script builds from these channel lists.
  */
+import type { FrameRate } from './frames.ts';
 import type { Project, ProjectFormatError, Source, Transcript, TranscriptLanguage } from './project.ts';
 import type { Settings } from './settings.ts';
 import type { TranscribeProgress } from './worker-api.ts';
@@ -31,6 +32,12 @@ export type TranscribeResult =
   | { ok: true; transcript: Transcript }
   | { ok: false; error: 'cancelled' | 'no-audio' }
   | { ok: false; error: 'download-failed' | 'whisper-failed'; detail: string };
+
+/** A clip's working file: where to load it from and the stretch of the source it holds. */
+export type PrepareResult =
+  | { ok: true; url: string; start: number; end: number; frameRate: FrameRate }
+  | { ok: false; error: 'cancelled' }
+  | { ok: false; error: 'failed'; detail: string };
 
 export interface RecentProject {
   path: string;
@@ -76,6 +83,13 @@ export interface InvokeApi {
   'transcribe:start': (request: { projectId: string; source: Source; language: TranscriptLanguage }) => TranscribeResult;
   'transcribe:cancel': () => void;
 
+  /**
+   * Makes (or finds in the cache) a working file holding this range of the
+   * source; progress as clip:prepare-progress. A newer call from the same
+   * window cancels an older one.
+   */
+  'clip:prepare': (source: Source, range: { start: number; end: number }) => PrepareResult;
+
   /** Closes the window for real, after the renderer has dealt with unsaved work. */
   'app:close': () => void;
 }
@@ -87,6 +101,7 @@ export interface EventApi {
   'app:close-requested': null;
   'transcribe:progress': { projectId: string; progress: TranscribeProgress };
   'episode:preview-progress': { fingerprint: string; fraction: number };
+  'clip:prepare-progress': { fraction: number };
 }
 
 export type InvokeChannel = keyof InvokeApi;
@@ -114,6 +129,7 @@ export const INVOKE_CHANNELS = {
   'transcribe:status': true,
   'transcribe:start': true,
   'transcribe:cancel': true,
+  'clip:prepare': true,
   'app:close': true,
 } as const satisfies Record<InvokeChannel, true>;
 
@@ -122,6 +138,7 @@ export const EVENT_CHANNELS = {
   'app:close-requested': true,
   'transcribe:progress': true,
   'episode:preview-progress': true,
+  'clip:prepare-progress': true,
 } as const satisfies Record<EventChannel, true>;
 
 /** What `window.rezzo` looks like to the renderer. */

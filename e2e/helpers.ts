@@ -30,6 +30,28 @@ export async function makeTestVideo(file: string, { seconds = 3, audioOnly = fal
   return file;
 }
 
+/** Width of one bit block in makeNumberedVideo's frame-number strip, in source pixels. */
+export const NUMBER_BIT_WIDTH = 80;
+/** Height of the strip along the top. */
+export const NUMBER_STRIP_HEIGHT = 40;
+
+/**
+ * A 1280×720 video at 30 fps whose frames show their own number: 16 black
+ * or white blocks along the top, lowest bit on the left, over grey. Lets a
+ * test read which source frame ended up on screen.
+ */
+export async function makeNumberedVideo(file: string, { seconds = 20 } = {}): Promise<string> {
+  const bits = `255*mod(floor(N/pow(2\\,floor(X/${NUMBER_BIT_WIDTH})))\\,2)`;
+  await run(ffmpegExe(), [
+    '-y', '-v', 'error',
+    '-f', 'lavfi', '-i', `color=c=gray:size=1280x720:rate=30:duration=${seconds}`,
+    '-f', 'lavfi', '-i', `sine=frequency=440:sample_rate=48000:duration=${seconds}`,
+    '-vf', `format=yuv420p,geq=lum='if(lt(Y\\,${NUMBER_STRIP_HEIGHT})\\,${bits}\\,128)':cb=128:cr=128`,
+    '-c:v', 'libx264', '-crf', '12', '-pix_fmt', 'yuv420p', '-c:a', 'aac', '-shortest', file,
+  ]);
+  return file;
+}
+
 export interface Launched {
   app: ElectronApplication;
   page: Page;

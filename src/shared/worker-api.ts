@@ -3,6 +3,7 @@
  * process). Heavy or slow work runs there so the main process, which routes
  * every window event, never stalls.
  */
+import type { FrameRate } from './frames.ts';
 import type { Source, Transcript, TranscriptLanguage } from './project.ts';
 
 /** What ffprobe tells us about a file; the rest of `Source` is added by the caller. */
@@ -18,6 +19,19 @@ export interface TranscribeRequest {
   whisperDir: string;
   modelId: string;
   modelFile: string;
+}
+
+/** One stretch of the source to convert into a working file. */
+export interface WorkingFileRequest {
+  sourcePath: string;
+  /** Source seconds of the first frame, on the frame grid. */
+  start: number;
+  duration: number;
+  frameRate: FrameRate;
+  /** From the source's probe; null when the file doesn't say. */
+  colorSpace: string | null;
+  height: number;
+  out: string;
 }
 
 /** Where a transcription job is; downloads come first when tools are missing. */
@@ -36,6 +50,8 @@ export interface WorkerMethods {
   transcribe(request: TranscribeRequest): Transcript;
   /** Writes a 480p H.264 copy of the source to `out` unless it exists; reports 0..1. */
   makePreview(request: { sourcePath: string; duration: number; out: string }): void;
+  /** Writes a working file to `request.out` unless it exists; reports 0..1. */
+  makeWorkingFile(request: WorkingFileRequest): void;
 }
 
 export type WorkerMethod = keyof WorkerMethods;

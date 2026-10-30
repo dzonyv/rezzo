@@ -310,3 +310,12 @@ The app downloads whisper.cpp the first time you transcribe. Clip D (76 s), turb
 | CPU with OpenBLAS | 22 MB | 34 s | 2.2× realtime with 8 threads |
 
 The CUDA 11.8 build would have saved 400 MB, but it doesn't see the card here, so the app uses CUDA 12.4 with an NVIDIA card and the OpenBLAS CPU build otherwise (and when the CUDA build fails to start). On the CPU an hour of audio takes about 27 minutes. GPU and CPU runs don't produce identical text, but each is deterministic from run to run.
+
+### Working files and preview in the app (1b)
+
+Things that came up while wiring the working file and the preview into the app. All checked on synthetic sources whose frames show their own number.
+
+- **Cuts are frame-exact.** Working files at 25, 30 and 29.97 fps that start at source frames 0, 61 and 250 all begin on exactly that frame, with `-ss` before the input. `e2e/clip.e2e.ts` checks the same thing through the whole app: after making a clip, the renderer draws the clip's first frame and steps from there.
+- **Colour tags need setting on the frames.** Once a `scale` filter is in the chain (the app uses it to convert BT.601 sources and to cap 4K+), libx264 writes the matrix and range but leaves primaries and transfer as "unknown", because it takes them from the frames rather than from `-color_primaries`/`-color_trc`. A `setparams` filter at the end of the chain fixes it.
+- **One file for picture and sound.** Web Audio's `decodeAudioData` reads the AAC track straight from the working file in Electron 45, so the preview needs no separate audio file. The audio clock drives playback; late frames are skipped, the sound never is.
+- **Cover images.** `-map 0:V:0` (capital V) skips attached pictures, so a file with a cover image first gets its real video stream.

@@ -1,4 +1,5 @@
 import { describe, expect, it } from 'vitest';
+import { clipFromWords } from './clips.ts';
 import { newProject, parseProject, PROJECT_FORMAT, ProjectFormatError, serializeProject, type Project } from './project.ts';
 
 const sample: Project = {
@@ -17,7 +18,9 @@ const sample: Project = {
     createdAt: '2026-10-29T12:00:00.000Z',
     segments: [{ start: 0.2, end: 1.4, words: [{ text: 'Dobro', start: 0.2, end: 0.6, p: 0.98 }, { text: 'veče.', start: 0.62, end: 1.4, p: 0.91 }] }],
   },
+  clips: [],
 };
+sample.clips.push(clipFromWords(sample.transcript!.segments[0]!.words, sample.source!, '0b6f2a52-9d0c-4f39-8f39-7f0e2c9b1a11'));
 
 const code = (fn: () => unknown) => {
   try {
@@ -35,7 +38,7 @@ describe('project files', () => {
 
   it('starts empty', () => {
     const p = newProject('x');
-    expect(p).toMatchObject({ format: PROJECT_FORMAT, name: 'x', source: null, transcript: null });
+    expect(p).toMatchObject({ format: PROJECT_FORMAT, name: 'x', source: null, transcript: null, clips: [] });
     expect(p.id).toMatch(/^[0-9a-f-]{36}$/);
   });
 
@@ -47,6 +50,19 @@ describe('project files', () => {
 
   it('rejects files from a newer version of the app', () => {
     expect(code(() => parseProject(JSON.stringify({ ...sample, format: PROJECT_FORMAT + 1 })))).toBe('too-new');
+  });
+
+  it('upgrades a format 1 file, which had no clips', () => {
+    const { clips: _, ...old } = sample;
+    expect(parseProject(JSON.stringify({ ...old, format: 1 }))).toEqual({ ...sample, clips: [] });
+  });
+
+  it('rejects keyframes out of order', () => {
+    const clip = sample.clips[0]!;
+    const layer = clip.layers[0]!;
+    const layout = [{ t: 2, value: 'follow', ease: 'cut' }, { t: 1, value: 'split', ease: 'cut' }];
+    const bad = { ...sample, clips: [{ ...clip, layers: [{ ...layer, layout }] }] };
+    expect(code(() => parseProject(JSON.stringify(bad)))).toBe('invalid');
   });
 
   it('rejects damaged projects', () => {

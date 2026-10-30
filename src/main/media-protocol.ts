@@ -42,7 +42,8 @@ export function mediaUrl(file: string): string {
 /** Must run before the app is ready. */
 export function registerMediaScheme(): void {
   protocol.registerSchemesAsPrivileged([
-    { scheme: MEDIA_SCHEME, privileges: { standard: true, secure: true, stream: true, supportFetchAPI: true } },
+    // corsEnabled: the page (file:// in a build) fetches working files from here.
+    { scheme: MEDIA_SCHEME, privileges: { standard: true, secure: true, stream: true, supportFetchAPI: true, corsEnabled: true } },
   ]);
 }
 
@@ -78,6 +79,8 @@ export function handleMediaProtocol(): void {
       return new Response(null, { status: 404 });
     }
     const headers = new Headers({
+      // Only our own page can reach this scheme, and only files it was handed.
+      'Access-Control-Allow-Origin': '*',
       'Accept-Ranges': 'bytes',
       'Content-Type': TYPES[path.extname(file).toLowerCase()] ?? 'application/octet-stream',
     });
