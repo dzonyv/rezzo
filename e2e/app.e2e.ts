@@ -8,6 +8,7 @@ import path from 'node:path';
 import { _electron as electron, type ElectronApplication } from 'playwright-core';
 import { afterEach, beforeEach, describe, expect, it } from 'vitest';
 import type { RezzoApi } from '../src/shared/api.ts';
+import { appToLaunch } from './helpers.ts';
 
 /** `window` inside page.evaluate(); this config has no DOM types. */
 type PageGlobal = typeof globalThis & { rezzo: RezzoApi; require?: unknown };
@@ -17,7 +18,7 @@ let app: ElectronApplication | undefined;
 
 async function launch(): Promise<ElectronApplication> {
   app = await electron.launch({
-    args: [path.resolve('out/main/index.js')],
+    ...appToLaunch(),
     env: { ...process.env, REZZO_USER_DATA: userData, ELECTRON_RENDERER_URL: '' },
   });
   return app;

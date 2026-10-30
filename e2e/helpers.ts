@@ -60,10 +60,16 @@ export interface Launched {
   page: Page;
 }
 
-/** Starts the built app with its own profile and local data folders under `dir`. */
+/** Which app to start: the build in out/, or the packaged Rezzo.exe named in REZZO_E2E_EXECUTABLE. */
+export function appToLaunch(): { executablePath?: string; args: string[] } {
+  const executable = process.env['REZZO_E2E_EXECUTABLE'];
+  return executable ? { executablePath: path.resolve(executable), args: [] } : { args: [path.resolve('out/main/index.js')] };
+}
+
+/** Starts the app (see appToLaunch) with its own profile and local data folders under `dir`. */
 export async function launchApp(dir: string): Promise<Launched> {
   const app = await electron.launch({
-    args: [path.resolve('out/main/index.js')],
+    ...appToLaunch(),
     env: {
       ...process.env,
       REZZO_USER_DATA: path.join(dir, 'profile'),
