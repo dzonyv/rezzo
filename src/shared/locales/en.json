@@ -175,5 +175,32 @@
     "smooth": "Move smoothly to the next one",
     "deleteKeyframe": "Delete keyframe",
     "keyframeHelp": "Without keyframes the framing holds for the whole clip. Add one where the framing should change, then move the picture there."
+  },
+  "export": {
+    "button": "Export",
+    "buttonHelp": "Save the clip as a 1080×1920 MP4",
+    "title": "Exporting “{{name}}”",
+    "preparing": "Preparing the clip: {{percent}}%",
+    "rendering": "{{percent}}%",
+    "renderingLeft": "{{percent}}%, about {{left}} left",
+    "finishing": "Finishing the file…",
+    "cancel": "Cancel",
+    "done": "Clip exported",
+    "doneDetail": "{{file}}, in {{seconds}} s on the {{encoder}}.",
+    "encoders": {
+      "nvenc": "graphics card",
+      "x264": "processor"
+    },
+    "reveal": "Show in folder",
+    "open": "Play",
+    "close": "Close",
+    "failed": "The export didn't work",
+    "busy": "Another export is still running.",
+    "running": {
+      "title": "An export is running",
+      "body": "Stop it? The unfinished file is deleted.",
+      "stop": "Stop export",
+      "keep": "Keep exporting"
+    }
   }
 }

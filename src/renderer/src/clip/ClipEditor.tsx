@@ -3,6 +3,7 @@ import { useTranslation } from 'react-i18next';
 import { keyAt, valueAt } from '../../../shared/framing.ts';
 import { fps, workingFrameRate } from '../../../shared/frames.ts';
 import { LAYOUTS, MAX_ZOOM, videoLayerOf, type Clip, type Source } from '../../../shared/project.ts';
+import { exportClip, isExporting, useExport } from '../export/state.ts';
 import { formatClipTime } from '../format.ts';
 import { nudgeClip, renameClip } from '../project/clips.ts';
 import { addKeyframe, deleteKeyframe, setFraming, setLayout, setSmooth } from '../project/framing.ts';
@@ -25,6 +26,7 @@ export function ClipEditor({ clip, source }: { clip: Clip; source: Source }) {
   const playing = useClipPlayback((s) => s.playing);
   const sourceSize = useClipPlayback((s) => s.sourceSize);
   const playerTime = useClipPlayback((s) => s.time);
+  const exporting = useExport(isExporting);
 
   const rate = workingFrameRate(source);
   const frame = 1 / fps(rate);
@@ -71,6 +73,9 @@ export function ClipEditor({ clip, source }: { clip: Clip; source: Source }) {
           onBlur={() => store.endGesture()}
           onKeyDown={(e) => e.key === 'Enter' && e.currentTarget.blur()}
         />
+        <button type="button" className="primary" title={t('export.buttonHelp')} disabled={exporting} onClick={() => void exportClip(clip, source)}>
+          {t('export.button')}
+        </button>
         <button type="button" className="icon" aria-label={t('clipEditor.close')} title={t('clipEditor.close')} onClick={() => openClip(null)}>
           <svg width="12" height="12" viewBox="0 0 12 12" aria-hidden="true">
             <path d="M3 3l6 6M9 3l-6 6" fill="none" stroke="currentColor" strokeWidth="1.6" />

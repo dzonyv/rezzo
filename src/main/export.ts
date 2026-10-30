@@ -54,12 +54,12 @@ export async function startExport(win: BrowserWindow, sourceArg: unknown, clipAr
     if (!out) return null;
     await rememberExportDir(path.dirname(out));
 
-    const { file, span } = await ensureWorkingFile(source, range, {
-      signal: abort.signal,
-      onProgress: (fraction) => {
-        if (!sender.isDestroyed()) sender.send('export:prepare-progress', { fraction });
-      },
-    });
+    const progress = (fraction: number) => {
+      if (!sender.isDestroyed()) sender.send('export:prepare-progress', { fraction });
+    };
+    // Tells the page a file was chosen, even when the working file is already there.
+    progress(0);
+    const { file, span } = await ensureWorkingFile(source, range, { signal: abort.signal, onProgress: progress });
     const encoder = await callWorker('pickEncoder', []);
     const placement = { start: spanStart(span), frameRate: span.rate };
     const { first, count } = clipFrames(placement, range);

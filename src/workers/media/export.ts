@@ -104,6 +104,11 @@ function encode(ctx: JobContext, req: ExportRequest, port: MessagePortMain, part
   // Writes after FFmpeg has gone fail with EPIPE; its exit code says why.
   child.stdin.on('error', () => {});
   const reply = (message: ExportPortReply) => port.postMessage(message);
+  // Windows won't delete the part file while FFmpeg still has it open.
+  const exited = new Promise<void>((resolve) => {
+    child.on('close', () => resolve());
+    child.on('error', () => resolve());
+  });
 
   return new Promise<void>((resolve, reject) => {
     let settled = false;
@@ -114,7 +119,7 @@ function encode(ctx: JobContext, req: ExportRequest, port: MessagePortMain, part
       if (error) {
         child.kill();
         reply({ type: 'error', message: error.message });
-        reject(error);
+        void exited.then(() => reject(error));
       } else {
         resolve();
       }
@@ -150,9 +155,15 @@ function encode(ctx: JobContext, req: ExportRequest, port: MessagePortMain, part
         finish(new Error(msg.message));
       }
     };
-    port.on('close', () => finish(new Error('the page closed the export')));
+    const fail = (e: unknown) => finish(e instanceof Error ? e : new Error(String(e)));
     port.on('message', ({ data }) => {
-      queue = queue.then(() => handle(data as ExportPortRequest)).catch((e: unknown) => finish(e instanceof Error ? e : new Error(String(e))));
+      queue = queue.then(() => handle(data as ExportPortRequest)).catch(fail);
+    });
+    // The page closes the port after its last message; before "end" it means the page went away.
+    port.on('close', () => {
+      queue = queue.then(() => {
+        if (!ended) finish(new Error('the page stopped sending frames'));
+      });
     });
     port.start();
   });

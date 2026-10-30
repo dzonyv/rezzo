@@ -1,3 +1,4 @@
+import { ExportDialog } from './export/ExportDialog.tsx';
 import { useProject } from './project/store.ts';
 import { useProjectChrome } from './project/useProjectChrome.ts';
 import { Editor } from './ui/Editor.tsx';
@@ -11,6 +12,7 @@ export function App() {
   return (
     <>
       {hasProject ? <Editor /> : <Home />}
+      <ExportDialog />
       <Prompts />
     </>
   );

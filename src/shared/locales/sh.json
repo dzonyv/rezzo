@@ -175,5 +175,32 @@
     "smooth": "Glatko do sledećeg",
     "deleteKeyframe": "Obriši ključni kadar",
     "keyframeHelp": "Bez ključnih kadrova kadriranje važi za ceo klip. Dodaj jedan tamo gde kadar treba da se promeni, pa tamo pomeri sliku."
+  },
+  "export": {
+    "button": "Izvezi",
+    "buttonHelp": "Sačuvaj klip kao MP4 1080×1920",
+    "title": "Izvoz klipa „{{name}}”",
+    "preparing": "Pripremam klip: {{percent}}%",
+    "rendering": "{{percent}}%",
+    "renderingLeft": "{{percent}}%, još oko {{left}}",
+    "finishing": "Završavam fajl…",
+    "cancel": "Otkaži",
+    "done": "Klip je izvezen",
+    "doneDetail": "{{file}}, za {{seconds}} s ({{encoder}}).",
+    "encoders": {
+      "nvenc": "grafička kartica",
+      "x264": "procesor"
+    },
+    "reveal": "Prikaži u folderu",
+    "open": "Pusti",
+    "close": "Zatvori",
+    "failed": "Izvoz nije uspeo",
+    "busy": "Drugi izvoz je još u toku.",
+    "running": {
+      "title": "Izvoz je u toku",
+      "body": "Da ga prekinem? Nedovršeni fajl se briše.",
+      "stop": "Prekini izvoz",
+      "keep": "Nastavi izvoz"
+    }
   }
 }
