@@ -190,8 +190,21 @@ export class Compositor {
     return dst;
   }
 
+  /**
+   * Frees what this compositor made, but leaves the context alone: a canvas
+   * has one WebGL context for its whole life, and the next compositor on the
+   * same canvas (React mounts effects twice in development) gets that same
+   * context back. Losing it here would hand the next one a dead context.
+   */
   dispose(): void {
-    this.gl.getExtension('WEBGL_lose_context')?.loseContext();
+    const gl = this.gl;
+    for (const t of [this.comp, this.bgA, this.bgB]) {
+      gl.deleteFramebuffer(t.fbo);
+      gl.deleteTexture(t.tex);
+    }
+    if (this.src) gl.deleteTexture(this.src.tex);
+    for (const p of Object.values(this.programs)) gl.deleteProgram(p);
+    this.src = undefined;
   }
 
   private pass(program: WebGLProgram, target: Target | null, uniforms: Uniforms): void {
