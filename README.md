@@ -10,7 +10,7 @@ It's built for Serbian (Balkan) content first, since that's what I work with. Ot
 
 There's nothing to download yet. Phase 0 is done: we checked that the hard parts (transcription, face tracking, GPU export) work on an ordinary PC before building the app around them, and wrote down what we found in [spikes/REPORT.md](spikes/REPORT.md).
 
-Phase 1 is underway. The app can already import an episode, transcribe it and let you search the transcript while the video plays. Picking a clip, framing it and exporting come next. The full plan is in [ROADMAP.md](ROADMAP.md).
+Phase 1 is underway. The app can import an episode, transcribe it and let you search the transcript while the video plays. Select a few sentences and they become a clip, which you can frame for 9:16 in any of the three layouts and switch between them partway through. Exporting the clip comes next. The full plan is in [ROADMAP.md](ROADMAP.md).
 
 ## Running it from source
 
