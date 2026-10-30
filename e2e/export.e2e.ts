@@ -219,12 +219,13 @@ describe('export', () => {
   });
 
   it('exports again after a cancel', async () => {
-    const target = path.join(dir, 'out', 'dugi.mp4');
-    await exportFromList('Dugi', target);
-    await page.getByRole('heading', { name: 'Clip exported' }).waitFor({ timeout: 120_000 });
+    // The short clip: the long one takes minutes in CI, without a GPU.
+    const target = path.join(dir, 'out', 'kratki-2.mp4');
+    await exportFromList('Kratki', target);
+    await page.getByRole('heading', { name: 'Clip exported' }).waitFor({ timeout: 60_000 });
     await page.locator('.export-dialog').getByRole('button', { name: 'Close', exact: true }).click();
     const { stdout } = await run(ffprobeExe(), ['-v', 'error', '-select_streams', 'v:0', '-count_packets', '-show_entries', 'stream=nb_read_packets', '-of', 'csv=p=0', target]);
-    expect(Number(stdout.trim())).toBe(LONG_COUNT);
+    expect(Number(stdout.trim())).toBe(COUNT);
   });
 });
 
