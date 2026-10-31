@@ -10,7 +10,9 @@ It's built for Serbian (Balkan) content first, since that's what I work with. Ot
 
 There's no release to download yet, but you can build the installer yourself (see below). Phase 0 checked that the hard parts (transcription, face tracking, GPU export) work on an ordinary PC before I built the app around them. What we found is in [spikes/REPORT.md](spikes/REPORT.md).
 
-Phase 1 is done, so the basic job works from start to finish. You import an episode, transcribe it, and search the transcript while the video plays. Select a few sentences and they become a clip. You frame it for 9:16 in any of the three layouts, switching between them partway through if you like, and export it as a 1080×1920 MP4. Captions are next. The full plan is in [ROADMAP.md](ROADMAP.md).
+Phase 1 is done, so the basic job works from start to finish. You import an episode, transcribe it, and search the transcript while the video plays. Select a few sentences and they become a clip. You frame it for 9:16 in any of the three layouts, switching between them partway through if you like, and export it as a 1080×1920 MP4. The full plan is in [ROADMAP.md](ROADMAP.md).
+
+Captions are in progress. The groundwork is done: you can fix the transcript where Whisper got it wrong, one word after another without touching the mouse, and nudge word timings against the waveform. Words it always gets wrong (it writes "futbal" every single time) go on a replacement list, and every new transcript gets fixed automatically. Drawing the captions on the video comes next.
 
 ## Running it from source
 
