@@ -20,7 +20,16 @@ export interface FlatTranscript {
   segmentStart: number[];
 }
 
-export function flatten(segments: Segment[]): FlatTranscript {
+const flats = new WeakMap<readonly Segment[], FlatTranscript>();
+
+/** flatten(), once per version of the transcript: the transcript view and the clip editor share it. */
+export function flatOf(segments: readonly Segment[]): FlatTranscript {
+  let flat = flats.get(segments);
+  if (!flat) flats.set(segments, (flat = flatten(segments)));
+  return flat;
+}
+
+export function flatten(segments: readonly Segment[]): FlatTranscript {
   const words: FlatWord[] = [];
   const segmentStart: number[] = [];
   let reachedAt = 0;

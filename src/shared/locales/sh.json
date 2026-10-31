@@ -179,7 +179,11 @@
     "addKeyframe": "Dodaj ključni kadar",
     "smooth": "Glatko do sledećeg",
     "deleteKeyframe": "Obriši ključni kadar",
-    "keyframeHelp": "Bez ključnih kadrova kadriranje važi za ceo klip. Dodaj jedan tamo gde kadar treba da se promeni, pa tamo pomeri sliku."
+    "keyframeHelp": "Bez ključnih kadrova kadriranje važi za ceo klip. Dodaj jedan tamo gde kadar treba da se promeni, pa tamo pomeri sliku.",
+    "wordStrip": "Tajming reči",
+    "wordHelp": "Klik vodi na reč, dupli klik je ispravlja. Prevuci ivicu da pomeriš početak ili kraj; Alt+←/→ pomera početak najbliži playhead-u za jedan kadar.",
+    "wordStart": "Početak reči „{{word}}”",
+    "wordEnd": "Kraj reči „{{word}}”"
   },
   "export": {
     "button": "Izvezi",

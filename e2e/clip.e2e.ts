@@ -182,6 +182,42 @@ describe('clips', () => {
     expect(project.clips[0]!.layers[0]!.follow[0]!.value.x).toBe(0.5);
   });
 
+  it('nudges the word start nearest the playhead with Alt+arrows', async () => {
+    // The playhead is at 6 s, where "o" starts.
+    await page.keyboard.press('Alt+ArrowRight');
+    let words = (await saved()).transcript!.segments[1]!.words;
+    expect(words[2]!.start).toBeCloseTo(6 + 1 / 30, 3);
+    await page.keyboard.press('Alt+ArrowLeft');
+    words = (await saved()).transcript!.segments[1]!.words;
+    expect(words[2]!.start).toBeCloseTo(6, 3);
+  });
+
+  it('moves the end of a word by dragging it in the word strip, as one undo step', async () => {
+    const danas = (await page.locator('.word-strip .word', { hasText: 'Danas' }).boundingBox())!;
+    const pricamo = (await page.locator('.word-strip .word', { hasText: 'pričamo' }).boundingBox())!;
+    const perSecond = (pricamo.x - danas.x) / 0.5;
+    const edge = (await page.getByRole('separator', { name: 'End of “Danas”' }).boundingBox())!;
+    const y = edge.y + edge.height / 2;
+    await page.mouse.move(edge.x + edge.width / 2, y);
+    await page.mouse.down();
+    // From 5.4 s to about 5.6 s, past the start of "pričamo" at 5.5 s.
+    await page.mouse.move(edge.x + edge.width / 2 + 0.1 * perSecond, y, { steps: 3 });
+    await page.mouse.move(edge.x + edge.width / 2 + 0.2 * perSecond, y, { steps: 3 });
+    await page.mouse.up();
+
+    let words = (await saved()).transcript!.segments[1]!.words;
+    expect(words[0]!.end).toBeGreaterThan(5.55);
+    expect(words[0]!.end).toBeLessThan(5.65);
+    // On the frame grid (to the millisecond words are stored with), and the next word gave way.
+    expect(Math.abs(words[0]!.end * 30 - Math.round(words[0]!.end * 30))).toBeLessThan(0.05);
+    expect(words[1]!.start).toBe(words[0]!.end);
+    expect(await page.getByRole('button', { name: 'Undo' }).getAttribute('title')).toBe('Undo: move word timing');
+
+    await page.getByRole('button', { name: 'Undo' }).click();
+    words = (await saved()).transcript!.segments[1]!.words;
+    expect([words[0]!.end, words[1]!.start]).toEqual([5.4, 5.5]);
+  });
+
   it('opens again with its clips', async () => {
     await page.getByRole('button', { name: 'Close project' }).click();
     await page.getByRole('button', { name: /numbered/ }).click();

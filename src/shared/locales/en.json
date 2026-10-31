@@ -179,7 +179,11 @@
     "addKeyframe": "Add keyframe",
     "smooth": "Move smoothly to the next one",
     "deleteKeyframe": "Delete keyframe",
-    "keyframeHelp": "Without keyframes the framing holds for the whole clip. Add one where the framing should change, then move the picture there."
+    "keyframeHelp": "Without keyframes the framing holds for the whole clip. Add one where the framing should change, then move the picture there.",
+    "wordStrip": "Word timing",
+    "wordHelp": "Click to go to the word, double-click to correct it. Drag an edge to move its start or end; Alt+←/→ moves the start nearest the playhead by a frame.",
+    "wordStart": "Start of “{{word}}”",
+    "wordEnd": "End of “{{word}}”"
   },
   "export": {
     "button": "Export",

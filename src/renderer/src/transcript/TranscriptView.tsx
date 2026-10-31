@@ -15,7 +15,7 @@ import { clearSelection, enterWord, pressWord, release, selectedRange, useSelect
 import { startEditing, stopEditing, useEditing, type Finish } from './editing.ts';
 import { listeningStore, playAround, seekPaused, useListening } from './listening.ts';
 import { WordEditor } from './WordEditor.tsx';
-import { flatten, refOf, wordAt, type FlatTranscript, type FlatWord } from './words.ts';
+import { flatOf, refOf, wordAt, type FlatTranscript, type FlatWord } from './words.ts';
 
 /** Words Whisper was least sure about get a subtle underline: the ones worth checking. */
 const UNSURE = 0.4;
@@ -24,7 +24,7 @@ const MANUAL_SCROLL_MS = 4000;
 
 export function TranscriptView({ transcript, source }: { transcript: Transcript; source: Source }) {
   const { t } = useTranslation();
-  const flat = useMemo(() => flatten(transcript.segments), [transcript]);
+  const flat = flatOf(transcript.segments);
   const index = useMemo(() => buildIndex(flat.words), [flat]);
 
   const clips = useProject((s) => s.project?.clips);

@@ -868,3 +868,77 @@ button.icon {
   background: currentColor;
   transform: rotate(45deg) translateY(-1px);
 }
+
+.word-strip {
+  position: relative;
+  height: 64px;
+  flex-shrink: 0;
+  overflow: hidden;
+  background: var(--surface-2);
+  border-radius: var(--radius);
+  color: rgb(255 255 255 / 0.18);
+  touch-action: none;
+}
+
+.word-strip canvas {
+  position: absolute;
+  inset: 0;
+  width: 100%;
+  height: 100%;
+}
+
+.word-strip .word {
+  position: absolute;
+  top: 20px;
+  bottom: 6px;
+  display: flex;
+  align-items: center;
+  overflow: hidden;
+  border: 1px solid rgb(255 255 255 / 0.35);
+  border-radius: 3px;
+  background: rgb(20 20 23 / 0.6);
+  color: var(--text);
+  font-size: 12px;
+  white-space: nowrap;
+  cursor: pointer;
+}
+
+.word-strip .word.active {
+  border-color: var(--accent);
+  color: var(--accent);
+}
+
+.word-strip .word span {
+  padding: 0 6px;
+  pointer-events: none;
+}
+
+.word-strip .edge {
+  position: absolute;
+  top: 0;
+  bottom: 0;
+  width: 6px;
+  cursor: ew-resize;
+}
+
+.word-strip .edge.start {
+  left: 0;
+}
+
+.word-strip .edge.end {
+  right: 0;
+}
+
+.word-strip .edge:hover {
+  background: var(--accent);
+}
+
+.word-strip .playhead {
+  position: absolute;
+  top: 0;
+  bottom: 0;
+  width: 2px;
+  margin-left: -1px;
+  background: var(--accent);
+  pointer-events: none;
+}
