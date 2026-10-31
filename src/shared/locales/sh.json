@@ -34,7 +34,10 @@
     "zoomFrame": "zumiranje",
     "addKeyframe": "dodavanje ključnog kadra",
     "deleteKeyframe": "brisanje ključnog kadra",
-    "smoothKeyframe": "prelaz ključnog kadra"
+    "smoothKeyframe": "prelaz ključnog kadra",
+    "editWord": "ispravka reči",
+    "joinWords": "spajanje reči",
+    "retimeWord": "pomeranje tajminga reči"
   },
   "files": {
     "project": "Rezzo projekat",
@@ -123,7 +126,9 @@
     "noMatches": "Nema rezultata",
     "previous": "Prethodni rezultat (Shift+Enter)",
     "next": "Sledeći rezultat (Enter)",
-    "empty": "Transkript će se pojaviti ovde."
+    "empty": "Transkript će se pojaviti ovde.",
+    "editWord": "Ispravi reč",
+    "editHelp": "Enter: gotovo · Tab: sledeća reč · Ctrl+↓: sledeća nesigurna reč · Ctrl+Space: preslušaj · Esc: odustani"
   },
   "player": {
     "preparing": "Ovaj video ne može da se pusti direktno, pa Rezzo pravi kopiju za pregled: {{percent}}%",

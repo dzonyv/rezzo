@@ -1,5 +1,6 @@
 /** The transcript as one flat list of words, plus lookups by time. */
 import type { Segment, Word } from '../../../shared/project.ts';
+import type { WordRef } from '../../../shared/transcript-edit.ts';
 
 export interface FlatWord extends Word {
   /** Position in the flat list. */
@@ -52,4 +53,10 @@ export function wordAt(words: readonly FlatWord[], time: number): number {
     }
   }
   return found;
+}
+
+/** Where a word of the flat list sits in the transcript's segments. */
+export function refOf(flat: FlatTranscript, index: number): WordRef {
+  const segment = flat.words[index]!.segment;
+  return { segment, word: index - flat.segmentStart[segment]! };
 }

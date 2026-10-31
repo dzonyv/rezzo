@@ -34,7 +34,10 @@
     "zoomFrame": "zoom",
     "addKeyframe": "add keyframe",
     "deleteKeyframe": "delete keyframe",
-    "smoothKeyframe": "keyframe easing"
+    "smoothKeyframe": "keyframe easing",
+    "editWord": "correct word",
+    "joinWords": "join words",
+    "retimeWord": "move word timing"
   },
   "files": {
     "project": "Rezzo project",
@@ -123,7 +126,9 @@
     "noMatches": "No matches",
     "previous": "Previous match (Shift+Enter)",
     "next": "Next match (Enter)",
-    "empty": "The transcript will appear here."
+    "empty": "The transcript will appear here.",
+    "editWord": "Correct the word",
+    "editHelp": "Enter: done · Tab: next word · Ctrl+↓: next unsure word · Ctrl+Space: listen · Esc: cancel"
   },
   "player": {
     "preparing": "This video can't be played directly, so Rezzo is making a preview copy: {{percent}}%",

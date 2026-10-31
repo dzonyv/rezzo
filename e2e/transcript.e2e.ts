@@ -98,4 +98,56 @@ describe('transcript', () => {
     await search(page).fill('zzz');
     await expect.poll(() => page.locator('.transcript-search .count').textContent()).toBe('No matches');
   });
+
+  it('corrects words from the keyboard, one undo step each', async () => {
+    await search(page).fill('');
+    await page.locator('.w', { hasText: 'Ćevapi' }).dblclick();
+    const editor = page.getByRole('textbox', { name: 'Correct the word' });
+    expect(await editor.inputValue()).toBe('Ćevapi');
+    await page.keyboard.type('Čevapi');
+    await page.keyboard.press('Tab');
+    expect(await editor.inputValue()).toBe('su');
+    await page.keyboard.press('Tab');
+    await page.keyboard.type('najbolji!');
+    await page.keyboard.press('Enter');
+    expect(await editor.count()).toBe(0);
+    expect(await words(page)).toContain('Čevapi su najbolji!');
+    // A corrected word is no longer marked as unsure.
+    expect(await page.locator('.w.unsure').count()).toBe(0);
+
+    await page.getByRole('button', { name: 'Undo', exact: true }).click();
+    expect(await words(page)).toContain('Čevapi su najbolji.');
+    expect(await page.locator('.w.unsure').count()).toBe(1);
+  });
+
+  it('splits, joins and deletes words', async () => {
+    const editor = page.getByRole('textbox', { name: 'Correct the word' });
+    await page.locator('.w', { hasText: 'Dobro' }).dblclick();
+    await page.keyboard.type('Do bro');
+    await page.keyboard.press('Enter');
+    expect(await words(page)).toContain('Do bro veče,');
+
+    await page.locator('.w', { hasText: /^bro $/ }).dblclick();
+    await page.keyboard.press('Home');
+    await page.keyboard.press('Backspace');
+    expect(await editor.inputValue()).toBe('Dobro');
+    await page.keyboard.press('Escape');
+    expect(await words(page)).toContain('Dobro veče,');
+
+    await page.locator('.w', { hasText: 'danas' }).dblclick();
+    await page.keyboard.press('Backspace');
+    await page.keyboard.press('Enter');
+    expect(await words(page)).toContain('veče, pričamo');
+  });
+
+  it('jumps to the next unsure word', async () => {
+    await page.locator('.w', { hasText: 'veče,' }).click();
+    await page.keyboard.press('Control+ArrowDown');
+    const editor = page.getByRole('textbox', { name: 'Correct the word' });
+    expect(await editor.inputValue()).toBe('najbolji.');
+    await page.keyboard.press('Escape');
+  });
 });
+
+/** The transcript's text as shown, one line per segment. */
+const words = (page: Page) => page.locator('.segment-text').allTextContents().then((lines) => lines.map((l) => l.trim()).join('\n'));

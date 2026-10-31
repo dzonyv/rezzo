@@ -94,6 +94,10 @@ export class ClipPlayer {
   }
 
   /** The clip's range in the source; playback stays inside it. */
+  get clipRange(): { start: number; end: number } {
+    return this.range;
+  }
+
   setRange(range: { start: number; end: number }): void {
     this.range = range;
     if (this.time < range.start || this.time >= range.end) this.seek(range.start);

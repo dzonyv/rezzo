@@ -5,13 +5,17 @@ import { fitsInClip, rangeForWords } from '../../../shared/clips.ts';
 import { MAX_CLIP_SECONDS, type Clip, type Segment, type Source, type Transcript } from '../../../shared/project.ts';
 import { useOpenClip, useOpenClipId } from '../clip/state.ts';
 import { formatDuration } from '../format.ts';
-import { playbackStore, seek, usePlayback } from '../player/playback.ts';
+import { seek } from '../player/playback.ts';
 import { createClip, setClipWords } from '../project/clips.ts';
+import { editWord, joinWords } from '../project/transcript.ts';
 import { useProject } from '../project/store.ts';
 import { isTypingTarget } from '../ui/focus.ts';
 import { buildIndex, search, type Match } from './search.ts';
 import { clearSelection, enterWord, pressWord, release, selectedRange, useSelection } from './selection.ts';
-import { flatten, wordAt, type FlatTranscript, type FlatWord } from './words.ts';
+import { startEditing, stopEditing, useEditing, type Finish } from './editing.ts';
+import { listeningStore, playAround, seekPaused, useListening } from './listening.ts';
+import { WordEditor } from './WordEditor.tsx';
+import { flatten, refOf, wordAt, type FlatTranscript, type FlatWord } from './words.ts';
 
 /** Words Whisper was least sure about get a subtle underline: the ones worth checking. */
 const UNSURE = 0.4;
@@ -42,7 +46,7 @@ export function TranscriptView({ transcript, source }: { transcript: Transcript;
   const current = cursor.query === query && cursor.current < matches.length ? cursor.current : 0;
   const hits = useMemo(() => hitsBySegment(flat, matches, current), [flat, matches, current]);
 
-  const active = usePlayback((s) => wordAt(flat.words, s.time));
+  const active = useListening((s) => wordAt(flat.words, s.time));
   const activeSegment = active >= 0 ? flat.words[active]!.segment : -1;
 
   const scroller = useRef<HTMLDivElement>(null);
@@ -57,10 +61,47 @@ export function TranscriptView({ transcript, source }: { transcript: Transcript;
 
   // Follow the speech while playing, unless the user is looking elsewhere.
   useEffect(() => {
-    if (activeSegment < 0 || !playbackStore.getState().playing) return;
+    if (activeSegment < 0 || !listeningStore.getState().playing) return;
     if (Date.now() - manualScrollAt.current < MANUAL_SCROLL_MS) return;
     virtualizer.scrollToIndex(activeSegment, { align: 'auto' });
   }, [activeSegment, virtualizer]);
+
+  const editing = useEditing();
+  const editingWord = editing !== null ? flat.words[editing] : undefined;
+  // Opening the editor on a word shows that word in the player, paused.
+  const shownForEdit = useRef<number | null>(null);
+  useEffect(() => {
+    if (!editingWord) {
+      shownForEdit.current = null;
+      return;
+    }
+    if (shownForEdit.current === editingWord.index) return;
+    shownForEdit.current = editingWord.index;
+    seekPaused(editingWord.start);
+    virtualizer.scrollToIndex(editingWord.segment, { align: 'auto' });
+  }, [editingWord, virtualizer]);
+
+  /** Applies a correction to word `index`, then opens the editor where it says to go next. */
+  const finish = (index: number, f: Finish) => {
+    stopEditing();
+    if (f.kind === 'cancel') return;
+    const at = refOf(flat, index);
+    // How many words now stand where the edited one was; the words after it move by count - 1.
+    const count = editWord(at, f.text);
+    const length = flat.words.length + count - 1;
+    const unsure = (from: number, by: 1 | -1) => {
+      for (let i = from; i >= 0 && i < flat.words.length; i += by) if (flat.words[i]!.p < UNSURE) return i;
+      return -1;
+    };
+    let next = -1;
+    if (f.kind === 'next') next = index + count;
+    else if (f.kind === 'previous') next = index - 1;
+    else if (f.kind === 'nextUnsure') next = ((i) => (i < 0 ? -1 : i + count - 1))(unsure(index + 1, 1));
+    else if (f.kind === 'previousUnsure') next = unsure(index - 1, -1);
+    else if (f.kind === 'joinPrevious' && index > 0 && joinWords(refOf(flat, index - 1))) next = index - 1;
+    else if (f.kind === 'joinNext' && count > 0 && joinWords({ ...at, word: at.word + count - 1 })) next = index + count - 1;
+    if (next >= 0 && next < length) startEditing(next);
+  };
 
   // Bring the current search result into view.
   const currentMatch = matches[current];
@@ -70,7 +111,22 @@ export function TranscriptView({ transcript, source }: { transcript: Transcript;
 
   useEffect(() => {
     const onKey = (e: KeyboardEvent) => {
-      if (e.ctrlKey && e.key.toLowerCase() === 'f') {
+      const { words } = flatRef.current;
+      const here = wordAt(words, listeningStore.getState().time);
+      if (e.key === 'F2' && !isTypingTarget(e.target) && words.length > 0) {
+        e.preventDefault();
+        startEditing(Math.max(here, 0));
+      } else if (e.ctrlKey && (e.key === 'ArrowDown' || e.key === 'ArrowUp') && !isTypingTarget(e.target)) {
+        // The next word Whisper wasn't sure about, straight into the editor.
+        e.preventDefault();
+        const by = e.key === 'ArrowDown' ? 1 : -1;
+        for (let i = here + by; i >= 0 && i < words.length; i += by) {
+          if (words[i]!.p < UNSURE) {
+            startEditing(i);
+            break;
+          }
+        }
+      } else if (e.ctrlKey && e.key.toLowerCase() === 'f') {
         e.preventDefault();
         searchBox.current?.focus();
         searchBox.current?.select();
@@ -90,8 +146,17 @@ export function TranscriptView({ transcript, source }: { transcript: Transcript;
     };
   }, []);
 
+  // The key handler is set up once and reads the words through this.
+  const flatRef = useRef(flat);
+  useEffect(() => {
+    flatRef.current = flat;
+  }, [flat]);
+
   // Word numbers belong to one transcript; a selection means nothing in another.
   useEffect(() => clearSelection, [flat]);
+  // An edit keeps the editor's own word in step; anything else (undo, a new transcript) closes it.
+  const project = useProject((s) => s.project?.id);
+  useEffect(() => stopEditing, [project]);
 
   const step = (by: number) => {
     if (matches.length > 0) setCursor({ query, current: (current + by + matches.length) % matches.length });
@@ -163,6 +228,12 @@ export function TranscriptView({ transcript, source }: { transcript: Transcript;
           const time = (e.target as HTMLElement).closest<HTMLElement>('.segment-time');
           if (time) seek(Number(time.dataset['time']));
         }}
+        onDoubleClick={(e) => {
+          const word = (e.target as HTMLElement).closest<HTMLElement>('[data-word]');
+          if (!word) return;
+          clearSelection();
+          startEditing(Number(word.dataset['word']));
+        }}
       >
         <div style={{ height: virtualizer.getTotalSize(), position: 'relative' }}>
           {virtualizer.getVirtualItems().map((row) => (
@@ -180,6 +251,8 @@ export function TranscriptView({ transcript, source }: { transcript: Transcript;
                 hits={hits.get(row.index)}
                 selection={selection}
                 marks={marks}
+                editing={editingWord?.segment === row.index ? editingWord.index : -1}
+                onFinish={editingWord?.segment === row.index ? finish : undefined}
               />
             </div>
           ))}
@@ -264,6 +337,8 @@ const SegmentRow = memo(function SegmentRow({
   hits,
   selection,
   marks,
+  editing,
+  onFinish,
 }: {
   segment: Segment;
   firstWord: number;
@@ -271,6 +346,9 @@ const SegmentRow = memo(function SegmentRow({
   hits: Hits | undefined;
   selection: { first: number; last: number } | null;
   marks: Uint8Array;
+  /** The word being corrected, if it's in this segment; -1 otherwise. */
+  editing: number;
+  onFinish: ((index: number, f: Finish) => void) | undefined;
 }) {
   return (
     <>
@@ -280,6 +358,13 @@ const SegmentRow = memo(function SegmentRow({
       <p className="segment-text">
         {segment.words.map((w, i) => {
           const index = firstWord + i;
+          if (index === editing && onFinish) {
+            return (
+              <span key={index} className="w editing">
+                <WordEditor text={w.text} onFinish={(f) => onFinish(index, f)} onListen={() => playAround(w.start)} />{' '}
+              </span>
+            );
+          }
           return (
             <span
               key={index}
