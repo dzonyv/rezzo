@@ -80,6 +80,7 @@ beforeAll(async () => {
     language: 'sr',
     model: 'test',
     createdAt: new Date().toISOString(),
+    startShift: -0.1,
     segments: [segment(1, 'Dobro veče i dobrodošli.'), segment(5, 'Danas pričamo o kadriranju klipova.'), segment(10, 'Hvala što gledate.')],
   };
   await writeFile(file, JSON.stringify(project));

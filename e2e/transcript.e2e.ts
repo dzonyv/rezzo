@@ -48,6 +48,7 @@ beforeAll(async () => {
     language: 'sr',
     model: 'test',
     createdAt: new Date().toISOString(),
+    startShift: -0.1,
     segments: [
       segment(1, 'Dobro veče, danas pričamo o Đokoviću.'),
       segment(5, 'Ćevapi su najbolji.'),

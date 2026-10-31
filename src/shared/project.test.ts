@@ -1,6 +1,6 @@
 import { describe, expect, it } from 'vitest';
 import { clipFromWords } from './clips.ts';
-import { newProject, parseProject, PROJECT_FORMAT, ProjectFormatError, serializeProject, type Project } from './project.ts';
+import { DTW_START_SHIFT, newProject, parseProject, PROJECT_FORMAT, ProjectFormatError, serializeProject, type Project } from './project.ts';
 
 const sample: Project = {
   ...newProject('Epizoda 12', '6c1f0d6e-6a2b-4a7e-9d0e-3f1f5b2a9c11'),
@@ -16,6 +16,7 @@ const sample: Project = {
     language: 'sr',
     model: 'large-v3-turbo-q5_0',
     createdAt: '2026-10-29T12:00:00.000Z',
+    startShift: DTW_START_SHIFT,
     segments: [{ start: 0.2, end: 1.4, words: [{ text: 'Dobro', start: 0.2, end: 0.6, p: 0.98 }, { text: 'veče.', start: 0.62, end: 1.4, p: 0.91 }] }],
   },
   clips: [],
@@ -52,9 +53,25 @@ describe('project files', () => {
     expect(code(() => parseProject(JSON.stringify({ ...sample, format: PROJECT_FORMAT + 1 })))).toBe('too-new');
   });
 
+  /** The sample as format 2 wrote it: DTW starts 100 ms later, no startShift. */
+  const format2 = () => {
+    const { startShift: _, ...transcript } = sample.transcript!;
+    const late = (w: { start: number }) => ({ ...w, start: Math.round((w.start - DTW_START_SHIFT) * 1000) / 1000 });
+    const segments = transcript.segments.map((s) => ({ ...late(s), words: s.words.map(late) }));
+    return { ...sample, format: 2, transcript: { ...transcript, segments } };
+  };
+
   it('upgrades a format 1 file, which had no clips', () => {
-    const { clips: _, ...old } = sample;
+    const { clips: _, ...old } = format2();
     expect(parseProject(JSON.stringify({ ...old, format: 1 }))).toEqual({ ...sample, clips: [] });
+  });
+
+  it('upgrades a format 2 file by moving word starts earlier', () => {
+    expect(parseProject(JSON.stringify(format2()))).toEqual(sample);
+  });
+
+  it('upgrades a format 2 file without a transcript', () => {
+    expect(parseProject(JSON.stringify({ ...format2(), transcript: null }))).toEqual({ ...sample, transcript: null });
   });
 
   it('rejects keyframes out of order', () => {

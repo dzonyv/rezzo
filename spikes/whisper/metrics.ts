@@ -2,7 +2,10 @@
  * Scores every transcription run against the maintainer's corrected
  * transcripts and word timings.
  *
- *   node whisper/metrics.ts [--clips id,id]
+ *   node whisper/metrics.ts [--clips id,id] [--shift-sweep model]
+ *
+ * --shift-sweep prints how a constant shift of that model's DTW word starts
+ * would score, instead of the usual tables.
  *
  * Pass --clips to score only clips whose transcripts have been corrected;
  * uncorrected drafts would make the draft model look perfect.
@@ -193,11 +196,34 @@ async function scoreClip(clip: Clip) {
 
 const pct = (x: number) => (Number.isFinite(x) ? `${(x * 100).toFixed(1)}%` : '–');
 
+/**
+ * How a constant shift of the DTW starts would score: for each shift, the
+ * signed median and the share within 100/200 ms, over all reviewed labels
+ * and over the moved ones. Uses the app's model in each clip's language.
+ */
+function printShiftSweep(rows: Awaited<ReturnType<typeof scoreClip>>, model: string) {
+  const picked = rows.filter((r) => r.run === `${model}__${r.spokenLang}`);
+  const all = picked.flatMap((r) => r.timing.rawDtwMs);
+  const moved = picked.flatMap((r) => r.timing.movedDtwMs);
+  console.log(`\nShift sweep for ${model} (${picked.map((r) => r.clip).join(', ')}; ${all.length} labels, ${moved.length} moved)\n`);
+  console.log('| Shift | All: signed median | All: within 100 / 200 ms | Moved: signed median | Moved: within 100 / 200 ms |');
+  console.log('|---|---|---|---|---|');
+  for (let shift = -200; shift <= 0; shift += 10) {
+    const a = all.map((x) => x + shift);
+    const m = moved.map((x) => x + shift);
+    console.log(`| ${shift} ms | ${Math.round(median(a))} ms | ${pct(within(a, 100))} / ${pct(within(a, 200))} | ${Math.round(median(m))} ms | ${pct(within(m, 100))} / ${pct(within(m, 200))} |`);
+  }
+}
+
 if (import.meta.main) {
-  const { values } = parseArgs({ options: { clips: { type: 'string' } } });
+  const { values } = parseArgs({ options: { clips: { type: 'string' }, 'shift-sweep': { type: 'string' } } });
   const only = values.clips?.split(',');
   const clips = listClips().filter((c) => !only || only.includes(c.id));
   const rows = (await Promise.all(clips.map(scoreClip))).flat();
+  if (values['shift-sweep']) {
+    printShiftSweep(rows, values['shift-sweep']);
+    process.exit(0);
+  }
   await writeFile(path.join(whisperDir, 'metrics.json'), JSON.stringify(rows, null, 2));
 
   // Pooled over clips, weighted by reference length.
