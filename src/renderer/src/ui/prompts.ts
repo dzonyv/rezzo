@@ -14,12 +14,21 @@ export interface Notice {
   text: string;
 }
 
+/** A yes/no question; the texts are already translated. */
+export interface Confirmation {
+  title: string;
+  body: string;
+  confirm: string;
+  cancel: string;
+}
+
 interface PromptState {
   unsaved: { name: string; answer: (a: UnsavedAnswer) => void } | null;
+  confirmation: (Confirmation & { answer: (yes: boolean) => void }) | null;
   notices: Notice[];
 }
 
-export const promptStore = createStore<PromptState>()(() => ({ unsaved: null, notices: [] }));
+export const promptStore = createStore<PromptState>()(() => ({ unsaved: null, confirmation: null, notices: [] }));
 
 export function usePrompts<T>(select: (s: PromptState) => T): T {
   return useStore(promptStore, select);
@@ -34,6 +43,21 @@ export function askUnsaved(name: string): Promise<UnsavedAnswer> {
         answer: (a) => {
           promptStore.setState({ unsaved: null });
           resolve(a);
+        },
+      },
+    });
+  });
+}
+
+/** Asks a yes/no question; true for "confirm". */
+export function askConfirm(question: Confirmation): Promise<boolean> {
+  return new Promise((resolve) => {
+    promptStore.setState({
+      confirmation: {
+        ...question,
+        answer: (yes) => {
+          promptStore.setState({ confirmation: null });
+          resolve(yes);
         },
       },
     });

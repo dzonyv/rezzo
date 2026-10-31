@@ -9,7 +9,7 @@ import type { JobContext } from './index.ts';
 const MAX_WIDTH = 3840;
 const MAX_HEIGHT = 2160;
 
-const COLOR_TAGS = ['-colorspace', 'bt709', '-color_primaries', 'bt709', '-color_trc', 'bt709', '-color_range', 'tv'];
+export const COLOR_TAGS = ['-colorspace', 'bt709', '-color_primaries', 'bt709', '-color_trc', 'bt709', '-color_range', 'tv'];
 
 /**
  * The colour matrix the source was encoded with. Files that don't say are

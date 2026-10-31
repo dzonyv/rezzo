@@ -3,7 +3,9 @@
  * and whisper.cpp and does anything CPU-heavy in JavaScript. The main
  * process talks to it with WorkerRequest/WorkerReply messages.
  */
+import type { MessagePortMain } from 'electron';
 import type { WorkerMethod, WorkerMethods, WorkerReply, WorkerRequest } from '../../shared/worker-api.ts';
+import { encodeExport, pickEncoder } from './export.ts';
 import { fingerprint } from './fingerprint.ts';
 import { makePreview } from './preview.ts';
 import { probe } from './probe.ts';
@@ -15,6 +17,8 @@ import { tool } from '../../node/tools/manifest.ts';
 export interface JobContext {
   signal: AbortSignal;
   progress(value: unknown): void;
+  /** Ports sent along with the call (an export's frame channel). */
+  ports: MessagePortMain[];
 }
 
 type Handlers = {
@@ -28,12 +32,14 @@ const handlers: Handlers = {
   transcribe: (ctx, request) => transcribe(ctx, request),
   makePreview: (ctx, request) => makePreview(ctx, request),
   makeWorkingFile: (ctx, request) => makeWorkingFile(ctx, request),
+  pickEncoder: () => pickEncoder(),
+  encodeExport: (ctx, request) => encodeExport(ctx, request),
 };
 
 const running = new Map<number, AbortController>();
 const reply = (message: WorkerReply) => process.parentPort.postMessage(message);
 
-process.parentPort.on('message', ({ data }) => {
+process.parentPort.on('message', ({ data, ports }) => {
   const req = data as WorkerRequest;
   if (req.type === 'cancel') {
     running.get(req.id)?.abort();
@@ -44,6 +50,7 @@ process.parentPort.on('message', ({ data }) => {
   const ctx: JobContext = {
     signal: abort.signal,
     progress: (progress) => reply({ type: 'progress', id: req.id, progress }),
+    ports,
   };
   const handler = handlers[req.method] as (ctx: JobContext, ...args: unknown[]) => Promise<unknown>;
   handler(ctx, ...req.args)

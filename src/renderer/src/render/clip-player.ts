@@ -11,6 +11,7 @@
  */
 import type { FrameRecipe, Size } from '../../../shared/framing.ts';
 import { fps, type FrameRate } from '../../../shared/frames.ts';
+import { workingFrameIndex, workingFrameTime } from '../../../shared/working.ts';
 import type { Compositor } from './compositor.ts';
 import { demux } from './demux.ts';
 import { FrameSource } from './frame-source.ts';
@@ -145,11 +146,11 @@ export class ClipPlayer {
   }
 
   private frameAt(time: number): number {
-    return Math.floor((time - this.file.start) * fps(this.file.frameRate) + 1e-6);
+    return workingFrameIndex(this.file, time);
   }
 
   private timeOf(frame: number): number {
-    return this.file.start + frame / fps(this.file.frameRate);
+    return workingFrameTime(this.file, frame);
   }
 
   private clampToRange(time: number): number {

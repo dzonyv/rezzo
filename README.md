@@ -8,9 +8,9 @@ It's built for Serbian (Balkan) content first, since that's what I work with. Ot
 
 ## Where it stands
 
-There's nothing to download yet. Phase 0 is done: we checked that the hard parts (transcription, face tracking, GPU export) work on an ordinary PC before building the app around them, and wrote down what we found in [spikes/REPORT.md](spikes/REPORT.md).
+There's no release to download yet, but you can build the installer yourself (see below). Phase 0 checked that the hard parts (transcription, face tracking, GPU export) work on an ordinary PC before I built the app around them. What we found is in [spikes/REPORT.md](spikes/REPORT.md).
 
-Phase 1 is underway. The app can import an episode, transcribe it and let you search the transcript while the video plays. Select a few sentences and they become a clip, which you can frame for 9:16 in any of the three layouts and switch between them partway through. Exporting the clip comes next. The full plan is in [ROADMAP.md](ROADMAP.md).
+Phase 1 is done, so the basic job works from start to finish. You import an episode, transcribe it, and search the transcript while the video plays. Select a few sentences and they become a clip. You frame it for 9:16 in any of the three layouts, switching between them partway through if you like, and export it as a 1080×1920 MP4. Captions are next. The full plan is in [ROADMAP.md](ROADMAP.md).
 
 ## Running it from source
 
@@ -23,6 +23,14 @@ npm run dev
 ```
 
 `fetch-tools` puts FFmpeg in `vendor/`. The first time you transcribe, the app downloads whisper.cpp and the speech model (about 1.3 GB with an NVIDIA card) into `%LOCALAPPDATA%\Rezzo`. `npm run check` runs the linter, the type checker and the unit tests; `npm run test:e2e` builds the app and drives it with Playwright.
+
+To build the installer, run this after `fetch-tools`:
+
+```
+npm run dist
+```
+
+That puts `Rezzo-Setup-0.1.0.exe` (about 180 MB) in `release/`. It installs for your user only and doesn't need administrator rights. The installer isn't signed, so Windows SmartScreen will warn you the first time. Click "More info", then "Run anyway". Uninstalling leaves the downloaded speech model in `%LOCALAPPDATA%\Rezzo`, so a reinstall doesn't download it again. Delete that folder if you want the space back.
 
 ## What it will do
 

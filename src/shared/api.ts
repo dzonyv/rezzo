@@ -4,9 +4,9 @@
  * which the preload script builds from these channel lists.
  */
 import type { FrameRate } from './frames.ts';
-import type { Project, ProjectFormatError, Source, Transcript, TranscriptLanguage } from './project.ts';
+import type { Clip, Project, ProjectFormatError, Source, Transcript, TranscriptLanguage } from './project.ts';
 import type { Settings } from './settings.ts';
-import type { TranscribeProgress } from './worker-api.ts';
+import type { Encoder, TranscribeProgress } from './worker-api.ts';
 
 export type OpenResult =
   | { ok: true; path: string; project: Project }
@@ -38,6 +38,28 @@ export type PrepareResult =
   | { ok: true; url: string; start: number; end: number; frameRate: FrameRate }
   | { ok: false; error: 'cancelled' }
   | { ok: false; error: 'failed'; detail: string };
+
+export type ExportResult =
+  | { ok: true; path: string; seconds: number; encoder: Encoder }
+  | { ok: false; error: 'cancelled' | 'busy' }
+  | { ok: false; error: 'failed'; detail: string };
+
+/**
+ * What the page renders for a running export. It arrives with the
+ * MessagePort to the encoder as a window message of type EXPORT_PORT_MESSAGE.
+ */
+export interface ExportJob {
+  clipId: string;
+  /** The clip's working file, as in PrepareResult. */
+  url: string;
+  start: number;
+  frameRate: FrameRate;
+  /** Working-file frames to render: `count` from `first`. */
+  first: number;
+  count: number;
+}
+
+export const EXPORT_PORT_MESSAGE = 'rezzo:export-port';
 
 export interface RecentProject {
   path: string;
@@ -90,6 +112,18 @@ export interface InvokeApi {
    */
   'clip:prepare': (source: Source, range: { start: number; end: number }) => PrepareResult;
 
+  /**
+   * Asks where to save, then exports the clip; resolves when the file is
+   * written. Progress of the working file comes as export:prepare-progress,
+   * then the page gets an ExportJob to render. Null: the user cancelled the dialog.
+   */
+  'export:start': (source: Source, clip: Clip) => ExportResult | null;
+  'export:cancel': () => void;
+  /** Shows the last exported file in Explorer. */
+  'export:reveal': () => void;
+  /** Opens the last exported file in the default player. */
+  'export:open': () => void;
+
   /** Closes the window for real, after the renderer has dealt with unsaved work. */
   'app:close': () => void;
 }
@@ -102,6 +136,7 @@ export interface EventApi {
   'transcribe:progress': { projectId: string; progress: TranscribeProgress };
   'episode:preview-progress': { fingerprint: string; fraction: number };
   'clip:prepare-progress': { fraction: number };
+  'export:prepare-progress': { fraction: number };
 }
 
 export type InvokeChannel = keyof InvokeApi;
@@ -130,6 +165,10 @@ export const INVOKE_CHANNELS = {
   'transcribe:start': true,
   'transcribe:cancel': true,
   'clip:prepare': true,
+  'export:start': true,
+  'export:cancel': true,
+  'export:reveal': true,
+  'export:open': true,
   'app:close': true,
 } as const satisfies Record<InvokeChannel, true>;
 
@@ -139,6 +178,7 @@ export const EVENT_CHANNELS = {
   'transcribe:progress': true,
   'episode:preview-progress': true,
   'clip:prepare-progress': true,
+  'export:prepare-progress': true,
 } as const satisfies Record<EventChannel, true>;
 
 /** What `window.rezzo` looks like to the renderer. */

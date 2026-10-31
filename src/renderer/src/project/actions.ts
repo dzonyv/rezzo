@@ -6,7 +6,8 @@
 import i18n from 'i18next';
 import { newProject, type Project } from '../../../shared/project.ts';
 import { baseName } from '../format.ts';
-import { askUnsaved, notify } from '../ui/prompts.ts';
+import { cancelExport, isExporting } from '../export/state.ts';
+import { askConfirm, askUnsaved, notify } from '../ui/prompts.ts';
 import { isDirty, projectStore } from './store.ts';
 import { cancelTranscription } from './transcription.ts';
 
@@ -28,10 +29,21 @@ function command<A extends unknown[], R>(fn: (...args: A) => Promise<R>, fallbac
 }
 
 /**
- * Makes sure unsaved work is saved or deliberately dropped, then stops
- * anything still running for the project. Returns false if the user cancelled.
+ * Stops a running export if the user agrees, makes sure unsaved work is
+ * saved or deliberately dropped, then stops anything still running for the
+ * project. Returns false if the user cancelled.
  */
 export const settleUnsaved = command(async (): Promise<boolean> => {
+  if (isExporting()) {
+    const stop = await askConfirm({
+      title: i18n.t('export.running.title'),
+      body: i18n.t('export.running.body'),
+      confirm: i18n.t('export.running.stop'),
+      cancel: i18n.t('export.running.keep'),
+    });
+    if (!stop) return false;
+    await cancelExport();
+  }
   const state = projectStore.getState();
   if (state.project && isDirty(state)) {
     const answer = await askUnsaved(state.project.name);

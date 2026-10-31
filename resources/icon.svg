@@ -1,0 +1,6 @@
+<svg xmlns="http://www.w3.org/2000/svg" viewBox="0 0 512 512">
+  <!-- Rezzo's app icon: an R in a 9:16 frame. resources/icon.png is made from this by scripts/make-icon.mjs. -->
+  <rect x="16" y="16" width="480" height="480" rx="104" fill="#141417"/>
+  <rect x="144" y="57" width="224" height="398" rx="34" fill="#ff6b3d"/>
+  <path d="M208 162V350M208 162H260a51 51 0 0 1 0 102H208M252 264L304 350" fill="none" stroke="#1a0d08" stroke-width="40" stroke-linecap="round" stroke-linejoin="round"/>
+</svg>

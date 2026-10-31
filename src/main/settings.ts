@@ -16,14 +16,23 @@ export async function getSettings(): Promise<Settings> {
 
 /** Applies a change from the renderer. Unknown keys or bad values are rejected. */
 export async function updateSettings(patch: unknown): Promise<Settings> {
-  const next = settingsSchema.parse({ ...(await getSettings()), ...settingsPatchSchema.parse(patch) });
+  return save(settingsPatchSchema.parse(patch));
+}
+
+/** Remembers the folder of the last export. */
+export async function rememberExportDir(dir: string): Promise<void> {
+  await save({ exportDir: dir });
+}
+
+async function save(patch: Partial<Settings>): Promise<Settings> {
+  const next = settingsSchema.parse({ ...(await getSettings()), ...patch });
   await writeFileAtomic(settingsFile(), JSON.stringify(next, null, 2));
   current = next;
   return next;
 }
 
 async function load(): Promise<Settings> {
-  const defaults: Settings = { uiLanguage: defaultUiLanguage(app.getLocale()), transcriptLanguage: 'sr' };
+  const defaults: Settings = { uiLanguage: defaultUiLanguage(app.getLocale()), transcriptLanguage: 'sr', exportDir: null };
   try {
     const stored = JSON.parse(await readFile(settingsFile(), 'utf8'));
     // Each setting stands alone: an unknown or damaged one falls back to its

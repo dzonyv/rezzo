@@ -237,6 +237,19 @@ button.link:hover {
   justify-content: flex-end;
 }
 
+.export-dialog .progress-line {
+  margin-bottom: 18px;
+  font-variant-numeric: tabular-nums;
+}
+
+.modal p.export-error {
+  max-height: 12em;
+  overflow: auto;
+  white-space: pre-wrap;
+  overflow-wrap: anywhere;
+  font-size: 12px;
+}
+
 .notices {
   position: fixed;
   bottom: 16px;

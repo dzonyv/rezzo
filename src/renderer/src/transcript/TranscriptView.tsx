@@ -35,9 +35,11 @@ export function TranscriptView({ transcript, source }: { transcript: Transcript;
   const [query, setQuery] = useState('');
   const deferredQuery = useDeferredValue(query);
   const matches = useMemo(() => search(index, deferredQuery), [index, deferredQuery]);
-  // The cursor belongs to one result list; a new search starts at its first match.
-  const [cursor, setCursor] = useState({ matches, current: 0 });
-  const current = cursor.matches === matches ? cursor.current : 0;
+  // The cursor belongs to what's typed; a new search starts at its first match.
+  // Keyed by the typed text, not the results, so Enter pressed while the
+  // results are still catching up with the typing isn't lost when they arrive.
+  const [cursor, setCursor] = useState({ query, current: 0 });
+  const current = cursor.query === query && cursor.current < matches.length ? cursor.current : 0;
   const hits = useMemo(() => hitsBySegment(flat, matches, current), [flat, matches, current]);
 
   const active = usePlayback((s) => wordAt(flat.words, s.time));
@@ -92,7 +94,7 @@ export function TranscriptView({ transcript, source }: { transcript: Transcript;
   useEffect(() => clearSelection, [flat]);
 
   const step = (by: number) => {
-    if (matches.length > 0) setCursor({ matches, current: (current + by + matches.length) % matches.length });
+    if (matches.length > 0) setCursor({ query, current: (current + by + matches.length) % matches.length });
   };
 
   return (

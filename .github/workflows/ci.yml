@@ -22,3 +22,6 @@ jobs:
       - run: npm test
       - run: npm run fetch-tools
       - run: npm run test:e2e
+      # The same tests against the packaged app, as the installer lays it out.
+      - run: npm run pack
+      - run: npm run test:e2e:packaged

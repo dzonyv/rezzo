@@ -2,7 +2,7 @@
  * Starts the media worker on first use and forwards calls to it. If the
  * worker dies, pending calls fail and the next call starts a fresh one.
  */
-import { utilityProcess, type UtilityProcess } from 'electron';
+import { utilityProcess, type MessagePortMain, type UtilityProcess } from 'electron';
 import workerPath from '../workers/media/index.ts?modulePath';
 import { WorkerError, type WorkerMethod, type WorkerMethods, type WorkerReply } from '../shared/worker-api.ts';
 import { ffmpegBinDir } from './paths.ts';
@@ -47,6 +47,8 @@ function worker(): UtilityProcess {
 export interface CallOptions<P = unknown> {
   onProgress?: (progress: P) => void;
   signal?: AbortSignal;
+  /** Ports handed to the worker with the call. */
+  transfer?: MessagePortMain[];
 }
 
 export function callWorker<M extends WorkerMethod>(
@@ -58,7 +60,7 @@ export function callWorker<M extends WorkerMethod>(
   const id = nextId++;
   return new Promise((resolve, reject) => {
     pending.set(id, { resolve: resolve as (v: unknown) => void, reject, onProgress: options.onProgress });
-    proc.postMessage({ type: 'call', id, method, args });
+    proc.postMessage({ type: 'call', id, method, args }, options.transfer);
     options.signal?.addEventListener('abort', () => proc.postMessage({ type: 'cancel', id }), { once: true });
   });
 }

@@ -7,12 +7,19 @@ export function Prompts() {
   const { t } = useTranslation();
   const unsaved = usePrompts((s) => s.unsaved);
   const notices = usePrompts((s) => s.notices);
+  const confirmation = usePrompts((s) => s.confirmation);
   const dialog = useRef<HTMLDialogElement>(null);
+  const confirmDialog = useRef<HTMLDialogElement>(null);
 
   useEffect(() => {
     if (unsaved && !dialog.current?.open) dialog.current?.showModal();
     if (!unsaved && dialog.current?.open) dialog.current.close();
   }, [unsaved]);
+
+  useEffect(() => {
+    if (confirmation && !confirmDialog.current?.open) confirmDialog.current?.showModal();
+    if (!confirmation && confirmDialog.current?.open) confirmDialog.current.close();
+  }, [confirmation]);
 
   return (
     <>
@@ -37,6 +44,30 @@ export function Prompts() {
               </button>
               <button type="button" onClick={() => unsaved.answer('cancel')}>
                 {t('unsaved.cancel')}
+              </button>
+            </div>
+          </>
+        )}
+      </dialog>
+
+      <dialog
+        ref={confirmDialog}
+        className="modal"
+        onCancel={(e) => {
+          e.preventDefault();
+          confirmation?.answer(false);
+        }}
+      >
+        {confirmation && (
+          <>
+            <h2>{confirmation.title}</h2>
+            <p>{confirmation.body}</p>
+            <div className="buttons">
+              <button type="button" onClick={() => confirmation.answer(true)}>
+                {confirmation.confirm}
+              </button>
+              <button type="button" className="primary" autoFocus onClick={() => confirmation.answer(false)}>
+                {confirmation.cancel}
               </button>
             </div>
           </>

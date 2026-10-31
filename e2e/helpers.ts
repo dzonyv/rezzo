@@ -7,12 +7,15 @@ import { _electron as electron, type ElectronApplication, type Page } from 'play
 
 const run = promisify(execFile);
 
-function ffmpegExe(): string {
+function ffmpegBin(): string {
   const root = path.resolve('vendor/tools/ffmpeg');
   const build = readdirSync(root, { withFileTypes: true }).find((d) => d.isDirectory());
   if (!build) throw new Error('FFmpeg missing: run `npm run fetch-tools`');
-  return path.join(root, build.name, 'bin', 'ffmpeg.exe');
+  return path.join(root, build.name, 'bin');
 }
+
+export const ffmpegExe = (): string => path.join(ffmpegBin(), 'ffmpeg.exe');
+export const ffprobeExe = (): string => path.join(ffmpegBin(), 'ffprobe.exe');
 
 /**
  * A short synthetic video (test pattern and a tone), so the tests need no
@@ -57,10 +60,16 @@ export interface Launched {
   page: Page;
 }
 
-/** Starts the built app with its own profile and local data folders under `dir`. */
+/** Which app to start: the build in out/, or the packaged Rezzo.exe named in REZZO_E2E_EXECUTABLE. */
+export function appToLaunch(): { executablePath?: string; args: string[] } {
+  const executable = process.env['REZZO_E2E_EXECUTABLE'];
+  return executable ? { executablePath: path.resolve(executable), args: [] } : { args: [path.resolve('out/main/index.js')] };
+}
+
+/** Starts the app (see appToLaunch) with its own profile and local data folders under `dir`. */
 export async function launchApp(dir: string): Promise<Launched> {
   const app = await electron.launch({
-    args: [path.resolve('out/main/index.js')],
+    ...appToLaunch(),
     env: {
       ...process.env,
       REZZO_USER_DATA: path.join(dir, 'profile'),

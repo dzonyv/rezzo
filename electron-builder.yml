@@ -1,0 +1,40 @@
+# Windows installer: `npm run dist` (or `npm run pack` for an unpacked app in release/win-unpacked).
+appId: io.github.dzonyv.rezzo
+productName: Rezzo
+copyright: Copyright © 2026 Nikola
+directories:
+  buildResources: resources
+  output: release
+# electron-vite bundles everything into out/, so the app needs no node_modules.
+files:
+  - out/**
+  - package.json
+npmRebuild: false
+extraResources:
+  # FFmpeg goes where src/main/paths.ts looks for it: resources/tools/ffmpeg/<build>/bin.
+  - from: vendor/tools/ffmpeg
+    to: tools/ffmpeg
+    filter:
+      - '*/bin/*.exe'
+      - '*/bin/*.dll'
+      - '!*/bin/ffplay.exe'
+      - '*/LICENSE.txt'
+  - from: LICENSE
+    to: licenses/LICENSE
+  - from: THIRD_PARTY_NOTICES.md
+    to: licenses/THIRD_PARTY_NOTICES.md
+win:
+  icon: resources/icon.png
+  target:
+    - target: nsis
+      arch: [x64]
+nsis:
+  # Installs for the current user, no administrator rights needed.
+  oneClick: false
+  perMachine: false
+  allowToChangeInstallationDirectory: true
+  createDesktopShortcut: always
+  createStartMenuShortcut: true
+  # Keeps %LOCALAPPDATA%\Rezzo (whisper.cpp and the model, about 1.3 GB) for a reinstall.
+  deleteAppDataOnUninstall: false
+  artifactName: ${productName}-Setup-${version}.${ext}

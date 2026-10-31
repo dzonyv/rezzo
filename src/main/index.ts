@@ -2,6 +2,7 @@ import { app, BrowserWindow, shell } from 'electron';
 import path from 'node:path';
 import { pathToFileURL } from 'node:url';
 import { prepareClip } from './clip.ts';
+import { cancelExport, openExport, revealExport, startExport } from './export.ts';
 import { checkEpisode, chooseEpisode, episodeMediaUrl, importEpisode, locateEpisode, makePreview } from './episode.ts';
 import { handleMediaProtocol, registerMediaScheme } from './media-protocol.ts';
 import { broadcast, handle, trustPagesFrom } from './ipc.ts';
@@ -63,6 +64,11 @@ function registerHandlers(): void {
   handle('transcribe:cancel', () => cancelTranscription());
 
   handle('clip:prepare', ({ window }, source, range) => prepareClip(window.webContents, source, range));
+
+  handle('export:start', ({ window }, source, clip) => startExport(window, source, clip));
+  handle('export:cancel', () => cancelExport());
+  handle('export:reveal', () => revealExport());
+  handle('export:open', () => openExport());
 
   handle('app:close', ({ window }) => {
     closeApproved.add(window);

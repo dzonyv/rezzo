@@ -48,3 +48,26 @@ export function parseWorkingFileName(name: string): WorkingSpan | null {
   if (!m || Number(m[5]) !== WORKING_VERSION) return null;
   return { first: Number(m[1]), end: Number(m[2]), rate: [Number(m[3]), Number(m[4])] };
 }
+
+/** Where a working file sits in the source: its frame 0 is at `start` seconds. */
+export interface WorkingPlacement {
+  start: number;
+  frameRate: FrameRate;
+}
+
+/**
+ * The working file's frame on screen at source time `time` (the last one
+ * that started at or before it). The preview and the export both pick
+ * frames with this, so they show the same ones.
+ */
+export const workingFrameIndex = (file: WorkingPlacement, time: number): number =>
+  Math.floor((time - file.start) * fps(file.frameRate) + 1e-6);
+
+/** Source time of working-file frame `index`. */
+export const workingFrameTime = (file: WorkingPlacement, index: number): number => file.start + index / fps(file.frameRate);
+
+/** The working-file frames a clip covers: `count` frames from `first`. */
+export function clipFrames(file: WorkingPlacement, range: { start: number; end: number }): { first: number; count: number } {
+  const first = workingFrameIndex(file, range.start);
+  return { first, count: Math.max(0, workingFrameIndex(file, range.end) - first) };
+}

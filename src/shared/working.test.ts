@@ -1,5 +1,8 @@
 import { describe, expect, it } from 'vitest';
-import { parseWorkingFileName, spanCovers, spanEnd, spanStart, workingFileName, workingSpan } from './working.ts';
+import { timeOfFrame, type FrameRate } from './frames.ts';
+import {
+  clipFrames, parseWorkingFileName, spanCovers, spanEnd, spanStart, workingFileName, workingFrameIndex, workingFrameTime, workingSpan,
+} from './working.ts';
 
 describe('working file spans', () => {
   it('reaches two seconds past both ends of the clip, on whole frames', () => {
@@ -27,5 +30,31 @@ describe('working file spans', () => {
     expect(parseWorkingFileName(workingFileName(span))).toEqual(span);
     expect(parseWorkingFileName('1-2@30-1.v0.mp4')).toBeNull();
     expect(parseWorkingFileName('1-2@30-1.v1.part.mp4')).toBeNull();
+  });
+});
+
+describe('frames of a clip in its working file', () => {
+  const rates: FrameRate[] = [[25, 1], [30000, 1001], [30, 1]];
+
+  it.each(rates)('maps frame times back to their own frame at %i/%i', (num, den) => {
+    const rate: FrameRate = [num, den];
+    const file = { start: timeOfFrame(1234, rate), frameRate: rate };
+    for (let i = 0; i < 500; i++) {
+      expect(workingFrameIndex(file, workingFrameTime(file, i))).toBe(i);
+      expect(workingFrameIndex(file, timeOfFrame(1234 + i, rate))).toBe(i);
+    }
+  });
+
+  it.each(rates)('covers every frame from the clip start up to, not including, its end at %i/%i', (num, den) => {
+    const rate: FrameRate = [num, den];
+    const file = { start: timeOfFrame(100, rate), frameRate: rate };
+    const range = { start: timeOfFrame(160, rate), end: timeOfFrame(460, rate) };
+    expect(clipFrames(file, range)).toEqual({ first: 60, count: 300 });
+  });
+
+  it('counts the frame on screen when a time falls between frames', () => {
+    const file = { start: 10, frameRate: [25, 1] as FrameRate };
+    expect(workingFrameIndex(file, 10.079)).toBe(1);
+    expect(workingFrameIndex(file, 10.08)).toBe(2);
   });
 });

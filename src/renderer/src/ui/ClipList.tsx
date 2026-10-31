@@ -1,5 +1,6 @@
 import { useTranslation } from 'react-i18next';
 import { openClip, useOpenClipId } from '../clip/state.ts';
+import { exportClip, isExporting, useExport } from '../export/state.ts';
 import { formatDuration } from '../format.ts';
 import { seek } from '../player/playback.ts';
 import { deleteClip } from '../project/clips.ts';
@@ -9,6 +10,8 @@ import { useProject } from '../project/store.ts';
 export function ClipList() {
   const { t } = useTranslation();
   const clips = useProject((s) => s.project?.clips);
+  const source = useProject((s) => s.project?.source);
+  const exporting = useExport(isExporting);
   const openId = useOpenClipId();
   const sorted = [...(clips ?? [])].sort((a, b) => a.start - b.start);
 
@@ -34,6 +37,15 @@ export function ClipList() {
               <span className="meta">
                 {t('clips.length', { start: formatDuration(clip.start), length: formatDuration(clip.end - clip.start) })}
               </span>
+              <button
+                type="button"
+                className="link"
+                title={t('export.buttonHelp')}
+                disabled={exporting || !source}
+                onClick={() => source && void exportClip(clip, source)}
+              >
+                {t('export.button')}
+              </button>
               <button
                 type="button"
                 className="icon"

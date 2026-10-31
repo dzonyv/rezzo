@@ -10,9 +10,9 @@ Prove the riskiest parts work before building the app. Done; results and decisio
 - **0b — Faces and lips:** MediaPipe face detection and mouth movement on 3–4 kinds of footage (wide shot, multi-camera with cuts, small faces, segments without faces).
 - **0c — GPU export from Electron:** WebGL-rendered frames encoded with NVENC (software fallback), frame-accurate, preview identical to export.
 
-## Phase 1 — Foundation
+## Phase 1 — Foundation ✓
 
-Built in three parts, each with its own pull request: 1a (app skeleton, projects, import, transcription, transcript and search), 1b (choosing a clip, framing, preview) and 1c (export and the installer). 1a and 1b are done; 1c is next.
+Built in three parts, each with its own pull request: 1a (app skeleton, projects, import, transcription, transcript and search), 1b (choosing a clip, framing, preview) and 1c (export and the installer).
 
 - Import an episode; transcript with search.
 - Select a clip by highlighting transcript text.

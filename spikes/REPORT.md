@@ -319,3 +319,15 @@ Things that came up while wiring the working file and the preview into the app. 
 - **Colour tags need setting on the frames.** Once a `scale` filter is in the chain (the app uses it to convert BT.601 sources and to cap 4K+), libx264 writes the matrix and range but leaves primaries and transfer as "unknown", because it takes them from the frames rather than from `-color_primaries`/`-color_trc`. A `setparams` filter at the end of the chain fixes it.
 - **One file for picture and sound.** Web Audio's `decodeAudioData` reads the AAC track straight from the working file in Electron 45, so the preview needs no separate audio file. The audio clock drives playback; late frames are skipped, the sound never is.
 - **Cover images.** `-map 0:V:0` (capital V) skips attached pictures, so a file with a cover image first gets its real video stream.
+
+### Export and installer in the app (1c)
+
+The Phase 0 export path, as the app now runs it: the page renders each frame with the preview's compositor, converts it to YUV on the GPU, and hands it to a Web Worker that posts it to FFmpeg in the media worker. Checked on synthetic sources whose frames show their own number (`e2e/export.e2e.ts`), with NVENC and with x264:
+
+- **Frame-exact.** Every frame of the clip is in the file once and in order, and a layout change lands on its keyframe's frame.
+- **Matches the preview.** The exported frame against the preview's own pixels: over 40 dB on every row compared.
+- **BT.709 tags on the file, the sound from the working file.** The audio length is within a frame of the video.
+- **A cancelled export leaves nothing behind**, but only because the worker waits for FFmpeg to exit before deleting the part file. Windows refuses to delete a file a running process still has open.
+- **The installer** is 178 MB. Installed, Rezzo takes 543 MB, of which FFmpeg is 184 MB and the app's own code 2 MB; the rest is Electron. The end-to-end tests pass against the packaged app too, which shows the worker loads from the asar archive and FFmpeg is found in `resources/tools`.
+
+Export speed on the four real clips in the app is still to be measured.

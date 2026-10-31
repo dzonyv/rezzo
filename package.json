@@ -19,7 +19,11 @@
     "test": "vitest run",
     "check": "npm run lint && npm run typecheck && npm test",
     "test:e2e": "electron-vite build && vitest run --config vitest.e2e.config.mts",
-    "fetch-tools": "node scripts/fetch-tools.mts"
+    "pack": "electron-vite build && electron-builder --dir",
+    "dist": "electron-vite build && electron-builder",
+    "test:e2e:packaged": "vitest run --config vitest.e2e-packaged.config.mts",
+    "fetch-tools": "node scripts/fetch-tools.mts",
+    "make-icon": "electron scripts/make-icon.mjs"
   },
   "devDependencies": {
     "@eslint/js": "10.0.1",
@@ -29,6 +33,7 @@
     "@types/react-dom": "19.3.0",
     "@vitejs/plugin-react": "6.1.2",
     "electron": "45.1.0",
+    "electron-builder": "26.17.0",
     "electron-vite": "6.0.0",
     "eslint": "10.13.0",
     "eslint-plugin-i18next": "6.1.5",
