@@ -26,6 +26,26 @@ export interface WorkingFile {
 
 export type RecipeAt = (time: number, source: Size) => FrameRecipe;
 
+/** Loudness values per second of sound in Peaks. */
+export const PEAKS_PER_SECOND = 100;
+
+/** How loud the sound is: the highest sample (0..1) in each 1/PEAKS_PER_SECOND s, from the working file's start. */
+export type Peaks = Float32Array;
+
+function peaksOf(audio: AudioBuffer): Peaks {
+  const step = audio.sampleRate / PEAKS_PER_SECOND;
+  const out = new Float32Array(Math.ceil(audio.length / step));
+  for (let c = 0; c < audio.numberOfChannels; c++) {
+    const data = audio.getChannelData(c);
+    for (let i = 0; i < data.length; i++) {
+      const b = Math.floor(i / step);
+      const v = Math.abs(data[i]!);
+      if (v > out[b]!) out[b] = v;
+    }
+  }
+  return out;
+}
+
 const nextAnimationFrame = () => new Promise<void>((resolve) => requestAnimationFrame(() => resolve()));
 
 export class ClipPlayer {
@@ -80,6 +100,14 @@ export class ClipPlayer {
     return player;
   }
 
+  private peakCache: Peaks | null | undefined;
+
+  /** The sound's loudness for drawing a waveform, worked out on first use; null without sound. */
+  get peaks(): Peaks | null {
+    if (this.peakCache === undefined) this.peakCache = this.audio ? peaksOf(this.audio) : null;
+    return this.peakCache;
+  }
+
   /** False for a clip without sound; it then plays on the system clock. */
   get hasAudio(): boolean {
     return this.audio !== null;
@@ -94,6 +122,10 @@ export class ClipPlayer {
   }
 
   /** The clip's range in the source; playback stays inside it. */
+  get clipRange(): { start: number; end: number } {
+    return this.range;
+  }
+
   setRange(range: { start: number; end: number }): void {
     this.range = range;
     if (this.time < range.start || this.time >= range.end) this.seek(range.start);

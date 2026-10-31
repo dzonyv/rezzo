@@ -8,7 +8,7 @@
  * closer to the real onset than the token timestamp; Phase 0 found it about
  * 120 ms late, which Phase 2 corrects) and ends at its last token's end.
  */
-import type { Segment, Word } from '../../shared/project.ts';
+import { DTW_START_SHIFT, type Segment, type Word } from '../../shared/project.ts';
 import { toLatin } from '../../shared/transliterate.ts';
 
 interface Token {
@@ -66,7 +66,7 @@ export function segmentsOf(json: WhisperJson): Segment[] {
       if (t.text.startsWith(' ') || !current || pending.length > 0) {
         finish();
         current = {
-          start: (t.t_dtw >= 0 ? t.t_dtw * 10 : t.offsets.from) / 1000,
+          start: t.t_dtw >= 0 ? Math.max(0, t.t_dtw / 100 + DTW_START_SHIFT) : t.offsets.from / 1000,
           end: t.offsets.to / 1000,
           p: t.p,
         };

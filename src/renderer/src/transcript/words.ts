@@ -1,5 +1,6 @@
 /** The transcript as one flat list of words, plus lookups by time. */
 import type { Segment, Word } from '../../../shared/project.ts';
+import type { WordRef } from '../../../shared/transcript-edit.ts';
 
 export interface FlatWord extends Word {
   /** Position in the flat list. */
@@ -19,7 +20,16 @@ export interface FlatTranscript {
   segmentStart: number[];
 }
 
-export function flatten(segments: Segment[]): FlatTranscript {
+const flats = new WeakMap<readonly Segment[], FlatTranscript>();
+
+/** flatten(), once per version of the transcript: the transcript view and the clip editor share it. */
+export function flatOf(segments: readonly Segment[]): FlatTranscript {
+  let flat = flats.get(segments);
+  if (!flat) flats.set(segments, (flat = flatten(segments)));
+  return flat;
+}
+
+export function flatten(segments: readonly Segment[]): FlatTranscript {
   const words: FlatWord[] = [];
   const segmentStart: number[] = [];
   let reachedAt = 0;
@@ -52,4 +62,19 @@ export function wordAt(words: readonly FlatWord[], time: number): number {
     }
   }
   return found;
+}
+
+/** Words Whisper was least sure about (confidence below this) are the ones worth checking. */
+export const UNSURE = 0.4;
+
+/** The first unsure word from `from` on, going forward (1) or back (-1); -1 when there is none. */
+export function nextUnsure(words: readonly Word[], from: number, by: 1 | -1): number {
+  for (let i = from; i >= 0 && i < words.length; i += by) if (words[i]!.p < UNSURE) return i;
+  return -1;
+}
+
+/** Where a word of the flat list sits in the transcript's segments. */
+export function refOf(flat: FlatTranscript, index: number): WordRef {
+  const segment = flat.words[index]!.segment;
+  return { segment, word: index - flat.segmentStart[segment]! };
 }

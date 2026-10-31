@@ -34,7 +34,12 @@
     "zoomFrame": "zumiranje",
     "addKeyframe": "dodavanje ključnog kadra",
     "deleteKeyframe": "brisanje ključnog kadra",
-    "smoothKeyframe": "prelaz ključnog kadra"
+    "smoothKeyframe": "prelaz ključnog kadra",
+    "editWord": "ispravka reči",
+    "joinWords": "spajanje reči",
+    "retimeWord": "pomeranje tajminga reči",
+    "applyReplacements": "primena liste zamena",
+    "confirmWord": "potvrda reči"
   },
   "files": {
     "project": "Rezzo projekat",
@@ -123,7 +128,9 @@
     "noMatches": "Nema rezultata",
     "previous": "Prethodni rezultat (Shift+Enter)",
     "next": "Sledeći rezultat (Enter)",
-    "empty": "Transkript će se pojaviti ovde."
+    "empty": "Transkript će se pojaviti ovde.",
+    "editWord": "Ispravi reč",
+    "editHelp": "Enter: gotovo · Tab: sledeća reč · Ctrl+↓: sledeća nesigurna reč · Ctrl+Space: preslušaj · Esc: odustani"
   },
   "player": {
     "preparing": "Ovaj video ne može da se pusti direktno, pa Rezzo pravi kopiju za pregled: {{percent}}%",
@@ -174,7 +181,11 @@
     "addKeyframe": "Dodaj ključni kadar",
     "smooth": "Glatko do sledećeg",
     "deleteKeyframe": "Obriši ključni kadar",
-    "keyframeHelp": "Bez ključnih kadrova kadriranje važi za ceo klip. Dodaj jedan tamo gde kadar treba da se promeni, pa tamo pomeri sliku."
+    "keyframeHelp": "Bez ključnih kadrova kadriranje važi za ceo klip. Dodaj jedan tamo gde kadar treba da se promeni, pa tamo pomeri sliku.",
+    "wordStrip": "Tajming reči",
+    "wordHelp": "Klik vodi na reč, dupli klik je ispravlja. Prevuci ivicu da pomeriš početak ili kraj; Alt+←/→ pomera početak najbliži playhead-u za jedan kadar.",
+    "wordStart": "Početak reči „{{word}}”",
+    "wordEnd": "Kraj reči „{{word}}”"
   },
   "export": {
     "button": "Izvezi",
@@ -202,5 +213,23 @@
       "stop": "Prekini izvoz",
       "keep": "Nastavi izvoz"
     }
+  },
+  "replacements": {
+    "title": "Lista zamena",
+    "help": "Reči koje Whisper stalno pogrešno piše, ispravljene u svakom novom transkriptu. * na kraju hvata svaki nastavak: futbal* → fudbal* ispravlja i „futbala”.",
+    "from": "Whisper piše",
+    "to": "Zameni sa",
+    "remove": "Ukloni",
+    "add": "Dodaj reč",
+    "apply": "Primeni na ovaj transkript",
+    "applied": "Zamenjenih reči: {{count}}",
+    "done": "Gotovo",
+    "button": "Zamene",
+    "buttonHelp": "Reči koje se ispravljaju u svakom transkriptu",
+    "offer": "Uvek menjati „{{from}}” u „{{to}}”?",
+    "always": "Uvek zameni",
+    "notNow": "Ne sada",
+    "added": "Dodato u listu zamena: „{{from}}” → „{{to}}”.",
+    "saveFailed": "Lista zamena nije sačuvana. Reč može imati najviše 100 znakova, a zamena 200."
   }
 }

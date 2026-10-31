@@ -1,0 +1,42 @@
+/** Corrections to the transcript's words; each one is a step to undo. */
+import type { Draft } from 'immer';
+import type { Segment } from '../../../shared/project.ts';
+import { applyReplacements, type Replacement } from '../../../shared/replacements.ts';
+import { mergeWithNext, setWordText, setWordTiming, type WordRef } from '../../../shared/transcript-edit.ts';
+import { projectStore, type EditLabel } from './store.ts';
+
+function editSegments<R>(label: EditLabel, recipe: (segments: Draft<Segment>[]) => R, fallback: R): R {
+  let result = fallback;
+  projectStore.getState().edit(label, (d) => {
+    if (d.transcript) result = recipe(d.transcript.segments);
+  });
+  return result;
+}
+
+/** New text for a word; see setWordText. Returns how many words now stand in its place. */
+export function editWord(at: WordRef, text: string): number {
+  return editSegments('history.editWord', (s) => setWordText(s, at, text), 1);
+}
+
+/** Marks a word as checked: it was right, so it no longer counts as unsure. */
+export function confirmWord(at: WordRef): void {
+  editSegments('history.confirmWord', (s) => {
+    const word = s[at.segment]?.words[at.word];
+    if (word) word.p = 1;
+  }, undefined);
+}
+
+/** Joins a word with the one after it. */
+export function joinWords(at: WordRef): boolean {
+  return editSegments('history.joinWords', (s) => mergeWithNext(s, at), false);
+}
+
+/** Runs the replacement list over the whole transcript as one step. Returns how many words changed. */
+export function applyReplacementList(rules: readonly Replacement[]): number {
+  return editSegments('history.applyReplacements', (s) => applyReplacements(s, rules), 0);
+}
+
+/** Moves a word's start and end; inside a gesture while dragging. */
+export function retimeWord(at: WordRef, start: number, end: number): void {
+  editSegments('history.retimeWord', (s) => setWordTiming(s, at, start, end), undefined);
+}
