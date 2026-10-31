@@ -37,7 +37,8 @@
     "smoothKeyframe": "keyframe easing",
     "editWord": "correct word",
     "joinWords": "join words",
-    "retimeWord": "move word timing"
+    "retimeWord": "move word timing",
+    "applyReplacements": "apply replacement list"
   },
   "files": {
     "project": "Rezzo project",
@@ -211,5 +212,22 @@
       "stop": "Stop export",
       "keep": "Keep exporting"
     }
+  },
+  "replacements": {
+    "title": "Replacement list",
+    "help": "Words Whisper keeps getting wrong, fixed in every new transcript. A * at the end matches any ending: futbal* → fudbal* also fixes “futbala”.",
+    "from": "Whisper writes",
+    "to": "Replace with",
+    "remove": "Remove",
+    "add": "Add a word",
+    "apply": "Apply to this transcript",
+    "applied": "Words replaced: {{count}}",
+    "done": "Done",
+    "button": "Replacements",
+    "buttonHelp": "Words to fix in every transcript",
+    "offer": "Always replace “{{from}}” with “{{to}}”?",
+    "always": "Always replace",
+    "notNow": "Not now",
+    "added": "Added “{{from}}” → “{{to}}” to the replacement list."
   }
 }

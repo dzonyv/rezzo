@@ -32,7 +32,7 @@ async function save(patch: Partial<Settings>): Promise<Settings> {
 }
 
 async function load(): Promise<Settings> {
-  const defaults: Settings = { uiLanguage: defaultUiLanguage(app.getLocale()), transcriptLanguage: 'sr', exportDir: null };
+  const defaults: Settings = { uiLanguage: defaultUiLanguage(app.getLocale()), transcriptLanguage: 'sr', exportDir: null, replacements: [] };
   try {
     const stored = JSON.parse(await readFile(settingsFile(), 'utf8'));
     // Each setting stands alone: an unknown or damaged one falls back to its

@@ -37,7 +37,8 @@
     "smoothKeyframe": "prelaz ključnog kadra",
     "editWord": "ispravka reči",
     "joinWords": "spajanje reči",
-    "retimeWord": "pomeranje tajminga reči"
+    "retimeWord": "pomeranje tajminga reči",
+    "applyReplacements": "primena liste zamena"
   },
   "files": {
     "project": "Rezzo projekat",
@@ -211,5 +212,22 @@
       "stop": "Prekini izvoz",
       "keep": "Nastavi izvoz"
     }
+  },
+  "replacements": {
+    "title": "Lista zamena",
+    "help": "Reči koje Whisper stalno pogrešno piše, ispravljene u svakom novom transkriptu. * na kraju hvata svaki nastavak: futbal* → fudbal* ispravlja i „futbala”.",
+    "from": "Whisper piše",
+    "to": "Zameni sa",
+    "remove": "Ukloni",
+    "add": "Dodaj reč",
+    "apply": "Primeni na ovaj transkript",
+    "applied": "Zamenjenih reči: {{count}}",
+    "done": "Gotovo",
+    "button": "Zamene",
+    "buttonHelp": "Reči koje se ispravljaju u svakom transkriptu",
+    "offer": "Uvek menjati „{{from}}” u „{{to}}”?",
+    "always": "Uvek zameni",
+    "notNow": "Ne sada",
+    "added": "Dodato u listu zamena: „{{from}}” → „{{to}}”."
   }
 }

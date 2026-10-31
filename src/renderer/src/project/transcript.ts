@@ -1,6 +1,7 @@
 /** Corrections to the transcript's words; each one is a step to undo. */
 import type { Draft } from 'immer';
 import type { Segment } from '../../../shared/project.ts';
+import { applyReplacements, type Replacement } from '../../../shared/replacements.ts';
 import { mergeWithNext, setWordText, setWordTiming, type WordRef } from '../../../shared/transcript-edit.ts';
 import { projectStore, type EditLabel } from './store.ts';
 
@@ -20,6 +21,11 @@ export function editWord(at: WordRef, text: string): number {
 /** Joins a word with the one after it. */
 export function joinWords(at: WordRef): boolean {
   return editSegments('history.joinWords', (s) => mergeWithNext(s, at), false);
+}
+
+/** Runs the replacement list over the whole transcript as one step. Returns how many words changed. */
+export function applyReplacementList(rules: readonly Replacement[]): number {
+  return editSegments('history.applyReplacements', (s) => applyReplacements(s, rules), 0);
 }
 
 /** Moves a word's start and end; inside a gesture while dragging. */

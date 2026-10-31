@@ -147,6 +147,33 @@ describe('transcript', () => {
     expect(await editor.inputValue()).toBe('najbolji.');
     await page.keyboard.press('Escape');
   });
+
+  it('learns a replacement from a correction and applies the list as one step', async () => {
+    await page.locator('.w', { hasText: 'njemu.' }).dblclick();
+    await page.keyboard.type('njima.');
+    await page.keyboard.press('Enter');
+    await page.getByText('Always replace “njemu” with “njima”?').waitFor();
+    await page.getByRole('button', { name: 'Always replace' }).click();
+
+    await page.getByRole('button', { name: 'Replacements' }).click();
+    const dialog = page.getByRole('dialog', { name: 'Replacement list' });
+    await expect.poll(() => dialog.getByRole('textbox', { name: 'Whisper writes' }).count()).toBe(1);
+    expect(await dialog.getByRole('textbox', { name: 'Replace with' }).inputValue()).toBe('njima');
+    await dialog.getByRole('button', { name: 'Add a word' }).click();
+    await dialog.getByRole('textbox', { name: 'Whisper writes' }).nth(1).fill('pričamo*');
+    await dialog.getByRole('textbox', { name: 'Replace with' }).nth(1).fill('govorimo*');
+    await dialog.getByRole('button', { name: 'Apply to this transcript' }).click();
+    await page.getByText('Words replaced: 2').waitFor();
+    await dialog.getByRole('button', { name: 'Done' }).click();
+
+    let text = await words(page);
+    expect(text).toContain('veče, govorimo o');
+    expect(text).toContain('Govorimo i o njima.');
+    await page.getByRole('button', { name: 'Undo', exact: true }).click();
+    text = await words(page);
+    expect(text).toContain('veče, pričamo o');
+    expect(text).toContain('Pričamo i o njima.');
+  });
 });
 
 /** The transcript's text as shown, one line per segment. */

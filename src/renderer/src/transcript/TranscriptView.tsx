@@ -8,6 +8,8 @@ import { formatDuration } from '../format.ts';
 import { seek } from '../player/playback.ts';
 import { createClip, setClipWords } from '../project/clips.ts';
 import { editWord, joinWords } from '../project/transcript.ts';
+import { ruleFor } from '../../../shared/replacements.ts';
+import { acceptOffer, offerRule, openReplacements, useReplacements } from '../ui/replacements.ts';
 import { useProject } from '../project/store.ts';
 import { isTypingTarget } from '../ui/focus.ts';
 import { buildIndex, search, type Match } from './search.ts';
@@ -86,8 +88,10 @@ export function TranscriptView({ transcript, source }: { transcript: Transcript;
     stopEditing();
     if (f.kind === 'cancel') return;
     const at = refOf(flat, index);
+    const before = flat.words[index]!.text;
     // How many words now stand where the edited one was; the words after it move by count - 1.
     const count = editWord(at, f.text);
+    if (count > 0) offerRule(ruleFor(before, f.text));
     const length = flat.words.length + count - 1;
     const unsure = (from: number, by: 1 | -1) => {
       for (let i = from; i >= 0 && i < flat.words.length; i += by) if (flat.words[i]!.p < UNSURE) return i;
@@ -206,6 +210,9 @@ export function TranscriptView({ transcript, source }: { transcript: Transcript;
         >
           <Chevron />
         </button>
+        <button type="button" onClick={() => openReplacements(true)} title={t('replacements.buttonHelp')}>
+          {t('replacements.button')}
+        </button>
       </div>
 
       <div
@@ -259,6 +266,8 @@ export function TranscriptView({ transcript, source }: { transcript: Transcript;
         </div>
       </div>
 
+      <ReplaceOffer />
+
       {/* Floats over the text and waits for the press to end, so nothing moves under the pointer. */}
       {selection && !dragging && (
         <SelectionBar words={flat.words.slice(selection.first, selection.last + 1)} source={source} />
@@ -298,6 +307,25 @@ function clipMarks(words: readonly FlatWord[], clips: readonly Clip[], openClipI
     }
   }
   return marks;
+}
+
+/** After a correction that a rule could make: offers to add that rule to the replacement list. */
+function ReplaceOffer() {
+  const { t } = useTranslation();
+  const offer = useReplacements((s) => s.offer);
+  if (!offer) return null;
+  return (
+    <div className="replace-offer" role="status">
+      <span>{t('replacements.offer', { from: offer.from, to: offer.to })}</span>
+      <div className="spacer" />
+      <button type="button" className="primary" onClick={() => void acceptOffer()}>
+        {t('replacements.always')}
+      </button>
+      <button type="button" onClick={() => offerRule(null)}>
+        {t('replacements.notNow')}
+      </button>
+    </div>
+  );
 }
 
 /** How long the selected words run, and buttons that turn them into a clip. */
