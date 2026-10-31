@@ -108,6 +108,8 @@ describe('transcript', () => {
     await page.keyboard.press('Tab');
     expect(await editor.inputValue()).toBe('su');
     await page.keyboard.press('Tab');
+    // Passing over a word that was right keeps the offer from the correction before it.
+    expect(await page.getByText('Always replace “ćevapi” with “čevapi”?').count()).toBe(1);
     await page.keyboard.type('najbolji!');
     await page.keyboard.press('Enter');
     expect(await editor.count()).toBe(0);
@@ -138,6 +140,14 @@ describe('transcript', () => {
     await page.keyboard.press('Backspace');
     await page.keyboard.press('Enter');
     expect(await words(page)).toContain('veče, pričamo');
+
+    // Backspace again on the emptied box deletes the word and leaves its neighbours apart.
+    await page.locator('.w', { hasText: /^o $/ }).first().dblclick();
+    await page.keyboard.press('Backspace');
+    await page.keyboard.press('Backspace');
+    expect(await editor.inputValue()).toBe('pričamo');
+    await page.keyboard.press('Escape');
+    expect(await words(page)).toContain('veče, pričamo Đokoviću.');
   });
 
   it('jumps to the next unsure word', async () => {
@@ -145,7 +155,11 @@ describe('transcript', () => {
     await page.keyboard.press('Control+ArrowDown');
     const editor = page.getByRole('textbox', { name: 'Correct the word' });
     expect(await editor.inputValue()).toBe('najbolji.');
-    await page.keyboard.press('Escape');
+    // Left as it was, the word counts as checked.
+    await page.keyboard.press('Enter');
+    expect(await page.locator('.w.unsure').count()).toBe(0);
+    await page.getByRole('button', { name: 'Undo', exact: true }).click();
+    expect(await page.locator('.w.unsure').count()).toBe(1);
   });
 
   it('learns a replacement from a correction and applies the list as one step', async () => {
@@ -167,12 +181,21 @@ describe('transcript', () => {
     await dialog.getByRole('button', { name: 'Done' }).click();
 
     let text = await words(page);
-    expect(text).toContain('veče, govorimo o');
+    expect(text).toContain('veče, govorimo Đokoviću.');
     expect(text).toContain('Govorimo i o njima.');
     await page.getByRole('button', { name: 'Undo', exact: true }).click();
     text = await words(page);
-    expect(text).toContain('veče, pričamo o');
+    expect(text).toContain('veče, pričamo Đokoviću.');
     expect(text).toContain('Pričamo i o njima.');
+  });
+
+  it('saves the word still being corrected with Ctrl+S', async () => {
+    await page.locator('.w', { hasText: /^A $/ }).dblclick();
+    await page.keyboard.type('I');
+    await page.keyboard.press('Control+S');
+    await expect.poll(() => page.locator('.topbar .dirty').count()).toBe(0);
+    const saved = JSON.parse(await readFile(path.join(dir, 'show.rezzo'), 'utf8')) as { transcript: { segments: Segment[] } };
+    expect(saved.transcript.segments.at(-1)!.words[0]!.text).toBe('I');
   });
 });
 

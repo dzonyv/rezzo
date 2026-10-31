@@ -38,7 +38,8 @@
     "editWord": "correct word",
     "joinWords": "join words",
     "retimeWord": "move word timing",
-    "applyReplacements": "apply replacement list"
+    "applyReplacements": "apply replacement list",
+    "confirmWord": "confirm word"
   },
   "files": {
     "project": "Rezzo project",
@@ -228,6 +229,7 @@
     "offer": "Always replace “{{from}}” with “{{to}}”?",
     "always": "Always replace",
     "notNow": "Not now",
-    "added": "Added “{{from}}” → “{{to}}” to the replacement list."
+    "added": "Added “{{from}}” → “{{to}}” to the replacement list.",
+    "saveFailed": "The replacement list couldn't be saved. A word can be at most 100 characters long and its replacement 200."
   }
 }

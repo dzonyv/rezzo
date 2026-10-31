@@ -7,20 +7,19 @@ import { useOpenClip, useOpenClipId } from '../clip/state.ts';
 import { formatDuration } from '../format.ts';
 import { seek } from '../player/playback.ts';
 import { createClip, setClipWords } from '../project/clips.ts';
-import { editWord, joinWords } from '../project/transcript.ts';
 import { ruleFor } from '../../../shared/replacements.ts';
-import { acceptOffer, offerRule, openReplacements, useReplacements } from '../ui/replacements.ts';
+import { wordsOfText } from '../../../shared/transcript-edit.ts';
 import { useProject } from '../project/store.ts';
+import { confirmWord, editWord, joinWords } from '../project/transcript.ts';
 import { isTypingTarget } from '../ui/focus.ts';
+import { acceptOffer, offerRule, openReplacements, useReplacements } from '../ui/replacements.ts';
 import { buildIndex, search, type Match } from './search.ts';
 import { clearSelection, enterWord, pressWord, release, selectedRange, useSelection } from './selection.ts';
 import { startEditing, stopEditing, useEditing, type Finish } from './editing.ts';
 import { listeningStore, playAround, seekPaused, useListening } from './listening.ts';
 import { WordEditor } from './WordEditor.tsx';
-import { flatOf, refOf, wordAt, type FlatTranscript, type FlatWord } from './words.ts';
+import { flatOf, nextUnsure, refOf, UNSURE, wordAt, type FlatTranscript, type FlatWord } from './words.ts';
 
-/** Words Whisper was least sure about get a subtle underline: the ones worth checking. */
-const UNSURE = 0.4;
 /** After the user scrolls by hand, playback stops pulling the view along for a while. */
 const MANUAL_SCROLL_MS = 4000;
 
@@ -88,22 +87,34 @@ export function TranscriptView({ transcript, source }: { transcript: Transcript;
     stopEditing();
     if (f.kind === 'cancel') return;
     const at = refOf(flat, index);
-    const before = flat.words[index]!.text;
-    // How many words now stand where the edited one was; the words after it move by count - 1.
-    const count = editWord(at, f.text);
-    if (count > 0) offerRule(ruleFor(before, f.text));
+    const word = flat.words[index]!;
+    let count = 1;
+    if (wordsOfText(f.text).join(' ') !== word.text) {
+      // How many words now stand where the edited one was; the words after it move by count - 1.
+      count = editWord(at, f.text);
+      const rule = count > 0 ? ruleFor(word.text, f.text) : null;
+      if (rule) offerRule(rule);
+    } else if (word.p < UNSURE) {
+      // Left as it was: checked and right, so it stops counting as unsure.
+      confirmWord(at);
+    }
     const length = flat.words.length + count - 1;
-    const unsure = (from: number, by: 1 | -1) => {
-      for (let i = from; i >= 0 && i < flat.words.length; i += by) if (flat.words[i]!.p < UNSURE) return i;
-      return -1;
-    };
     let next = -1;
     if (f.kind === 'next') next = index + count;
     else if (f.kind === 'previous') next = index - 1;
-    else if (f.kind === 'nextUnsure') next = ((i) => (i < 0 ? -1 : i + count - 1))(unsure(index + 1, 1));
-    else if (f.kind === 'previousUnsure') next = unsure(index - 1, -1);
-    else if (f.kind === 'joinPrevious' && index > 0 && joinWords(refOf(flat, index - 1))) next = index - 1;
-    else if (f.kind === 'joinNext' && count > 0 && joinWords({ ...at, word: at.word + count - 1 })) next = index + count - 1;
+    else if (f.kind === 'nextUnsure') next = ((i) => (i < 0 ? -1 : i + count - 1))(nextUnsure(flat.words, index + 1, 1));
+    else if (f.kind === 'previousUnsure') next = nextUnsure(flat.words, index - 1, -1);
+    // An emptied word was deleted, and joining now would glue the words either side of it
+    // together; the editor just moves on to the neighbour instead.
+    else if (f.kind === 'joinPrevious') {
+      if (count > 0 && index > 0) joinWords(refOf(flat, index - 1));
+      next = index - 1;
+    } else if (f.kind === 'joinNext') {
+      if (count > 0) joinWords({ ...at, word: at.word + count - 1 });
+      next = index + Math.max(count - 1, 0);
+    }
+    // The editor may come back at the same number (a deleted word's neighbour), and that word still needs showing.
+    shownForEdit.current = null;
     if (next >= 0 && next < length) startEditing(next);
   };
 
@@ -124,12 +135,8 @@ export function TranscriptView({ transcript, source }: { transcript: Transcript;
         // The next word Whisper wasn't sure about, straight into the editor.
         e.preventDefault();
         const by = e.key === 'ArrowDown' ? 1 : -1;
-        for (let i = here + by; i >= 0 && i < words.length; i += by) {
-          if (words[i]!.p < UNSURE) {
-            startEditing(i);
-            break;
-          }
-        }
+        const unsure = nextUnsure(words, here + by, by);
+        if (unsure >= 0) startEditing(unsure);
       } else if (e.ctrlKey && e.key.toLowerCase() === 'f') {
         e.preventDefault();
         searchBox.current?.focus();

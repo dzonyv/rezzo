@@ -72,3 +72,9 @@ describe('ruleFor', () => {
     expect(ruleFor('futbal', 'Futbal')).toBeNull();
   });
 });
+
+describe('ruleFor with long text', () => {
+  it('offers nothing when the correction is too long to be a rule', () => {
+    expect(ruleFor('futbal', 'a'.repeat(201))).toBeNull();
+  });
+});

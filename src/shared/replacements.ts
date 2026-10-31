@@ -52,7 +52,9 @@ export function ruleFor(before: string, after: string): Replacement | null {
   if (!from || !to || key(from) === key(to)) return null;
   const capital = (s: string) => isUpper([...s][0] ?? '');
   if (capital(from) && capital(to)) to = to.charAt(0).toLowerCase() + to.slice(1);
-  return { from: key(from), to };
+  // Something too long to be a rule (a whole sentence typed over one word) isn't offered.
+  const rule = replacementSchema.safeParse({ from: key(from), to });
+  return rule.success ? rule.data : null;
 }
 
 /** The first rule's result for a word, or null when no rule matches. */

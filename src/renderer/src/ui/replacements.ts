@@ -36,9 +36,13 @@ export async function loadRules(): Promise<Replacement[]> {
   return (await window.rezzo.invoke('settings:get')).replacements;
 }
 
-/** Saves the list; rows left without a word to replace are dropped. */
-export async function saveRules(rules: readonly Replacement[]): Promise<void> {
-  await window.rezzo.invoke('settings:set', { replacements: rules.filter((r) => r.from.trim() !== '') });
+/**
+ * Saves the list and returns it as stored: trimmed, without rows left
+ * empty. Rejects when a rule is too long for the settings.
+ */
+export async function saveRules(rules: readonly Replacement[]): Promise<Replacement[]> {
+  const settings = await window.rezzo.invoke('settings:set', { replacements: rules.filter((r) => r.from.trim() !== '') });
+  return settings.replacements;
 }
 
 /** Adds the offered rule to the list, in place of any rule for the same word. */
@@ -46,7 +50,11 @@ export async function acceptOffer(): Promise<void> {
   const rule = replacementsStore.getState().offer;
   offerRule(null);
   if (!rule) return;
-  const rules = (await loadRules()).filter((r) => r.from.toLowerCase() !== rule.from);
-  await saveRules([...rules, rule]);
-  notify('info', i18n.t('replacements.added', { from: rule.from, to: rule.to }));
+  try {
+    const rules = (await loadRules()).filter((r) => r.from.toLowerCase() !== rule.from);
+    await saveRules([...rules, rule]);
+    notify('info', i18n.t('replacements.added', { from: rule.from, to: rule.to }));
+  } catch {
+    notify('error', i18n.t('replacements.saveFailed'));
+  }
 }

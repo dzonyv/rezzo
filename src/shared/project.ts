@@ -9,6 +9,7 @@
  * Phase 2 lets the user edit it.
  */
 import { z } from 'zod';
+import { fps, frameAt, timeOfFrame, workingFrameRate } from './frames.ts';
 
 /** Bumped when the file format changes in a way older files need migrating for. */
 export const PROJECT_FORMAT = 3;
@@ -102,6 +103,24 @@ export function upgradeTranscript(raw: unknown): unknown {
     return { ...s, start: words[0]?.start ?? s.start, words };
   });
   return { ...t, startShift: DTW_START_SHIFT, segments };
+}
+
+/**
+ * Clips made before word starts were corrected start the usual lead before
+ * their first word's old, late start, which is now exactly where that word
+ * starts. Moving their start back by the same shift gives the lead back.
+ * Framing needs no change: before its first keyframe a value holds that
+ * keyframe's value.
+ */
+function clipsWithLead(old: Record<string, unknown>): unknown {
+  const source = old.source as Pick<Source, 'video'> | null;
+  if (!source?.video || !Array.isArray(old.clips)) return old.clips;
+  const rate = workingFrameRate(source);
+  const lead = Math.round(-DTW_START_SHIFT * fps(rate));
+  return (old.clips as { start: number; end: number }[]).map((clip) => {
+    const start = timeOfFrame(Math.max(0, frameAt(clip.start, rate) - lead), rate);
+    return clip.end - start <= MAX_CLIP_SECONDS + 1e-6 ? { ...clip, start } : clip;
+  });
 }
 
 /** Longest clip; its working file is loaded into memory whole. */
@@ -204,7 +223,7 @@ const MIGRATIONS: Record<number, (old: Record<string, unknown>) => Record<string
   // Format 2 added clips.
   1: (old) => ({ ...old, clips: [] }),
   // Format 3 corrected the late DTW word starts.
-  2: (old) => ({ ...old, transcript: upgradeTranscript(old.transcript) }),
+  2: (old) => ({ ...old, transcript: upgradeTranscript(old.transcript), clips: clipsWithLead(old) }),
 };
 
 export class ProjectFormatError extends Error {

@@ -18,6 +18,14 @@ export function editWord(at: WordRef, text: string): number {
   return editSegments('history.editWord', (s) => setWordText(s, at, text), 1);
 }
 
+/** Marks a word as checked: it was right, so it no longer counts as unsure. */
+export function confirmWord(at: WordRef): void {
+  editSegments('history.confirmWord', (s) => {
+    const word = s[at.segment]?.words[at.word];
+    if (word) word.p = 1;
+  }, undefined);
+}
+
 /** Joins a word with the one after it. */
 export function joinWords(at: WordRef): boolean {
   return editSegments('history.joinWords', (s) => mergeWithNext(s, at), false);

@@ -64,6 +64,15 @@ export function wordAt(words: readonly FlatWord[], time: number): number {
   return found;
 }
 
+/** Words Whisper was least sure about (confidence below this) are the ones worth checking. */
+export const UNSURE = 0.4;
+
+/** The first unsure word from `from` on, going forward (1) or back (-1); -1 when there is none. */
+export function nextUnsure(words: readonly Word[], from: number, by: 1 | -1): number {
+  for (let i = from; i >= 0 && i < words.length; i += by) if (words[i]!.p < UNSURE) return i;
+  return -1;
+}
+
 /** Where a word of the flat list sits in the transcript's segments. */
 export function refOf(flat: FlatTranscript, index: number): WordRef {
   const segment = flat.words[index]!.segment;

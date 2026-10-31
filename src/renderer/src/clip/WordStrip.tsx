@@ -43,6 +43,10 @@ export function WordStrip({ clip, transcript, time, rate }: { clip: Clip; transc
   for (let i = first; i < flat.words.length && flat.words[i]!.start < to; i++) {
     if (flat.words[i]!.end > from) visible.push(flat.words[i]!);
   }
+  // The word being dragged stays even when it's pulled out of view, or its edge
+  // would vanish under the pointer and the drag would never end.
+  const dragged = drag && flat.words[drag.index];
+  if (dragged && !visible.includes(dragged)) visible.push(dragged);
   const active = wordAt(flat.words, time);
 
   useEffect(() => {
@@ -51,6 +55,21 @@ export function WordStrip({ clip, transcript, time, rate }: { clip: Clip; transc
     resize.observe(el);
     return () => resize.disconnect();
   }, []);
+
+  // A drag that ends any other way (the strip closing under it) still closes its undo step.
+  const dragging = useRef(false);
+  const endDrag = () => {
+    if (!dragging.current) return;
+    dragging.current = false;
+    projectStore.getState().endGesture();
+    setDrag(null);
+  };
+  useEffect(
+    () => () => {
+      if (dragging.current) projectStore.getState().endGesture();
+    },
+    [],
+  );
 
   // The waveform: one bar per pixel column, as tall as the loudest sound in it.
   useEffect(() => {
@@ -112,15 +131,14 @@ export function WordStrip({ clip, transcript, time, rate }: { clip: Clip; transc
                 e.stopPropagation();
                 e.currentTarget.setPointerCapture(e.pointerId);
                 projectStore.getState().beginGesture('history.retimeWord');
+                dragging.current = true;
                 setDrag({ index: w.index, edge });
               }}
               onPointerMove={(e) => {
                 if (drag && e.currentTarget.hasPointerCapture(e.pointerId)) move(drag, e.clientX);
               }}
-              onPointerUp={() => {
-                projectStore.getState().endGesture();
-                setDrag(null);
-              }}
+              onPointerUp={endDrag}
+              onLostPointerCapture={endDrag}
             />
           ))}
         </div>

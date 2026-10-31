@@ -38,7 +38,8 @@
     "editWord": "ispravka reči",
     "joinWords": "spajanje reči",
     "retimeWord": "pomeranje tajminga reči",
-    "applyReplacements": "primena liste zamena"
+    "applyReplacements": "primena liste zamena",
+    "confirmWord": "potvrda reči"
   },
   "files": {
     "project": "Rezzo projekat",
@@ -228,6 +229,7 @@
     "offer": "Uvek menjati „{{from}}” u „{{to}}”?",
     "always": "Uvek zameni",
     "notNow": "Ne sada",
-    "added": "Dodato u listu zamena: „{{from}}” → „{{to}}”."
+    "added": "Dodato u listu zamena: „{{from}}” → „{{to}}”.",
+    "saveFailed": "Lista zamena nije sačuvana. Reč može imati najviše 100 znakova, a zamena 200."
   }
 }

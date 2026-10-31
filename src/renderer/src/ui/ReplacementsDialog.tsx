@@ -31,15 +31,27 @@ export function ReplacementsDialog() {
 
   const set = (i: number, patch: Partial<Replacement>) => setRules((rs) => rs && rs.map((r, j) => (j === i ? { ...r, ...patch } : r)));
 
+  /** Saves the list; on failure says why and returns null, leaving the dialog open. */
+  const save = async () => {
+    if (!rules) return null;
+    try {
+      return await saveRules(rules);
+    } catch {
+      notify('error', t('replacements.saveFailed'));
+      return null;
+    }
+  };
+
   const close = async () => {
-    if (rules) await saveRules(rules);
+    if (rules && !(await save())) return;
     openReplacements(false);
   };
 
   const apply = async () => {
-    if (!rules) return;
-    await saveRules(rules);
-    const changed = applyReplacementList(rules.filter((r) => r.from.trim() !== ''));
+    // The rules as saved (trimmed), so this matches what new transcripts get.
+    const saved = await save();
+    if (!saved) return;
+    const changed = applyReplacementList(saved);
     notify('info', t('replacements.applied', { count: changed }));
   };
 
