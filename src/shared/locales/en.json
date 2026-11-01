@@ -39,13 +39,19 @@
     "joinWords": "join words",
     "retimeWord": "move word timing",
     "applyReplacements": "apply replacement list",
-    "confirmWord": "confirm word"
+    "confirmWord": "confirm word",
+    "addCaptions": "add captions",
+    "removeCaptions": "remove captions",
+    "captionStyle": "caption style",
+    "moveCaptions": "move captions",
+    "pageBreak": "caption page break"
   },
   "files": {
     "project": "Rezzo project",
     "video": "Video",
     "all": "All files",
-    "mp4": "MP4 video"
+    "mp4": "MP4 video",
+    "font": "Font file"
   },
   "unsaved": {
     "title": "Save changes to “{{name}}”?",
@@ -231,5 +237,85 @@
     "notNow": "Not now",
     "added": "Added “{{from}}” → “{{to}}” to the replacement list.",
     "saveFailed": "The replacement list couldn't be saved. A word can be at most 100 characters long and its replacement 200."
+  },
+  "captions": {
+    "title": "Captions",
+    "none": "This clip has no captions.",
+    "add": "Add captions",
+    "remove": "Remove captions",
+    "style": "Style",
+    "styles": {
+      "classic": "Classic",
+      "box": "Box",
+      "reveal": "Word by word",
+      "calm": "Calm",
+      "headline": "Headline"
+    },
+    "sample": "Fudbal, čačkalica, đak",
+    "deleteStyle": "Delete the style “{{name}}”",
+    "font": "Font",
+    "weight": "Weight",
+    "weights": {
+      "100": "Thin",
+      "200": "Extra light",
+      "300": "Light",
+      "400": "Regular",
+      "500": "Medium",
+      "600": "Semibold",
+      "700": "Bold",
+      "800": "Extra bold",
+      "900": "Black"
+    },
+    "notHere": "{{family}} (not on this computer)",
+    "addFont": "Add font…",
+    "addFontHelp": "Use a TTF or OTF font file from this computer",
+    "fontAdded": "Added {{family}}.",
+    "fontLacks": "{{family}} has no {{letters}}. Those letters will be drawn in Poppins.",
+    "fontUnreadable": "That file isn't a font Rezzo can read.",
+    "fontBuiltIn": "{{family}} already comes with Rezzo.",
+    "fontMissing": "{{family}} isn't on this computer, so these captions are drawn in Poppins Bold. Add the font to see them as they were made.",
+    "size": "Size",
+    "uppercase": "Capitals",
+    "color": "Text colour",
+    "outline": "Outline",
+    "outlineColor": "Outline colour",
+    "shadow": "Shadow",
+    "shadowColor": "Shadow colour",
+    "highlight": "Spoken word",
+    "highlights": {
+      "color": "Coloured",
+      "box": "In a box",
+      "none": "Not marked"
+    },
+    "highlightColor": "Spoken word colour",
+    "boxColor": "Box colour",
+    "activeScale": "Spoken word size",
+    "mode": "Show",
+    "modes": {
+      "page": "The whole page",
+      "reveal": "Each word as it's spoken"
+    },
+    "entrance": "Entrance",
+    "entrances": {
+      "none": "None",
+      "pop": "Pop",
+      "fade": "Fade in"
+    },
+    "lines": "Lines",
+    "maxChars": "Letters per line",
+    "position": "Position",
+    "positionHelp": "Drag the captions up or down in the preview. Add a keyframe where they should move.",
+    "drag": "Captions: drag up or down to move them",
+    "styleName": "Style name",
+    "save": "Save as style",
+    "saved": "Saved the style “{{name}}”.",
+    "makeDefault": "Use for new clips",
+    "madeDefault": "New clips will get this style.",
+    "saveFailed": "The style couldn't be saved.",
+    "pages": "Caption pages",
+    "newPage": "New page here",
+    "newPageHelp": "Start a new caption page at the word being spoken",
+    "joinPage": "Join with the page before",
+    "joinPageHelp": "This word starts a caption page; join it with the page before"
   }
 }

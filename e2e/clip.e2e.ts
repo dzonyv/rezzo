@@ -8,7 +8,7 @@ import { tmpdir } from 'node:os';
 import path from 'node:path';
 import type { ElectronApplication, Page } from 'playwright-core';
 import { afterAll, beforeAll, describe, expect, it } from 'vitest';
-import type { Project, Segment } from '../src/shared/project.ts';
+import { captionLayerOf, videoLayerOf, type Project, type Segment } from '../src/shared/project.ts';
 import {
   answerOpenDialog, answerSaveDialog, launchApp, makeNumberedVideo, NUMBER_BIT_WIDTH, NUMBER_STRIP_HEIGHT, stopApp,
 } from './helpers.ts';
@@ -149,7 +149,7 @@ describe('clips', () => {
     await expect.poll(() => page.locator('.clip-timeline .band').count()).toBe(2);
 
     let project = await saved();
-    expect(project.clips[0]!.layers[0]!.layout.map((k) => [k.t, k.value])).toEqual([[4.9, 'full'], [6, 'follow']]);
+    expect(videoLayerOf(project.clips[0]!).layout.map((k) => [k.t, k.value])).toEqual([[4.9, 'full'], [6, 'follow']]);
 
     await page.getByRole('button', { name: 'Undo' }).click();
     await expect.poll(() => page.locator('.clip-timeline .band').count()).toBe(1);
@@ -158,7 +158,7 @@ describe('clips', () => {
     await expect.poll(() => page.locator('.clip-timeline .band').count()).toBe(2);
 
     project = await saved();
-    expect(project.clips[0]!.layers[0]!.layout).toHaveLength(2);
+    expect(videoLayerOf(project.clips[0]!).layout).toHaveLength(2);
   });
 
   it('frames by dragging the picture, as one undo step', async () => {
@@ -171,7 +171,7 @@ describe('clips', () => {
     await page.mouse.up();
 
     let project = await saved();
-    const follow = project.clips[0]!.layers[0]!.follow;
+    const follow = videoLayerOf(project.clips[0]!).follow;
     // One keyframe, so the whole clip moved: dragging right shows more of the left.
     expect(follow).toHaveLength(1);
     expect(follow[0]!.value.x).toBeLessThan(0.5);
@@ -179,7 +179,7 @@ describe('clips', () => {
 
     await page.getByRole('button', { name: 'Undo' }).click();
     project = await saved();
-    expect(project.clips[0]!.layers[0]!.follow[0]!.value.x).toBe(0.5);
+    expect(videoLayerOf(project.clips[0]!).follow[0]!.value.x).toBe(0.5);
   });
 
   it('nudges the word start nearest the playhead with Alt+arrows', async () => {
@@ -216,6 +216,39 @@ describe('clips', () => {
     await page.getByRole('button', { name: 'Undo' }).click();
     words = (await saved()).transcript!.segments[1]!.words;
     expect([words[0]!.end, words[1]!.start]).toEqual([5.4, 5.5]);
+  });
+
+  it('starts a caption page at the spoken word, as one undo step', async () => {
+    // At 6 s "o" is spoken. Two lines of 18 letters hold "DANAS PRIČAMO O / KADRIRANJU", so "KLIPOVA." starts the second page.
+    const pages = page.locator('.clip-timeline .caption-pages .page');
+    await expect.poll(() => pages.first().getAttribute('title')).toBe('DANAS PRIČAMO O KADRIRANJU');
+    await page.getByRole('button', { name: 'New page here' }).click();
+    await expect.poll(() => pages.first().getAttribute('title')).toBe('DANAS PRIČAMO');
+    expect((await saved()).transcript!.segments[1]!.words[2]!.pageBreak).toBe(true);
+    await page.getByRole('button', { name: 'Join with the page before' }).waitFor();
+
+    await page.getByRole('button', { name: 'Undo' }).click();
+    expect((await saved()).transcript!.segments[1]!.words[2]!.pageBreak).toBeUndefined();
+  });
+
+  it('moves the captions by dragging them, not the picture', async () => {
+    const before = videoLayerOf((await saved()).clips[0]!).follow;
+    const band = (await page.locator('.caption-overlay').boundingBox())!;
+    const preview = (await page.locator('.clip-preview').boundingBox())!;
+    const x = band.x + band.width / 2;
+    const y = band.y + band.height / 2;
+    await page.mouse.move(x, y);
+    await page.mouse.down();
+    // From 0.7 of the height up to 0.5.
+    await page.mouse.move(x, y - 0.2 * preview.height, { steps: 6 });
+    await page.mouse.up();
+
+    const project = await saved();
+    const captions = captionLayerOf(project.clips[0]!)!;
+    expect(captions.y).toHaveLength(1);
+    expect(captions.y[0]!.value).toBeCloseTo(0.5, 2);
+    expect(videoLayerOf(project.clips[0]!).follow).toEqual(before);
+    expect(await page.getByRole('button', { name: 'Undo' }).getAttribute('title')).toBe('Undo: move captions');
   });
 
   it('opens again with its clips', async () => {

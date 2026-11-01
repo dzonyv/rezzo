@@ -1,5 +1,6 @@
 import { useRef } from 'react';
 import { useTranslation } from 'react-i18next';
+import type { CaptionPage } from '../../../shared/captions.ts';
 import type { Animated, Clip, Layout } from '../../../shared/project.ts';
 import { seekClip } from './playback.ts';
 
@@ -8,15 +9,18 @@ interface Props {
   layout: Animated<Layout>;
   /** Keyframes of the value being edited. */
   keys: Animated<unknown>;
+  /** The clip's caption pages, drawn as a thin row along the bottom; empty without captions. */
+  pages: readonly CaptionPage[];
   time: number;
 }
 
 /**
  * The clip from start to end: which layout runs when (coloured bands), the
- * keyframes of the framing being edited (diamonds) and the playhead.
+ * keyframes of the framing being edited (diamonds), the caption pages and
+ * the playhead.
  * Press and drag anywhere to scrub.
  */
-export function ClipTimeline({ clip, layout, keys, time }: Props) {
+export function ClipTimeline({ clip, layout, keys, pages, time }: Props) {
   const { t } = useTranslation();
   const track = useRef<HTMLDivElement>(null);
   const length = clip.end - clip.start;
@@ -76,6 +80,18 @@ export function ClipTimeline({ clip, layout, keys, time }: Props) {
             }}
           />
         ))}
+      {pages.length > 0 && (
+        <div className="caption-pages" aria-label={t('captions.pages')}>
+          {pages.map((p) => (
+            <div
+              key={p.start}
+              className="page"
+              style={{ left: at(p.start), width: `calc(${at(p.end)} - ${at(p.start)})` }}
+              title={p.words.map((w) => w.text).join(' ')}
+            />
+          ))}
+        </div>
+      )}
       <div className="playhead" style={{ left: at(time) }} />
     </div>
   );

@@ -39,13 +39,19 @@
     "joinWords": "spajanje reči",
     "retimeWord": "pomeranje tajminga reči",
     "applyReplacements": "primena liste zamena",
-    "confirmWord": "potvrda reči"
+    "confirmWord": "potvrda reči",
+    "addCaptions": "dodavanje titlova",
+    "removeCaptions": "uklanjanje titlova",
+    "captionStyle": "stil titlova",
+    "moveCaptions": "pomeranje titlova",
+    "pageBreak": "nova strana titla"
   },
   "files": {
     "project": "Rezzo projekat",
     "video": "Video",
     "all": "Svi fajlovi",
-    "mp4": "MP4 video"
+    "mp4": "MP4 video",
+    "font": "Fajl fonta"
   },
   "unsaved": {
     "title": "Sačuvati izmene u „{{name}}”?",
@@ -231,5 +237,85 @@
     "notNow": "Ne sada",
     "added": "Dodato u listu zamena: „{{from}}” → „{{to}}”.",
     "saveFailed": "Lista zamena nije sačuvana. Reč može imati najviše 100 znakova, a zamena 200."
+  },
+  "captions": {
+    "title": "Titlovi",
+    "none": "Ovaj klip nema titlove.",
+    "add": "Dodaj titlove",
+    "remove": "Ukloni titlove",
+    "style": "Stil",
+    "styles": {
+      "classic": "Klasičan",
+      "box": "Kutija",
+      "reveal": "Reč po reč",
+      "calm": "Miran",
+      "headline": "Naslov"
+    },
+    "sample": "Fudbal, čačkalica, đak",
+    "deleteStyle": "Obriši stil „{{name}}“",
+    "font": "Font",
+    "weight": "Debljina",
+    "weights": {
+      "100": "Tanka",
+      "200": "Vrlo laka",
+      "300": "Laka",
+      "400": "Obična",
+      "500": "Srednja",
+      "600": "Polumasna",
+      "700": "Masna",
+      "800": "Vrlo masna",
+      "900": "Crna"
+    },
+    "notHere": "{{family}} (nije na ovom računaru)",
+    "addFont": "Dodaj font…",
+    "addFontHelp": "Koristi TTF ili OTF fajl fonta sa ovog računara",
+    "fontAdded": "Dodat je {{family}}.",
+    "fontLacks": "{{family}} nema {{letters}}. Ta slova će biti ispisana fontom Poppins.",
+    "fontUnreadable": "Rezzo ne može da pročita taj fajl kao font.",
+    "fontBuiltIn": "{{family}} već dolazi uz Rezzo.",
+    "fontMissing": "{{family}} nije na ovom računaru, pa su ovi titlovi ispisani fontom Poppins Bold. Dodaj font da bi izgledali kao kad su napravljeni.",
+    "size": "Veličina",
+    "uppercase": "Velika slova",
+    "color": "Boja teksta",
+    "outline": "Kontura",
+    "outlineColor": "Boja konture",
+    "shadow": "Senka",
+    "shadowColor": "Boja senke",
+    "highlight": "Izgovorena reč",
+    "highlights": {
+      "color": "U boji",
+      "box": "U kutiji",
+      "none": "Bez isticanja"
+    },
+    "highlightColor": "Boja izgovorene reči",
+    "boxColor": "Boja kutije",
+    "activeScale": "Veličina izgovorene reči",
+    "mode": "Prikaz",
+    "modes": {
+      "page": "Cela strana",
+      "reveal": "Reč po reč, kako se izgovara"
+    },
+    "entrance": "Ulazak",
+    "entrances": {
+      "none": "Bez animacije",
+      "pop": "Iskakanje",
+      "fade": "Postepeno"
+    },
+    "lines": "Redovi",
+    "maxChars": "Slova po redu",
+    "position": "Položaj",
+    "positionHelp": "Prevuci titlove gore ili dole u pregledu. Dodaj ključni kadar tamo gde treba da se pomere.",
+    "drag": "Titlovi: prevuci gore ili dole da ih pomeriš",
+    "styleName": "Naziv stila",
+    "save": "Sačuvaj kao stil",
+    "saved": "Stil „{{name}}“ je sačuvan.",
+    "makeDefault": "Koristi za nove klipove",
+    "madeDefault": "Novi klipovi će dobiti ovaj stil.",
+    "saveFailed": "Stil nije mogao da se sačuva.",
+    "pages": "Strane titlova",
+    "newPage": "Nova strana ovde",
+    "newPageHelp": "Započni novu stranu titla od reči koja se izgovara",
+    "joinPage": "Spoji sa prethodnom stranom",
+    "joinPageHelp": "Od ove reči počinje strana titla; spoji je sa prethodnom"
   }
 }

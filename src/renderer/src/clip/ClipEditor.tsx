@@ -1,8 +1,9 @@
-import { useEffect, useState } from 'react';
+import { useEffect, useMemo, useState } from 'react';
 import { useTranslation } from 'react-i18next';
 import { keyAt, valueAt } from '../../../shared/framing.ts';
 import { fps, workingFrameRate } from '../../../shared/frames.ts';
-import { LAYOUTS, MAX_ZOOM, videoLayerOf, type Clip, type Source } from '../../../shared/project.ts';
+import { captionPages } from '../../../shared/captions.ts';
+import { captionLayerOf, LAYOUTS, MAX_ZOOM, videoLayerOf, type Clip, type Source } from '../../../shared/project.ts';
 import { exportClip, isExporting, useExport } from '../export/state.ts';
 import { formatClipTime } from '../format.ts';
 import { nudgeClip, renameClip } from '../project/clips.ts';
@@ -11,6 +12,8 @@ import { projectStore, useProject } from '../project/store.ts';
 import { retimeWord } from '../project/transcript.ts';
 import { flatOf, refOf, wordAt } from '../transcript/words.ts';
 import { isTypingTarget } from '../ui/focus.ts';
+import { CaptionOverlay } from './CaptionOverlay.tsx';
+import { CaptionPanel } from './CaptionPanel.tsx';
 import { ClipPreview } from './ClipPreview.tsx';
 import { ClipTimeline } from './ClipTimeline.tsx';
 import { FramingOverlay, propertyFor, regionFor, zoomed } from './FramingOverlay.tsx';
@@ -42,6 +45,12 @@ export function ClipEditor({ clip, source }: { clip: Clip; source: Source }) {
   const keys = layer[property];
   const keyIndex = keyAt(keys, time, rate);
   const value = valueAt(keys, time);
+  const captions = captionLayerOf(clip);
+  // Not on every frame of playback: only when the words, the range or the style change.
+  const pages = useMemo(
+    () => (captions && transcript ? captionPages(flatOf(transcript.segments).words, { start: clip.start, end: clip.end }, captions.style) : []),
+    [captions, transcript, clip.start, clip.end],
+  );
   /** Trimming moves an edge by about a tenth of a second. */
   const trimStep = Math.max(1, Math.round(fps(rate) / 10));
 
@@ -119,6 +128,7 @@ export function ClipEditor({ clip, source }: { clip: Clip; source: Source }) {
 
       <ClipPreview clip={clip} source={source}>
         <FramingOverlay clipId={clip.id} layout={layout} half={half} onHalf={setHalf} time={time} sourceSize={sourceSize} />
+        {captions && <CaptionOverlay clipId={clip.id} layer={captions} time={time} />}
       </ClipPreview>
 
       <div className="transport">
@@ -129,8 +139,8 @@ export function ClipEditor({ clip, source }: { clip: Clip; source: Source }) {
           {t('clipEditor.time', { current: formatClipTime(time - clip.start), total: formatClipTime(clip.end - clip.start) })}
         </span>
       </div>
-      <ClipTimeline clip={clip} layout={layer.layout} keys={keys} time={time} />
-      {transcript && <WordStrip clip={clip} transcript={transcript} time={time} rate={rate} />}
+      <ClipTimeline clip={clip} layout={layer.layout} keys={keys} pages={pages} time={time} />
+      {transcript && <WordStrip clip={clip} transcript={transcript} time={time} rate={rate} captions={captions !== null} />}
 
       <div className="layouts" role="group" aria-label={t('clipEditor.layout')}>
         {LAYOUTS.map((l) => (
@@ -190,6 +200,8 @@ export function ClipEditor({ clip, source }: { clip: Clip; source: Source }) {
         </button>
       </div>
       <p className="dim hint">{t('clipEditor.keyframeHelp')}</p>
+
+      <CaptionPanel clipId={clip.id} layer={captions} time={time} rate={rate} />
     </section>
   );
 }

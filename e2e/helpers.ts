@@ -1,6 +1,7 @@
 /** Shared setup for the end-to-end tests. */
 import { execFile } from 'node:child_process';
 import { readdirSync } from 'node:fs';
+import { readFile, writeFile } from 'node:fs/promises';
 import path from 'node:path';
 import { promisify } from 'node:util';
 import { _electron as electron, type ElectronApplication, type Page } from 'playwright-core';
@@ -53,6 +54,50 @@ export async function makeNumberedVideo(file: string, { seconds = 20 } = {}): Pr
     '-c:v', 'libx264', '-crf', '12', '-pix_fmt', 'yuv420p', '-c:a', 'aac', '-shortest', file,
   ]);
   return file;
+}
+
+/** The sum of a font table, or a whole font, as 32-bit big-endian words. */
+function fontChecksum(bytes: Buffer): number {
+  let sum = 0;
+  for (let i = 0; i < bytes.length; i += 4) {
+    const word = Buffer.alloc(4);
+    bytes.copy(word, 0, i, Math.min(i + 4, bytes.length));
+    sum = (sum + word.readUInt32BE(0)) >>> 0;
+  }
+  return sum;
+}
+
+/**
+ * A copy of an OFL font from the app under another family name of the same
+ * length, for testing fonts the user adds. The checksums are fixed up.
+ */
+export async function renamedFont(src: string, dst: string, from: string, to: string): Promise<string> {
+  if (from.length !== to.length) throw new Error('names must be the same length');
+  const font = Buffer.from(await readFile(src));
+  const tables = font.readUInt16BE(4);
+  let head = -1;
+  for (let i = 0; i < tables; i++) {
+    const entry = 12 + i * 16;
+    const tag = font.toString('latin1', entry, entry + 4);
+    const offset = font.readUInt32BE(entry + 8);
+    const length = font.readUInt32BE(entry + 12);
+    if (tag === 'head') head = offset;
+    if (tag !== 'name') continue;
+    const table = font.subarray(offset, offset + length);
+    // Windows names are UTF-16 big-endian, Mac names single bytes.
+    for (const [a, b] of [
+      [Buffer.from(from, 'utf16le').swap16(), Buffer.from(to, 'utf16le').swap16()],
+      [Buffer.from(from, 'latin1'), Buffer.from(to, 'latin1')],
+    ] as const) {
+      for (let at = table.indexOf(a); at >= 0; at = table.indexOf(a, at + 1)) b.copy(table, at);
+    }
+    font.writeUInt32BE(fontChecksum(table), entry + 4);
+  }
+  if (head < 0) throw new Error('no head table');
+  font.writeUInt32BE(0, head + 8);
+  font.writeUInt32BE((0xb1b0afba - fontChecksum(font)) >>> 0, head + 8);
+  await writeFile(dst, font);
+  return dst;
 }
 
 export interface Launched {

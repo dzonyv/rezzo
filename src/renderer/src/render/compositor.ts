@@ -5,12 +5,17 @@
  * canvas; the export (Phase 1c) will convert comp to YUV and read it back,
  * so both see the same pixels.
  *
+ * Captions arrive as a transparent canvas (render/captions.ts) and are
+ * blended over the picture as the last step, in both the preview and the
+ * export.
+ *
  * Inside the offscreen textures row 0 is the TOP of the image, so output
  * rectangles (origin top left) map straight to framebuffer rows, and a
  * readback returns rows in the order FFmpeg expects. Only the final draw
  * to the canvas flips to WebGL's bottom-up convention.
  */
 import { cropRect, OUTPUT, type FrameRecipe, type Size } from '../../../shared/framing.ts';
+import type { Overlay } from './captions.ts';
 
 /** The blurred background is drawn at a quarter of the output size. */
 const BG_W = OUTPUT.width / 4;
@@ -78,6 +83,14 @@ void main() {
   o = vec4(texture(uSrc, uSrcRect.xy + f * uSrcRect.zw).rgb, 1.0);
 }`;
 
+/** A premultiplied overlay the size of the output, its top row first like comp. */
+const OVERLAY = `${HEADER}
+uniform sampler2D uTex;
+uniform vec2 uSize;
+void main() {
+  o = texture(uTex, gl_FragCoord.xy / uSize);
+}`;
+
 const DISPLAY = `${HEADER}
 uniform sampler2D uTex;
 uniform vec2 uSize;
@@ -142,7 +155,9 @@ export class Compositor {
   private comp: Target;
   private bgA: Target;
   private bgB: Target;
-  private programs: Record<'cover' | 'blur' | 'background' | 'draw' | 'display', WebGLProgram>;
+  private programs: Record<'cover' | 'blur' | 'background' | 'draw' | 'overlay' | 'display', WebGLProgram>;
+  /** Made with the first overlay; `version` is the one uploaded. */
+  private overlayTex: { tex: WebGLTexture; version: number } | undefined;
   /** Made on the first readback: only the export needs them. */
   private packer: { program: WebGLProgram; yuv: Target } | undefined;
   private pbos: { buf: WebGLBuffer; sync: WebGLSync | null }[] = [];
@@ -166,6 +181,7 @@ export class Compositor {
       blur: this.program(BLUR),
       background: this.program(BACKGROUND),
       draw: this.program(DRAW),
+      overlay: this.program(OVERLAY),
       display: this.program(DISPLAY),
     };
     gl.bindVertexArray(gl.createVertexArray());
@@ -191,8 +207,8 @@ export class Compositor {
     gl.generateMipmap(gl.TEXTURE_2D);
   }
 
-  /** Draws one output frame from the uploaded source into comp. */
-  render(recipe: FrameRecipe): void {
+  /** Draws one output frame from the uploaded source into comp, with `overlay` (the captions) over it. */
+  render(recipe: FrameRecipe, overlay: Overlay | null = null): void {
     const gl = this.gl;
     const src = this.src;
     if (!src) return;
@@ -217,6 +233,26 @@ export class Compositor {
       this.pass(this.programs.draw, this.comp, { uSrc: src.tex, uSrcRect: [s.x, s.y, s.w, s.h], uDstRect: [d.x, d.y, d.w, d.h] });
     }
     gl.disable(gl.SCISSOR_TEST);
+    if (overlay) this.drawOverlay(overlay);
+  }
+
+  private drawOverlay(overlay: Overlay): void {
+    const gl = this.gl;
+    if (!this.overlayTex) this.overlayTex = { tex: this.texture(OUTPUT.width, OUTPUT.height, 1, gl.NEAREST), version: -1 };
+    const o = this.overlayTex;
+    if (o.version !== overlay.version) {
+      gl.bindTexture(gl.TEXTURE_2D, o.tex);
+      // Premultiplied, so the blend below is the usual "over" without dark fringes.
+      gl.pixelStorei(gl.UNPACK_PREMULTIPLY_ALPHA_WEBGL, true);
+      gl.texSubImage2D(gl.TEXTURE_2D, 0, 0, 0, gl.RGBA, gl.UNSIGNED_BYTE, overlay.image);
+      gl.pixelStorei(gl.UNPACK_PREMULTIPLY_ALPHA_WEBGL, false);
+      o.version = overlay.version;
+    }
+    gl.enable(gl.BLEND);
+    // Colour: over. Alpha: comp stays opaque.
+    gl.blendFuncSeparate(gl.ONE, gl.ONE_MINUS_SRC_ALPHA, gl.ZERO, gl.ONE);
+    this.pass(this.programs.overlay, this.comp, { uTex: o.tex, uSize: [OUTPUT.width, OUTPUT.height] });
+    gl.disable(gl.BLEND);
   }
 
   /** Shows comp on the canvas, scaled to the canvas's drawing buffer. */
@@ -289,6 +325,7 @@ export class Compositor {
       gl.deleteTexture(t.tex);
     }
     if (this.src) gl.deleteTexture(this.src.tex);
+    if (this.overlayTex) gl.deleteTexture(this.overlayTex.tex);
     for (const p of Object.values(this.programs)) gl.deleteProgram(p);
     if (this.packer) {
       gl.deleteProgram(this.packer.program);
@@ -300,6 +337,7 @@ export class Compositor {
       gl.deleteBuffer(pbo.buf);
     }
     this.src = undefined;
+    this.overlayTex = undefined;
     this.packer = undefined;
     this.pbos = [];
   }

@@ -3,7 +3,7 @@ import { useTranslation } from 'react-i18next';
 import { snapToFrame, type FrameRate } from '../../../shared/frames.ts';
 import type { Clip, Transcript } from '../../../shared/project.ts';
 import { projectStore } from '../project/store.ts';
-import { retimeWord } from '../project/transcript.ts';
+import { retimeWord, togglePageBreak } from '../project/transcript.ts';
 import { PEAKS_PER_SECOND } from '../render/clip-player.ts';
 import { startEditing } from '../transcript/editing.ts';
 import { flatOf, refOf, wordAt } from '../transcript/words.ts';
@@ -21,9 +21,11 @@ interface Drag {
 /**
  * A close-up of the sound around the playhead with the words over it, for
  * fixing their timing: drag either edge of a word. Click a word to go to
- * it, double-click it to correct its text in the transcript.
+ * it, double-click it to correct its text in the transcript. With captions,
+ * words that start a caption page are marked, and the button below starts
+ * or joins a page at the word being spoken.
  */
-export function WordStrip({ clip, transcript, time, rate }: { clip: Clip; transcript: Transcript; time: number; rate: FrameRate }) {
+export function WordStrip({ clip, transcript, time, rate, captions }: { clip: Clip; transcript: Transcript; time: number; rate: FrameRate; captions: boolean }) {
   const { t } = useTranslation();
   const track = useRef<HTMLDivElement>(null);
   const canvas = useRef<HTMLCanvasElement>(null);
@@ -105,45 +107,61 @@ export function WordStrip({ clip, transcript, time, rate }: { clip: Clip; transc
     retimeWord(refOf(flat, d.index), d.edge === 'start' ? at : word.start, d.edge === 'end' ? at : word.end);
   };
 
+  const spoken = flat.words[active];
+
   return (
-    <div ref={track} className="word-strip" aria-label={t('clipEditor.wordStrip')}>
-      <canvas ref={canvas} aria-hidden="true" />
-      {visible.map((w) => (
-        <div
-          key={w.index}
-          className={w.index === active ? 'word active' : 'word'}
-          style={{ left: x(w.start), width: Math.max(2, x(w.end) - x(w.start)) }}
-          title={t('clipEditor.wordHelp')}
-          data-word={w.index}
-          onClick={() => seekClip(w.start)}
-          onDoubleClick={() => startEditing(w.index)}
-        >
-          <span>{w.text}</span>
-          {EDGES.map((edge) => (
-            <div
-              key={edge}
-              className={`edge ${edge}`}
-              role="separator"
-              aria-label={t(`clipEditor.${edge === 'start' ? 'wordStart' : 'wordEnd'}`, { word: w.text })}
-              onClick={(e) => e.stopPropagation()}
-              onPointerDown={(e) => {
-                if (e.button !== 0) return;
-                e.stopPropagation();
-                e.currentTarget.setPointerCapture(e.pointerId);
-                projectStore.getState().beginGesture('history.retimeWord');
-                dragging.current = true;
-                setDrag({ index: w.index, edge });
-              }}
-              onPointerMove={(e) => {
-                if (drag && e.currentTarget.hasPointerCapture(e.pointerId)) move(drag, e.clientX);
-              }}
-              onPointerUp={endDrag}
-              onLostPointerCapture={endDrag}
-            />
-          ))}
+    <>
+      <div ref={track} className="word-strip" aria-label={t('clipEditor.wordStrip')}>
+        <canvas ref={canvas} aria-hidden="true" />
+        {visible.map((w) => (
+          <div
+            key={w.index}
+            className={`word${w.index === active ? ' active' : ''}${captions && w.pageBreak ? ' page-break' : ''}`}
+            style={{ left: x(w.start), width: Math.max(2, x(w.end) - x(w.start)) }}
+            title={t('clipEditor.wordHelp')}
+            data-word={w.index}
+            onClick={() => seekClip(w.start)}
+            onDoubleClick={() => startEditing(w.index)}
+          >
+            <span>{w.text}</span>
+            {EDGES.map((edge) => (
+              <div
+                key={edge}
+                className={`edge ${edge}`}
+                role="separator"
+                aria-label={t(`clipEditor.${edge === 'start' ? 'wordStart' : 'wordEnd'}`, { word: w.text })}
+                onClick={(e) => e.stopPropagation()}
+                onPointerDown={(e) => {
+                  if (e.button !== 0) return;
+                  e.stopPropagation();
+                  e.currentTarget.setPointerCapture(e.pointerId);
+                  projectStore.getState().beginGesture('history.retimeWord');
+                  dragging.current = true;
+                  setDrag({ index: w.index, edge });
+                }}
+                onPointerMove={(e) => {
+                  if (drag && e.currentTarget.hasPointerCapture(e.pointerId)) move(drag, e.clientX);
+                }}
+                onPointerUp={endDrag}
+                onLostPointerCapture={endDrag}
+              />
+            ))}
+          </div>
+        ))}
+        <div className="playhead" style={{ left: x(time) }} />
+      </div>
+      {captions && (
+        <div className="page-break-row">
+          <button
+            type="button"
+            disabled={!spoken}
+            title={t(spoken?.pageBreak ? 'captions.joinPageHelp' : 'captions.newPageHelp')}
+            onClick={() => spoken && togglePageBreak(refOf(flat, spoken.index))}
+          >
+            {t(spoken?.pageBreak ? 'captions.joinPage' : 'captions.newPage')}
+          </button>
         </div>
-      ))}
-      <div className="playhead" style={{ left: x(time) }} />
-    </div>
+      )}
+    </>
   );
 }

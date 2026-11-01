@@ -8,10 +8,12 @@ import i18n from 'i18next';
 import { useStore } from 'zustand';
 import { createStore } from 'zustand/vanilla';
 import { EXPORT_PORT_MESSAGE, type ExportJob } from '../../../shared/api.ts';
-import { videoLayerOf, type Clip, type Source } from '../../../shared/project.ts';
+import type { Clip, Source } from '../../../shared/project.ts';
 import type { Encoder } from '../../../shared/worker-api.ts';
 import { pauseClip } from '../clip/playback.ts';
 import { pauseEpisode } from '../player/playback.ts';
+import { projectStore } from '../project/store.ts';
+import { flatOf } from '../transcript/words.ts';
 import { notify } from '../ui/prompts.ts';
 import { renderExport } from './export-job.ts';
 
@@ -57,7 +59,8 @@ export async function exportClip(clip: Clip, source: Source): Promise<void> {
   pauseClip();
   pauseEpisode();
   const clipName = clip.name || i18n.t('clips.untitled');
-  const layer = videoLayerOf(clip);
+  const segments = projectStore.getState().project?.transcript?.segments;
+  const words = segments ? flatOf(segments).words : [];
   const controller = new AbortController();
   abort = controller;
   exportStore.setState({ status: 'choosing', clipName }, true);
@@ -73,7 +76,7 @@ export async function exportClip(clip: Clip, source: Source): Promise<void> {
       return;
     }
     exportStore.setState({ status: 'rendering', clipName, done: 0, total: job.count, startedAt: performance.now(), left: null }, true);
-    rendering = renderExport(job, port, layer, {
+    rendering = renderExport(job, port, clip, words, {
       signal: controller.signal,
       onProgress: (done) => {
         const s = exportStore.getState();
