@@ -251,6 +251,51 @@ describe('clips', () => {
     expect(await page.getByRole('button', { name: 'Undo' }).getAttribute('title')).toBe('Undo: move captions');
   });
 
+  it('keeps a drag in the preview one undo step after a slider was used', async () => {
+    // The slider keeps focus after the drag; its blur used to cut the next gesture short.
+    const slider = page.locator('.caption-slider', { hasText: /^Size/ }).locator('input');
+    await slider.scrollIntoViewIfNeeded();
+    const size = (await slider.boundingBox())!;
+    await page.mouse.move(size.x + size.width / 2, size.y + size.height / 2);
+    await page.mouse.down();
+    await page.mouse.move(size.x + size.width / 2 + 20, size.y + size.height / 2, { steps: 3 });
+    await page.mouse.up();
+    expect(await slider.evaluate((el) => el === (globalThis as unknown as { document: { activeElement: unknown } }).document.activeElement)).toBe(true);
+
+    await page.locator('.caption-overlay').scrollIntoViewIfNeeded();
+    const band = (await page.locator('.caption-overlay').boundingBox())!;
+    const preview = (await page.locator('.clip-preview').boundingBox())!;
+    const x = band.x + band.width / 2;
+    const y = band.y + band.height / 2;
+    await page.mouse.move(x, y);
+    await page.mouse.down();
+    await page.mouse.move(x, y + 0.1 * preview.height, { steps: 6 });
+    await page.mouse.up();
+    expect(captionLayerOf((await saved()).clips[0]!)!.y[0]!.value).toBeCloseTo(0.6, 2);
+
+    await page.getByRole('button', { name: 'Undo' }).click();
+    expect(captionLayerOf((await saved()).clips[0]!)!.y[0]!.value).toBeCloseTo(0.5, 2);
+    expect(await page.getByRole('button', { name: 'Undo' }).getAttribute('title')).toBe('Undo: caption style');
+  });
+
+  it('picks a colour as one undo step, however many colours the picker went through', async () => {
+    // What the native picker does: an input event per colour on the way, a change event when it closes.
+    await page.getByLabel('Text colour').evaluate((node, colours) => {
+      const g = globalThis as unknown as { Event: new (type: string, init: { bubbles: boolean }) => unknown; HTMLInputElement: { prototype: object } };
+      const el = node as unknown as { dispatchEvent(e: unknown): boolean };
+      const setValue = Object.getOwnPropertyDescriptor(g.HTMLInputElement.prototype, 'value')!.set!;
+      for (const c of colours) {
+        setValue.call(el, c);
+        el.dispatchEvent(new g.Event('input', { bubbles: true }));
+      }
+      el.dispatchEvent(new g.Event('change', { bubbles: true }));
+    }, ['#ff0000', '#00ff00', '#0000ff']);
+    expect(captionLayerOf((await saved()).clips[0]!)!.style.color).toBe('#0000ff');
+
+    await page.getByRole('button', { name: 'Undo' }).click();
+    expect(captionLayerOf((await saved()).clips[0]!)!.style.color).toBe('#ffffff');
+  });
+
   it('opens again with its clips', async () => {
     await page.getByRole('button', { name: 'Close project' }).click();
     await page.getByRole('button', { name: /numbered/ }).click();

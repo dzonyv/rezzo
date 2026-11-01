@@ -44,12 +44,15 @@ export async function addFont(win: BrowserWindow): Promise<AddFontResult | null>
     if (e instanceof FontFileError || (e as NodeJS.ErrnoException).code) return { ok: false, error: 'unreadable' };
     throw e;
   }
-  if (BUNDLED_FONTS.some((f) => f.family === info.family)) return { ok: false, error: 'built-in', family: info.family };
+  // The family name ends up in CSS; quotes, backslashes and control characters have no business in it.
+  const family = info.family.replace(/["\\\p{Cc}]/gu, '').trim().slice(0, 100);
+  if (!family) return { ok: false, error: 'unreadable' };
+  if (BUNDLED_FONTS.some((f) => f.family === family)) return { ok: false, error: 'built-in', family };
 
   const name = `${createHash('sha256').update(bytes).digest('hex')}.${extension}`;
   await mkdir(fontsDir(), { recursive: true });
   await writeFileAtomic(path.join(fontsDir(), name), bytes);
-  const font: CustomFont = { family: info.family, weight: Math.min(900, Math.max(100, Math.round(info.weight / 100) * 100)), file: name };
+  const font: CustomFont = { family, weight: Math.min(900, Math.max(100, Math.round(info.weight / 100) * 100)), file: name };
   // A newer file for the same family and weight takes the old one's place.
   const { fonts } = await getSettings();
   const settings = await saveTrusted({ fonts: [...fonts.filter((f) => f.family !== font.family || f.weight !== font.weight), font] });

@@ -2,7 +2,7 @@ import { existsSync, readFileSync } from 'node:fs';
 import path from 'node:path';
 import { describe, expect, it } from 'vitest';
 import { BCS_LETTERS, FontFileError, missingLetters, readFont } from '../shared/font-file.ts';
-import { BUNDLED_FONTS, fontChoices, hasFont } from '../shared/fonts.ts';
+import { BUNDLED_FONTS, cssFamily, cssFont, fontChoices, hasFont } from '../shared/fonts.ts';
 
 const FONTS_DIR = path.resolve('src/renderer/src/fonts');
 const BASIC_LATIN = Array.from({ length: 0x7e - 0x20 + 1 }, (_, i) => String.fromCharCode(0x20 + i)).join('');
@@ -64,5 +64,11 @@ describe('font choices', () => {
     expect(hasFont({ family: 'Montserrat', weight: 650 }, [])).toBe(true);
     expect(hasFont({ family: 'Lobster', weight: 400 }, [])).toBe(false);
     expect(hasFont({ family: 'Lobster', weight: 400 }, [{ family: 'Lobster', weight: 400, file: `${'a'.repeat(64)}.ttf` }])).toBe(true);
+  });
+
+  it('quotes family names safely for CSS', () => {
+    expect(cssFont({ family: 'Poppins', weight: 700 }, 64)).toBe('700 64px "Poppins", "Poppins"');
+    expect(cssFamily('Foo "Bar"\\Baz')).toBe('"Foo \\"Bar\\"\\\\Baz"');
+    expect(cssFamily('Foo\nBar')).toBe('"Foo Bar"');
   });
 });

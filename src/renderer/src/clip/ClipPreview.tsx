@@ -1,3 +1,4 @@
+import i18n from 'i18next';
 import { useEffect, useRef, useState } from 'react';
 import { useTranslation } from 'react-i18next';
 import { frameRecipe } from '../../../shared/framing.ts';
@@ -6,7 +7,9 @@ import { useProject } from '../project/store.ts';
 import { CaptionPainter, loadCaptionScene, type CaptionScene } from '../render/captions.ts';
 import { ClipPlayer, type SceneAt } from '../render/clip-player.ts';
 import { Compositor } from '../render/compositor.ts';
+import { useSettings } from '../settings.ts';
 import { flatOf } from '../transcript/words.ts';
+import { notify } from '../ui/prompts.ts';
 import { clipPlaybackStore, currentPlayer, setPlayer, useClipPlayback } from './playback.ts';
 
 /** Trimming a clip in small steps shouldn't start a conversion for every step. */
@@ -31,6 +34,8 @@ export function ClipPreview({ clip, source, children }: { clip: Clip; source: So
   const layer = videoLayerOf(clip);
   const captions = captionLayerOf(clip);
   const segments = useProject((s) => s.project?.transcript?.segments);
+  // Adding a font the captions were missing changes how they're drawn.
+  const fonts = useSettings((s) => s.fonts);
   const [scene, setScene] = useState<CaptionScene | null>(null);
   const painter = useRef<CaptionPainter | null>(null);
   /** What a player loading in the background will start with. */
@@ -116,16 +121,21 @@ export function ClipPreview({ clip, source, children }: { clip: Clip; source: So
     };
   }, [clip.start, clip.end, source, generation]);
 
-  // The captions as the painter wants them, once their font is in.
+  // The captions as the painter wants them, once their font is in. If that
+  // fails the picture still plays, without captions.
   useEffect(() => {
     let current = true;
     loadCaptionScene(captions, segments ? flatOf(segments).words : [], { start: clip.start, end: clip.end })
       .then((s) => current && setScene(s))
-      .catch((e: unknown) => current && clipPlaybackStore.setState({ status: 'failed', error: String(e) }));
+      .catch((e: unknown) => {
+        if (!current) return;
+        setScene(null);
+        notify('error', i18n.t('errors.unexpected', { detail: e instanceof Error ? e.message : String(e) }));
+      });
     return () => {
       current = false;
     };
-  }, [captions, segments, clip.start, clip.end]);
+  }, [captions, segments, fonts, clip.start, clip.end]);
 
   // New framing or captions: redraw the frame on screen.
   useEffect(() => {

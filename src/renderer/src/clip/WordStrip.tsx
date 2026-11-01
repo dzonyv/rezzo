@@ -1,5 +1,6 @@
 import { useEffect, useRef, useState } from 'react';
 import { useTranslation } from 'react-i18next';
+import { inCaptions } from '../../../shared/captions.ts';
 import { snapToFrame, type FrameRate } from '../../../shared/frames.ts';
 import type { Clip, Transcript } from '../../../shared/project.ts';
 import { projectStore } from '../project/store.ts';
@@ -107,7 +108,9 @@ export function WordStrip({ clip, transcript, time, rate, captions }: { clip: Cl
     retimeWord(refOf(flat, d.index), d.edge === 'start' ? at : word.start, d.edge === 'end' ? at : word.end);
   };
 
-  const spoken = flat.words[active];
+  // Only a word this clip's captions show; at the clip's start the last word heard is still the one before it.
+  const heard = flat.words[active];
+  const spoken = heard && inCaptions(heard, clip) ? heard : undefined;
 
   return (
     <>

@@ -69,5 +69,8 @@ export function hasFont(font: FontRef, custom: readonly CustomFont[]): boolean {
   return custom.some((c) => c.family === font.family && c.weight === font.weight);
 }
 
+/** A family name as a CSS string; names come from font files and project files, so quotes are escaped. */
+export const cssFamily = (family: string): string => `"${family.replace(/\p{Cc}/gu, ' ').replace(/["\\]/g, '\\$&')}"`;
+
 /** The CSS font shorthand for drawing text in `font`, falling back to Poppins. */
-export const cssFont = (font: FontRef, px: number): string => `${font.weight} ${px}px "${font.family}", "${FALLBACK_FONT.family}"`;
+export const cssFont = (font: FontRef, px: number): string => `${font.weight} ${px}px ${cssFamily(font.family)}, ${cssFamily(FALLBACK_FONT.family)}`;

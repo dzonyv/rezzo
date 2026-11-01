@@ -7,9 +7,9 @@ import type { Draft } from 'immer';
 import { DEFAULT_CAPTION_STYLE, type CaptionStyle } from '../../../shared/caption-style.ts';
 import { newCaptionLayer } from '../../../shared/captions.ts';
 import { editAt, removeKey, setKey, valueAt } from '../../../shared/framing.ts';
-import { workingFrameRate } from '../../../shared/frames.ts';
 import type { CaptionLayer } from '../../../shared/project.ts';
 import { currentSettings } from '../settings.ts';
+import { sourceRate } from './framing.ts';
 import { projectStore, type EditLabel } from './store.ts';
 
 /** The style new captions get: the user's default, or the built-in one. */
@@ -20,12 +20,6 @@ function editCaptions(clipId: string, label: EditLabel, recipe: (layer: Draft<Ca
     const layer = d.clips.find((c) => c.id === clipId)?.layers.find((l) => l.kind === 'caption');
     if (layer) recipe(layer);
   });
-}
-
-function rate() {
-  const source = projectStore.getState().project?.source;
-  if (!source) throw new Error('no source');
-  return workingFrameRate(source);
 }
 
 export function addCaptions(clipId: string): void {
@@ -49,11 +43,11 @@ export function setCaptionStyle(clipId: string, patch: Partial<CaptionStyle>, la
 
 /** Moves the captions to `y` (0 top, 1 bottom) at `time`; inside a gesture while dragging. */
 export function moveCaptions(clipId: string, time: number, y: number): void {
-  editCaptions(clipId, 'history.moveCaptions', (l) => void (l.y = editAt(l.y, time, Math.min(1, Math.max(0, y)), rate())));
+  editCaptions(clipId, 'history.moveCaptions', (l) => void (l.y = editAt(l.y, time, Math.min(1, Math.max(0, y)), sourceRate())));
 }
 
 export function addCaptionKey(clipId: string, time: number): void {
-  editCaptions(clipId, 'history.addKeyframe', (l) => void (l.y = setKey(l.y, time, valueAt(l.y, time), rate())));
+  editCaptions(clipId, 'history.addKeyframe', (l) => void (l.y = setKey(l.y, time, valueAt(l.y, time), sourceRate())));
 }
 
 export function deleteCaptionKey(clipId: string, index: number): void {

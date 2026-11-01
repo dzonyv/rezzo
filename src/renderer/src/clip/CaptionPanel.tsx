@@ -1,10 +1,10 @@
-import { useEffect, useState } from 'react';
+import { useEffect, useRef, useState } from 'react';
 import { useTranslation } from 'react-i18next';
 import {
   BUILT_IN_STYLES, CAPTION_MODES, ENTRANCES, HIGHLIGHTS, MAX_ACTIVE_SCALE, MAX_CAPTION_SIZE, MAX_LINE_CHARS, MIN_CAPTION_SIZE, MIN_LINE_CHARS,
   type CaptionStyle,
 } from '../../../shared/caption-style.ts';
-import { fontChoices, type FontRef } from '../../../shared/fonts.ts';
+import { cssFamily, FALLBACK_FONT, fontChoices, type FontRef } from '../../../shared/fonts.ts';
 import { keyAt } from '../../../shared/framing.ts';
 import type { FrameRate } from '../../../shared/frames.ts';
 import type { CaptionLayer } from '../../../shared/project.ts';
@@ -31,7 +31,7 @@ function sampleLook(style: CaptionStyle): React.CSSProperties {
   // The buttons are small; outlines and shadows shrink with the text.
   const scale = 18 / style.size;
   return {
-    fontFamily: `"${style.font.family}", "Poppins"`,
+    fontFamily: `${cssFamily(style.font.family)}, ${cssFamily(FALLBACK_FONT.family)}`,
     fontWeight: style.font.weight,
     color: style.color,
     textTransform: style.uppercase ? 'uppercase' : 'none',
@@ -57,6 +57,44 @@ function StyleSample({ style }: { style: CaptionStyle }) {
         );
       })}
     </span>
+  );
+}
+
+/**
+ * A colour input whose visit to the picker is one undo step. The step opens
+ * with the first colour picked and closes when the picker does (the native
+ * "change" event). Focus isn't used: it outlasts the picker, and a blur
+ * would end whatever gesture comes next, such as a drag in the preview.
+ */
+function ColorInput({ value, onPick }: { value: string; onPick: (value: string) => void }) {
+  const input = useRef<HTMLInputElement>(null);
+  const open = useRef(false);
+  useEffect(() => {
+    const el = input.current!;
+    const close = () => {
+      if (!open.current) return;
+      open.current = false;
+      projectStore.getState().endGesture();
+    };
+    el.addEventListener('change', close);
+    return () => {
+      el.removeEventListener('change', close);
+      close();
+    };
+  }, []);
+  return (
+    <input
+      ref={input}
+      type="color"
+      value={value}
+      onChange={(e) => {
+        if (!open.current) {
+          open.current = true;
+          projectStore.getState().beginGesture('history.captionStyle');
+        }
+        onPick(e.target.value);
+      }}
+    />
   );
 }
 
@@ -89,12 +127,10 @@ export function CaptionPanel({ clipId, layer, time, rate }: Props) {
   const style = layer.style;
   const set = (patch: Partial<CaptionStyle>, label?: EditLabel) => setCaptionStyle(clipId, patch, label);
   const store = projectStore.getState();
-  /** One undo step per drag of a slider or visit to a colour picker. */
-  const gesture = {
+  /** One undo step per drag of a slider; arrow keys make a step each. */
+  const sliderGesture = {
     onPointerDown: () => store.beginGesture('history.captionStyle'),
     onPointerUp: () => store.endGesture(),
-    onFocus: () => store.beginGesture('history.captionStyle'),
-    onBlur: () => store.endGesture(),
   };
 
   const family = choices.find((c) => c.family === style.font.family);
@@ -148,13 +184,13 @@ export function CaptionPanel({ clipId, layer, time, rate }: Props) {
   const color = (label: string, value: string, patch: (v: string) => Partial<CaptionStyle>) => (
     <label className="caption-color">
       <span>{label}</span>
-      <input type="color" value={value} {...gesture} onChange={(e) => set(patch(e.target.value))} />
+      <ColorInput value={value} onPick={(v) => set(patch(v))} />
     </label>
   );
   const slider = (label: string, value: number, min: number, max: number, step: number, patch: (v: number) => Partial<CaptionStyle>) => (
     <label className="caption-slider">
       <span>{label}</span>
-      <input type="range" min={min} max={max} step={step} value={value} {...gesture} onChange={(e) => set(patch(Number(e.target.value)))} />
+      <input type="range" min={min} max={max} step={step} value={value} {...sliderGesture} onChange={(e) => set(patch(Number(e.target.value)))} />
       <output>{Number.isInteger(step) ? value : value.toFixed(2)}</output>
     </label>
   );

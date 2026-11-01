@@ -78,7 +78,7 @@ describe('captionStateAt', () => {
 
   it('marks the word being spoken', () => {
     expect(captionStateAt(pages, 0.1)).toMatchObject({ page: 0, active: 0 });
-    expect(captionStateAt(pages, 0.35)).toMatchObject({ page: 0, active: 1, sinceWord: 0 });
+    expect(captionStateAt(pages, 0.35)).toMatchObject({ page: 0, active: 1 });
     // Between words the last one to start stays marked.
     expect(captionStateAt(pages, 0.32)).toMatchObject({ page: 0, active: 0 });
   });

@@ -65,7 +65,12 @@ export async function ensureFont(font: FontRef): Promise<FontRef> {
       () => FALLBACK_FONT,
     );
   }
-  await document.fonts.load(cssFont(resolved, 64));
+  try {
+    await document.fonts.load(cssFont(resolved, 64));
+  } catch (e) {
+    if (resolved === FALLBACK_FONT) throw e;
+    return ensureFont(FALLBACK_FONT);
+  }
   return resolved;
 }
 

@@ -38,8 +38,6 @@ export interface CaptionState {
   active: number;
   /** Seconds since the page came up. */
   sincePage: number;
-  /** Seconds since the spoken word started. */
-  sinceWord: number;
 }
 
 type Layout = Pick<CaptionStyle, 'lines' | 'maxChars'>;
@@ -90,11 +88,16 @@ function page(words: CaptionWord[], style: Layout): CaptionPage {
   return { words, lineStarts: balancedLines(words, style), start: words[0]!.start, end: Math.max(...words.map((w) => w.end)) };
 }
 
+/** Whether a clip over `range` shows the word in its captions: its middle is inside the range. */
+export function inCaptions(word: Pick<Word, 'start' | 'end'>, range: { start: number; end: number }): boolean {
+  const middle = (word.start + word.end) / 2;
+  return middle >= range.start && middle < range.end;
+}
+
 /**
- * The clip's captions, page by page. A word belongs to the clip when its
- * middle is inside it. A page ends at a sentence end, a pause, a word the
- * user marked as starting a page, or when the next word won't fit in the
- * style's lines.
+ * The clip's captions, page by page (see inCaptions for which words). A
+ * page ends at a sentence end, a pause, a word the user marked as starting
+ * a page, or when the next word won't fit in the style's lines.
  */
 export function captionPages(words: readonly Word[], range: { start: number; end: number }, style: Pick<CaptionStyle, 'lines' | 'maxChars' | 'uppercase'>): CaptionPage[] {
   const pages: CaptionPage[] = [];
@@ -102,8 +105,7 @@ export function captionPages(words: readonly Word[], range: { start: number; end
   let previous: Word | undefined;
   let reached = -Infinity;
   for (const w of words) {
-    const middle = (w.start + w.end) / 2;
-    if (middle < range.start || middle >= range.end) continue;
+    if (!inCaptions(w, range)) continue;
     reached = Math.max(reached, w.start);
     const word: CaptionWord = { text: style.uppercase ? w.text.toUpperCase() : w.text, start: reached, end: Math.max(reached, w.end) };
     const breaks =
@@ -148,7 +150,7 @@ export function captionStateAt(pages: readonly CaptionPage[], t: number): Captio
   if (t >= until) return null;
   let active = 0;
   while (active + 1 < p.words.length && p.words[active + 1]!.start <= t) active++;
-  return { page: found, active, sincePage: t - p.start, sinceWord: t - p.words[active]!.start };
+  return { page: found, active, sincePage: t - p.start };
 }
 
 /** The band of the output, in pixels from the top, the caption block takes when it has all its lines. */
