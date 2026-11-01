@@ -3,6 +3,7 @@
  * sandboxed and reaches the rest of the app only through `window.rezzo`,
  * which the preload script builds from these channel lists.
  */
+import type { CustomFont } from './fonts.ts';
 import type { FrameRate } from './frames.ts';
 import type { Clip, Project, ProjectFormatError, Source, Transcript, TranscriptLanguage } from './project.ts';
 import type { Settings } from './settings.ts';
@@ -60,6 +61,15 @@ export interface ExportJob {
 }
 
 export const EXPORT_PORT_MESSAGE = 'rezzo:export-port';
+
+/**
+ * `missing`: BCS letters the font has no glyph for (it's added anyway).
+ * "built-in": Rezzo already has this family.
+ */
+export type AddFontResult =
+  | { ok: true; font: CustomFont; missing: string[] }
+  | { ok: false; error: 'unreadable' }
+  | { ok: false; error: 'built-in'; family: string };
 
 export interface RecentProject {
   path: string;
@@ -124,6 +134,11 @@ export interface InvokeApi {
   /** Opens the last exported file in the default player. */
   'export:open': () => void;
 
+  /** Asks for a TTF or OTF file and adds it to the fonts captions can use. Null: cancelled. */
+  'fonts:add': () => AddFontResult | null;
+  /** The bytes of an added font, by its `file` in the settings. */
+  'fonts:read': (file: string) => Uint8Array;
+
   /** Closes the window for real, after the renderer has dealt with unsaved work. */
   'app:close': () => void;
 }
@@ -169,6 +184,8 @@ export const INVOKE_CHANNELS = {
   'export:cancel': true,
   'export:reveal': true,
   'export:open': true,
+  'fonts:add': true,
+  'fonts:read': true,
   'app:close': true,
 } as const satisfies Record<InvokeChannel, true>;
 

@@ -84,6 +84,21 @@ describe('project files', () => {
     expect(parseProject(JSON.stringify({ ...format2(), transcript: null }))).toEqual({ ...sample, transcript: null });
   });
 
+  it('upgrades a format 3 file, which had no captions, as it is', () => {
+    const old = { ...sample, format: 3, clips: sample.clips.map((c) => ({ ...c, layers: c.layers.filter((l) => l.kind === 'video') })) };
+    expect(parseProject(JSON.stringify(old))).toEqual({ ...old, format: PROJECT_FORMAT });
+  });
+
+  it('gives a new clip captions', () => {
+    expect(sample.clips[0]!.layers.map((l) => l.kind)).toEqual(['video', 'caption']);
+  });
+
+  it('rejects a caption style it does not know', () => {
+    const clip = sample.clips[0]!;
+    const layers = clip.layers.map((l) => (l.kind === 'caption' ? { ...l, style: { ...l.style, mode: 'karaoke' } } : l));
+    expect(code(() => parseProject(JSON.stringify({ ...sample, clips: [{ ...clip, layers }] })))).toBe('invalid');
+  });
+
   it('rejects keyframes out of order', () => {
     const clip = sample.clips[0]!;
     const layer = clip.layers[0]!;

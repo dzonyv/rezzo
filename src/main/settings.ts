@@ -2,7 +2,7 @@
 import { app } from 'electron';
 import { readFile } from 'node:fs/promises';
 import path from 'node:path';
-import { defaultUiLanguage, settingsPatchSchema, settingsSchema, type Settings } from '../shared/settings.ts';
+import { defaultSettings, defaultUiLanguage, settingsPatchSchema, settingsSchema, type Settings } from '../shared/settings.ts';
 import { writeFileAtomic } from '../node/files.ts';
 
 const settingsFile = () => path.join(app.getPath('userData'), 'settings.json');
@@ -24,6 +24,11 @@ export async function rememberExportDir(dir: string): Promise<void> {
   await save({ exportDir: dir });
 }
 
+/** Changes settings the renderer may not set itself (the font list). */
+export async function saveTrusted(patch: Partial<Settings>): Promise<Settings> {
+  return save(patch);
+}
+
 async function save(patch: Partial<Settings>): Promise<Settings> {
   const next = settingsSchema.parse({ ...(await getSettings()), ...patch });
   await writeFileAtomic(settingsFile(), JSON.stringify(next, null, 2));
@@ -32,7 +37,7 @@ async function save(patch: Partial<Settings>): Promise<Settings> {
 }
 
 async function load(): Promise<Settings> {
-  const defaults: Settings = { uiLanguage: defaultUiLanguage(app.getLocale()), transcriptLanguage: 'sr', exportDir: null, replacements: [] };
+  const defaults = defaultSettings(defaultUiLanguage(app.getLocale()));
   try {
     const stored = JSON.parse(await readFile(settingsFile(), 'utf8'));
     // Each setting stands alone: an unknown or damaged one falls back to its

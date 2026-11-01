@@ -70,7 +70,10 @@ export function setWordText(segments: Segment[], at: WordRef, text: string): num
   }
   if (texts.length === 1 && texts[0] === word.text) return 1;
   const times = splitTime(word, texts);
-  segment.words.splice(at.word, 1, ...texts.map((t, i) => ({ text: t, ...times[i]!, p: 1 })));
+  const words: Word[] = texts.map((t, i) => ({ text: t, ...times[i]!, p: 1 }));
+  // A caption page that started at the word still starts there.
+  if (word.pageBreak) words[0]!.pageBreak = true;
+  segment.words.splice(at.word, 1, ...words);
   fit(segment);
   return texts.length;
 }

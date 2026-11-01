@@ -40,6 +40,13 @@ describe('setWordText', () => {
     expect(texts(s)).toEqual([['Igrali', 'futbal', 'ski.']]);
   });
 
+  it('keeps a caption page starting at the word', () => {
+    const s = sample();
+    s[0]!.words[0]!.pageBreak = true;
+    setWordText(s, { segment: 0, word: 0 }, 'Dobro veče');
+    expect(s[0]!.words.map((x) => x.pageBreak)).toEqual([true, undefined, undefined]);
+  });
+
   it('leaves an unchanged word alone, confidence included', () => {
     const s = sample();
     setWordText(s, { segment: 1, word: 0 }, 'Igrali');

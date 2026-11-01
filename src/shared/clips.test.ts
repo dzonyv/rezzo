@@ -1,7 +1,7 @@
 import { describe, expect, it } from 'vitest';
 import { clipFromWords, clipName, fitsInClip, moveEdge, rangeForWords } from './clips.ts';
 import { workingFrameRate } from './frames.ts';
-import { clipSchema, MAX_CLIP_SECONDS, type Source, type Word } from './project.ts';
+import { clipSchema, MAX_CLIP_SECONDS, videoLayerOf, type Source, type Word } from './project.ts';
 
 const source = (frameRate: [number, number], duration = 600): Pick<Source, 'video' | 'duration'> => ({
   duration,
@@ -43,7 +43,7 @@ describe('clips from words', () => {
   it('makes a valid clip that starts in Follow', () => {
     const clip = clipFromWords(words('Dobro veče'), source([30, 1]), '6c1f0d6e-6a2b-4a7e-9d0e-3f1f5b2a9c11');
     expect(clipSchema.safeParse(clip).success).toBe(true);
-    expect(clip.layers[0]!.layout).toEqual([{ t: clip.start, value: 'follow', ease: 'cut' }]);
+    expect(videoLayerOf(clip).layout).toEqual([{ t: clip.start, value: 'follow', ease: 'cut' }]);
   });
 
   it('knows when a selection is too long', () => {
