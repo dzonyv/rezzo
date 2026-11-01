@@ -1,9 +1,15 @@
+import i18n from 'i18next';
 import { useEffect, useRef, useState } from 'react';
 import { useTranslation } from 'react-i18next';
 import { frameRecipe } from '../../../shared/framing.ts';
-import { videoLayerOf, type Clip, type Source } from '../../../shared/project.ts';
-import { ClipPlayer, type RecipeAt } from '../render/clip-player.ts';
+import { captionLayerOf, videoLayerOf, type Clip, type Source } from '../../../shared/project.ts';
+import { useProject } from '../project/store.ts';
+import { CaptionPainter, loadCaptionScene, type CaptionScene } from '../render/captions.ts';
+import { ClipPlayer, type SceneAt } from '../render/clip-player.ts';
 import { Compositor } from '../render/compositor.ts';
+import { useSettings } from '../settings.ts';
+import { flatOf } from '../transcript/words.ts';
+import { notify } from '../ui/prompts.ts';
 import { clipPlaybackStore, currentPlayer, setPlayer, useClipPlayback } from './playback.ts';
 
 /** Trimming a clip in small steps shouldn't start a conversion for every step. */
@@ -12,7 +18,8 @@ const TRIM_SETTLE_MS = 400;
 /**
  * The 9:16 preview of the open clip. Makes sure there's a working file for
  * the clip's range, plays it through the compositor, and redraws when the
- * framing changes. Children are drawn over the picture (the framing handles).
+ * framing or the captions change. Children are drawn over the picture (the
+ * framing and caption handles).
  */
 export function ClipPreview({ clip, source, children }: { clip: Clip; source: Source; children?: React.ReactNode }) {
   const { t } = useTranslation();
@@ -25,8 +32,14 @@ export function ClipPreview({ clip, source, children }: { clip: Clip; source: So
   const error = useClipPlayback((s) => s.error);
 
   const layer = videoLayerOf(clip);
-  /** The framing a player loading in the background will start with. */
-  const recipeAt = useRef<RecipeAt>((time, size) => frameRecipe(layer, time, size));
+  const captions = captionLayerOf(clip);
+  const segments = useProject((s) => s.project?.transcript?.segments);
+  // Adding a font the captions were missing changes how they're drawn.
+  const fonts = useSettings((s) => s.fonts);
+  const [scene, setScene] = useState<CaptionScene | null>(null);
+  const painter = useRef<CaptionPainter | null>(null);
+  /** What a player loading in the background will start with. */
+  const sceneAt = useRef<SceneAt>((time, size) => ({ recipe: frameRecipe(layer, time, size), overlay: null }));
 
   useEffect(() => {
     const el = canvas.current!;
@@ -88,7 +101,7 @@ export function ClipPreview({ clip, source, children }: { clip: Clip; source: So
           clipPlaybackStore.setState({ status: 'loading' });
           const c = compositor.current;
           if (!c) return;
-          const player = await ClipPlayer.load(result, c, range, (time, size) => recipeAt.current(time, size));
+          const player = await ClipPlayer.load(result, c, range, (time, size) => sceneAt.current(time, size));
           if (cancelled) {
             player.dispose();
             return;
@@ -108,11 +121,29 @@ export function ClipPreview({ clip, source, children }: { clip: Clip; source: So
     };
   }, [clip.start, clip.end, source, generation]);
 
-  // New framing: redraw the frame on screen.
+  // The captions as the painter wants them, once their font is in. If that
+  // fails the picture still plays, without captions.
   useEffect(() => {
-    recipeAt.current = (time, size) => frameRecipe(layer, time, size);
-    currentPlayer()?.setRecipe(recipeAt.current);
-  }, [layer]);
+    let current = true;
+    loadCaptionScene(captions, segments ? flatOf(segments).words : [], { start: clip.start, end: clip.end })
+      .then((s) => current && setScene(s))
+      .catch((e: unknown) => {
+        if (!current) return;
+        setScene(null);
+        notify('error', i18n.t('errors.unexpected', { detail: e instanceof Error ? e.message : String(e) }));
+      });
+    return () => {
+      current = false;
+    };
+  }, [captions, segments, fonts, clip.start, clip.end]);
+
+  // New framing or captions: redraw the frame on screen.
+  useEffect(() => {
+    painter.current ??= new CaptionPainter();
+    const p = painter.current;
+    sceneAt.current = (time, size) => ({ recipe: frameRecipe(layer, time, size), overlay: scene ? p.paint(scene, time) : null });
+    currentPlayer()?.setScene(sceneAt.current);
+  }, [layer, scene]);
 
   return (
     <div className="clip-preview">

@@ -2,15 +2,16 @@
 import { clipFromWords, moveEdge } from '../../../shared/clips.ts';
 import type { Word } from '../../../shared/project.ts';
 import { clipUiStore, openClip } from '../clip/state.ts';
+import { defaultStyle } from './captions.ts';
 import { projectStore } from './store.ts';
 
 const store = () => projectStore.getState();
 
-/** Makes a clip of these words and opens it. */
+/** Makes a clip of these words, with captions in the default style, and opens it. */
 export function createClip(words: readonly Word[]): void {
   const source = store().project?.source;
   if (!source || words.length === 0) return;
-  const clip = clipFromWords(words, source);
+  const clip = clipFromWords(words, source, undefined, defaultStyle());
   store().edit('history.createClip', (d) => void d.clips.push(clip));
   openClip(clip.id);
 }

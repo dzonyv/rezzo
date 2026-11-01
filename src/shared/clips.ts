@@ -1,4 +1,6 @@
 /** Making clips from transcript words, and changing their range. */
+import { DEFAULT_CAPTION_STYLE, type CaptionStyle } from './caption-style.ts';
+import { newCaptionLayer } from './captions.ts';
 import { defaultVideoLayer } from './framing.ts';
 import { fps, frameAt, timeOfFrame, workingFrameRate } from './frames.ts';
 import { MAX_CLIP_SECONDS, type Clip, type Source, type Word } from './project.ts';
@@ -41,9 +43,17 @@ export const clipLength = (range: { start: number; end: number }): number => ran
 
 export const fitsInClip = (range: { start: number; end: number }): boolean => clipLength(range) <= MAX_CLIP_SECONDS + 1e-6;
 
-export function clipFromWords(words: readonly Word[], source: Pick<Source, 'video' | 'duration'>, id: string = crypto.randomUUID()): Clip {
+/** A clip of these words, with captions in `captions` (none when it's null). */
+export function clipFromWords(
+  words: readonly Word[],
+  source: Pick<Source, 'video' | 'duration'>,
+  id: string = crypto.randomUUID(),
+  captions: CaptionStyle | null = DEFAULT_CAPTION_STYLE,
+): Clip {
   const range = rangeForWords(words, source);
-  return { id, name: clipName(words), ...range, layers: [defaultVideoLayer(range.start)] };
+  const layers: Clip['layers'] = [defaultVideoLayer(range.start)];
+  if (captions) layers.push(newCaptionLayer(range.start, captions));
+  return { id, name: clipName(words), ...range, layers };
 }
 
 /**

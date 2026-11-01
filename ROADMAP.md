@@ -20,7 +20,9 @@ Built in three parts, each with its own pull request: 1a (app skeleton, projects
 - Export 1080×1920.
 - Save/open project; undo/redo.
 
-## Phase 2 — Captions
+## Phase 2 — Captions ✓
+
+Built in two parts: 2a (correcting the transcript, word timing, the replacement list) and 2b (captions on the video, styles, fonts).
 
 - Word-by-word captions with the spoken word highlighted.
 - Built-in and custom styles.

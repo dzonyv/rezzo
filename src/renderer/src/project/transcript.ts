@@ -40,3 +40,13 @@ export function applyReplacementList(rules: readonly Replacement[]): number {
 export function retimeWord(at: WordRef, start: number, end: number): void {
   editSegments('history.retimeWord', (s) => setWordTiming(s, at, start, end), undefined);
 }
+
+/** Starts a new caption page at the word, or stops one starting there. */
+export function togglePageBreak(at: WordRef): void {
+  editSegments('history.pageBreak', (s) => {
+    const word = s[at.segment]?.words[at.word];
+    if (!word) return;
+    if (word.pageBreak) delete word.pageBreak;
+    else word.pageBreak = true;
+  }, undefined);
+}

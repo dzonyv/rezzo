@@ -8,7 +8,7 @@ import { tmpdir } from 'node:os';
 import path from 'node:path';
 import type { ElectronApplication, Page } from 'playwright-core';
 import { afterAll, beforeAll, describe, expect, it } from 'vitest';
-import type { Project, Segment } from '../src/shared/project.ts';
+import { captionLayerOf, videoLayerOf, type Project, type Segment } from '../src/shared/project.ts';
 import {
   answerOpenDialog, answerSaveDialog, launchApp, makeNumberedVideo, NUMBER_BIT_WIDTH, NUMBER_STRIP_HEIGHT, stopApp,
 } from './helpers.ts';
@@ -149,7 +149,7 @@ describe('clips', () => {
     await expect.poll(() => page.locator('.clip-timeline .band').count()).toBe(2);
 
     let project = await saved();
-    expect(project.clips[0]!.layers[0]!.layout.map((k) => [k.t, k.value])).toEqual([[4.9, 'full'], [6, 'follow']]);
+    expect(videoLayerOf(project.clips[0]!).layout.map((k) => [k.t, k.value])).toEqual([[4.9, 'full'], [6, 'follow']]);
 
     await page.getByRole('button', { name: 'Undo' }).click();
     await expect.poll(() => page.locator('.clip-timeline .band').count()).toBe(1);
@@ -158,7 +158,7 @@ describe('clips', () => {
     await expect.poll(() => page.locator('.clip-timeline .band').count()).toBe(2);
 
     project = await saved();
-    expect(project.clips[0]!.layers[0]!.layout).toHaveLength(2);
+    expect(videoLayerOf(project.clips[0]!).layout).toHaveLength(2);
   });
 
   it('frames by dragging the picture, as one undo step', async () => {
@@ -171,7 +171,7 @@ describe('clips', () => {
     await page.mouse.up();
 
     let project = await saved();
-    const follow = project.clips[0]!.layers[0]!.follow;
+    const follow = videoLayerOf(project.clips[0]!).follow;
     // One keyframe, so the whole clip moved: dragging right shows more of the left.
     expect(follow).toHaveLength(1);
     expect(follow[0]!.value.x).toBeLessThan(0.5);
@@ -179,7 +179,7 @@ describe('clips', () => {
 
     await page.getByRole('button', { name: 'Undo' }).click();
     project = await saved();
-    expect(project.clips[0]!.layers[0]!.follow[0]!.value.x).toBe(0.5);
+    expect(videoLayerOf(project.clips[0]!).follow[0]!.value.x).toBe(0.5);
   });
 
   it('nudges the word start nearest the playhead with Alt+arrows', async () => {
@@ -216,6 +216,84 @@ describe('clips', () => {
     await page.getByRole('button', { name: 'Undo' }).click();
     words = (await saved()).transcript!.segments[1]!.words;
     expect([words[0]!.end, words[1]!.start]).toEqual([5.4, 5.5]);
+  });
+
+  it('starts a caption page at the spoken word, as one undo step', async () => {
+    // At 6 s "o" is spoken. Two lines of 18 letters hold "DANAS PRIČAMO O / KADRIRANJU", so "KLIPOVA." starts the second page.
+    const pages = page.locator('.clip-timeline .caption-pages .page');
+    await expect.poll(() => pages.first().getAttribute('title')).toBe('DANAS PRIČAMO O KADRIRANJU');
+    await page.getByRole('button', { name: 'New page here' }).click();
+    await expect.poll(() => pages.first().getAttribute('title')).toBe('DANAS PRIČAMO');
+    expect((await saved()).transcript!.segments[1]!.words[2]!.pageBreak).toBe(true);
+    await page.getByRole('button', { name: 'Join with the page before' }).waitFor();
+
+    await page.getByRole('button', { name: 'Undo' }).click();
+    expect((await saved()).transcript!.segments[1]!.words[2]!.pageBreak).toBeUndefined();
+  });
+
+  it('moves the captions by dragging them, not the picture', async () => {
+    const before = videoLayerOf((await saved()).clips[0]!).follow;
+    const band = (await page.locator('.caption-overlay').boundingBox())!;
+    const preview = (await page.locator('.clip-preview').boundingBox())!;
+    const x = band.x + band.width / 2;
+    const y = band.y + band.height / 2;
+    await page.mouse.move(x, y);
+    await page.mouse.down();
+    // From 0.7 of the height up to 0.5.
+    await page.mouse.move(x, y - 0.2 * preview.height, { steps: 6 });
+    await page.mouse.up();
+
+    const project = await saved();
+    const captions = captionLayerOf(project.clips[0]!)!;
+    expect(captions.y).toHaveLength(1);
+    expect(captions.y[0]!.value).toBeCloseTo(0.5, 2);
+    expect(videoLayerOf(project.clips[0]!).follow).toEqual(before);
+    expect(await page.getByRole('button', { name: 'Undo' }).getAttribute('title')).toBe('Undo: move captions');
+  });
+
+  it('keeps a drag in the preview one undo step after a slider was used', async () => {
+    // The slider keeps focus after the drag; its blur used to cut the next gesture short.
+    const slider = page.locator('.caption-slider', { hasText: /^Size/ }).locator('input');
+    await slider.scrollIntoViewIfNeeded();
+    const size = (await slider.boundingBox())!;
+    await page.mouse.move(size.x + size.width / 2, size.y + size.height / 2);
+    await page.mouse.down();
+    await page.mouse.move(size.x + size.width / 2 + 20, size.y + size.height / 2, { steps: 3 });
+    await page.mouse.up();
+    expect(await slider.evaluate((el) => el === (globalThis as unknown as { document: { activeElement: unknown } }).document.activeElement)).toBe(true);
+
+    await page.locator('.caption-overlay').scrollIntoViewIfNeeded();
+    const band = (await page.locator('.caption-overlay').boundingBox())!;
+    const preview = (await page.locator('.clip-preview').boundingBox())!;
+    const x = band.x + band.width / 2;
+    const y = band.y + band.height / 2;
+    await page.mouse.move(x, y);
+    await page.mouse.down();
+    await page.mouse.move(x, y + 0.1 * preview.height, { steps: 6 });
+    await page.mouse.up();
+    expect(captionLayerOf((await saved()).clips[0]!)!.y[0]!.value).toBeCloseTo(0.6, 2);
+
+    await page.getByRole('button', { name: 'Undo' }).click();
+    expect(captionLayerOf((await saved()).clips[0]!)!.y[0]!.value).toBeCloseTo(0.5, 2);
+    expect(await page.getByRole('button', { name: 'Undo' }).getAttribute('title')).toBe('Undo: caption style');
+  });
+
+  it('picks a colour as one undo step, however many colours the picker went through', async () => {
+    // What the native picker does: an input event per colour on the way, a change event when it closes.
+    await page.getByLabel('Text colour').evaluate((node, colours) => {
+      const g = globalThis as unknown as { Event: new (type: string, init: { bubbles: boolean }) => unknown; HTMLInputElement: { prototype: object } };
+      const el = node as unknown as { dispatchEvent(e: unknown): boolean };
+      const setValue = Object.getOwnPropertyDescriptor(g.HTMLInputElement.prototype, 'value')!.set!;
+      for (const c of colours) {
+        setValue.call(el, c);
+        el.dispatchEvent(new g.Event('input', { bubbles: true }));
+      }
+      el.dispatchEvent(new g.Event('change', { bubbles: true }));
+    }, ['#ff0000', '#00ff00', '#0000ff']);
+    expect(captionLayerOf((await saved()).clips[0]!)!.style.color).toBe('#0000ff');
+
+    await page.getByRole('button', { name: 'Undo' }).click();
+    expect(captionLayerOf((await saved()).clips[0]!)!.style.color).toBe('#ffffff');
   });
 
   it('opens again with its clips', async () => {

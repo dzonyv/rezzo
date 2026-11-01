@@ -7,11 +7,13 @@
  * seeks are merged so only the latest one is decoded.
  *
  * Times are source seconds, like everywhere in the project. Each frame is
- * drawn with the framing at that frame's own time, as the export will.
+ * drawn with the framing and captions at that frame's own time, as the
+ * export does.
  */
 import type { FrameRecipe, Size } from '../../../shared/framing.ts';
 import { fps, type FrameRate } from '../../../shared/frames.ts';
 import { workingFrameIndex, workingFrameTime } from '../../../shared/working.ts';
+import type { Overlay } from './captions.ts';
 import type { Compositor } from './compositor.ts';
 import { demux } from './demux.ts';
 import { FrameSource } from './frame-source.ts';
@@ -24,7 +26,8 @@ export interface WorkingFile {
   frameRate: FrameRate;
 }
 
-export type RecipeAt = (time: number, source: Size) => FrameRecipe;
+/** What to draw at a moment: the framing, and the captions over it. */
+export type SceneAt = (time: number, source: Size) => { recipe: FrameRecipe; overlay: Overlay | null };
 
 /** Loudness values per second of sound in Peaks. */
 export const PEAKS_PER_SECOND = 100;
@@ -63,7 +66,7 @@ export class ClipPlayer {
   private node: AudioBufferSourceNode | null = null;
 
   private range: { start: number; end: number };
-  private recipeAt: RecipeAt;
+  private sceneAt: SceneAt;
   private time: number;
   private playing = false;
   /** Bumped to stop the running playback loop. */
@@ -76,18 +79,18 @@ export class ClipPlayer {
   private lock: Promise<void> = Promise.resolve();
   private disposed = false;
 
-  private constructor(file: WorkingFile, size: Size, compositor: Compositor, frames: FrameSource, audio: AudioBuffer | null, range: { start: number; end: number }, recipeAt: RecipeAt) {
+  private constructor(file: WorkingFile, size: Size, compositor: Compositor, frames: FrameSource, audio: AudioBuffer | null, range: { start: number; end: number }, sceneAt: SceneAt) {
     this.file = file;
     this.size = size;
     this.compositor = compositor;
     this.frames = frames;
     this.audio = audio;
     this.range = range;
-    this.recipeAt = recipeAt;
+    this.sceneAt = sceneAt;
     this.time = range.start;
   }
 
-  static async load(file: WorkingFile, compositor: Compositor, range: { start: number; end: number }, recipeAt: RecipeAt): Promise<ClipPlayer> {
+  static async load(file: WorkingFile, compositor: Compositor, range: { start: number; end: number }, sceneAt: SceneAt): Promise<ClipPlayer> {
     const response = await fetch(file.url);
     if (!response.ok) throw new Error(`loading the working file failed: ${response.status}`);
     const bytes = await response.arrayBuffer();
@@ -95,7 +98,7 @@ export class ClipPlayer {
     // decodeAudioData takes the buffer over, so it gets a copy. No audio track: a silent clip.
     const audio = await new OfflineAudioContext(2, 1, 48_000).decodeAudioData(bytes.slice(0)).catch(() => null);
     const size = { width: media.width, height: media.height };
-    const player = new ClipPlayer(file, size, compositor, new FrameSource(media), audio, range, recipeAt);
+    const player = new ClipPlayer(file, size, compositor, new FrameSource(media), audio, range, sceneAt);
     player.seek(range.start);
     return player;
   }
@@ -131,9 +134,9 @@ export class ClipPlayer {
     if (this.time < range.start || this.time >= range.end) this.seek(range.start);
   }
 
-  /** New framing: redraws the frame on screen when paused. */
-  setRecipe(recipeAt: RecipeAt): void {
-    this.recipeAt = recipeAt;
+  /** New framing or captions: redraws the frame on screen when paused. */
+  setScene(sceneAt: SceneAt): void {
+    this.sceneAt = sceneAt;
     if (!this.playing && this.shown >= 0) this.draw(this.shown);
   }
 
@@ -205,7 +208,8 @@ export class ClipPlayer {
   private draw(frame: number): void {
     const size = this.compositor.sourceSize;
     if (!size) return;
-    this.compositor.render(this.recipeAt(this.timeOf(frame), size));
+    const { recipe, overlay } = this.sceneAt(this.timeOf(frame), size);
+    this.compositor.render(recipe, overlay);
     this.compositor.present();
   }
 

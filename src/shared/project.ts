@@ -9,10 +9,11 @@
  * Phase 2 lets the user edit it.
  */
 import { z } from 'zod';
+import { captionStyleSchema } from './caption-style.ts';
 import { fps, frameAt, timeOfFrame, workingFrameRate } from './frames.ts';
 
 /** Bumped when the file format changes in a way older files need migrating for. */
-export const PROJECT_FORMAT = 3;
+export const PROJECT_FORMAT = 4;
 export const PROJECT_EXTENSION = 'rezzo';
 
 export const TRANSCRIPT_LANGUAGES = ['sr', 'hr', 'bs'] as const;
@@ -55,6 +56,8 @@ export const wordSchema = z.object({
   end: seconds,
   /** Whisper's confidence, 0..1 (lowest token probability in the word). */
   p: z.number().min(0).max(1),
+  /** A new caption page starts at this word (set by the user). */
+  pageBreak: z.literal(true).optional(),
 });
 export type Word = z.infer<typeof wordSchema>;
 
@@ -181,8 +184,21 @@ export const videoLayerSchema = z.object({
 });
 export type VideoLayer = z.infer<typeof videoLayerSchema>;
 
+/**
+ * The clip's captions: the transcript's words in the clip, drawn in
+ * `style`. `y` is the middle of the caption block, 0 at the top of the
+ * output and 1 at the bottom; it has keyframes like the framing.
+ */
+export const captionLayerSchema = z.object({
+  id: z.uuid(),
+  kind: z.literal('caption'),
+  style: captionStyleSchema,
+  y: animated(unit),
+});
+export type CaptionLayer = z.infer<typeof captionLayerSchema>;
+
 /** Everything in a clip is a layer; Phase 3 adds images, effects and more. */
-export const layerSchema = z.discriminatedUnion('kind', [videoLayerSchema]);
+export const layerSchema = z.discriminatedUnion('kind', [videoLayerSchema, captionLayerSchema]);
 export type Layer = z.infer<typeof layerSchema>;
 
 export const clipSchema = z
@@ -202,6 +218,11 @@ export function videoLayerOf(clip: Clip): VideoLayer {
   const layer = clip.layers.find((l) => l.kind === 'video');
   if (!layer) throw new Error(`clip ${clip.id} has no video layer`);
   return layer;
+}
+
+/** The clip's captions, or null when it has none. */
+export function captionLayerOf(clip: Clip): CaptionLayer | null {
+  return clip.layers.find((l) => l.kind === 'caption') ?? null;
 }
 
 export const projectSchema = z.object({
@@ -224,6 +245,9 @@ const MIGRATIONS: Record<number, (old: Record<string, unknown>) => Record<string
   1: (old) => ({ ...old, clips: [] }),
   // Format 3 corrected the late DTW word starts.
   2: (old) => ({ ...old, transcript: upgradeTranscript(old.transcript), clips: clipsWithLead(old) }),
+  // Format 4 added captions. Nothing to change; the new number keeps older
+  // versions of the app from opening a file they would drop the captions from.
+  3: (old) => old,
 };
 
 export class ProjectFormatError extends Error {

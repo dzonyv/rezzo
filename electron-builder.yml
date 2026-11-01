@@ -23,6 +23,11 @@ extraResources:
     to: licenses/LICENSE
   - from: THIRD_PARTY_NOTICES.md
     to: licenses/THIRD_PARTY_NOTICES.md
+  # The caption fonts are bundled into out/; their licenses go with them.
+  - from: src/renderer/src/fonts
+    to: licenses/fonts
+    filter:
+      - '*/OFL.txt'
 win:
   icon: resources/icon.png
   target:

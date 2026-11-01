@@ -19,21 +19,22 @@ function editLayer(clipId: string, label: EditLabel, recipe: (layer: Draft<Video
   });
 }
 
-function rate() {
+/** The frame grid of the open project's source, which keyframe edits snap to. */
+export function sourceRate() {
   const source = projectStore.getState().project?.source;
   if (!source) throw new Error('no source');
   return workingFrameRate(source);
 }
 
 export function setLayout(clipId: string, time: number, layout: Layout): void {
-  editLayer(clipId, 'history.changeLayout', (l) => void (l.layout = setLayoutAt(l.layout, time, layout, rate())));
+  editLayer(clipId, 'history.changeLayout', (l) => void (l.layout = setLayoutAt(l.layout, time, layout, sourceRate())));
 }
 
 /** Sets a crop or full-frame value at `time`; used while dragging or zooming, inside a gesture. */
 export function setFraming(clipId: string, label: EditLabel, property: FramingProperty, time: number, value: Crop | FullFrame): void {
   editLayer(clipId, label, (l) => {
     const keys = l[property] as Animated<Crop | FullFrame>;
-    (l[property] as Animated<Crop | FullFrame>) = editAt(keys, time, value, rate());
+    (l[property] as Animated<Crop | FullFrame>) = editAt(keys, time, value, sourceRate());
   });
 }
 
@@ -41,7 +42,7 @@ export function setFraming(clipId: string, label: EditLabel, property: FramingPr
 export function addKeyframe(clipId: string, property: FramingProperty, time: number): void {
   editLayer(clipId, 'history.addKeyframe', (l) => {
     const keys = l[property] as Animated<Crop | FullFrame>;
-    (l[property] as Animated<Crop | FullFrame>) = setKey(keys, time, valueAt(keys, time), rate());
+    (l[property] as Animated<Crop | FullFrame>) = setKey(keys, time, valueAt(keys, time), sourceRate());
   });
 }
 

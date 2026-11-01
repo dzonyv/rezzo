@@ -3,6 +3,7 @@ import path from 'node:path';
 import { pathToFileURL } from 'node:url';
 import { prepareClip } from './clip.ts';
 import { cancelExport, openExport, revealExport, startExport } from './export.ts';
+import { addFont, readCustomFont } from './fonts.ts';
 import { checkEpisode, chooseEpisode, episodeMediaUrl, importEpisode, locateEpisode, makePreview } from './episode.ts';
 import { handleMediaProtocol, registerMediaScheme } from './media-protocol.ts';
 import { broadcast, handle, trustPagesFrom } from './ipc.ts';
@@ -69,6 +70,9 @@ function registerHandlers(): void {
   handle('export:cancel', () => cancelExport());
   handle('export:reveal', () => revealExport());
   handle('export:open', () => openExport());
+
+  handle('fonts:add', ({ window }) => addFont(window));
+  handle('fonts:read', (_ctx, file) => readCustomFont(file));
 
   handle('app:close', ({ window }) => {
     closeApproved.add(window);

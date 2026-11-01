@@ -1,6 +1,6 @@
 /**
  * Renders an export: every frame of the clip, drawn by the same compositor
- * code as the preview, converted to yuv420p on the GPU and sent to the
+ * and caption painter as the preview, converted to yuv420p on the GPU and sent to the
  * encoder in the media worker (path A-yuv in spikes/REPORT.md).
  *
  * Three readbacks are in progress at once, so the GPU renders the next
@@ -9,9 +9,10 @@
  */
 import type { ExportJob } from '../../../shared/api.ts';
 import { frameRecipe } from '../../../shared/framing.ts';
-import type { VideoLayer } from '../../../shared/project.ts';
+import { captionLayerOf, videoLayerOf, type Clip, type Word } from '../../../shared/project.ts';
 import type { ExportPortReply, ExportPortRequest } from '../../../shared/worker-api.ts';
 import { workingFrameTime } from '../../../shared/working.ts';
+import { CaptionPainter, loadCaptionScene } from '../render/captions.ts';
 import { Compositor, YUV_BYTES } from '../render/compositor.ts';
 import { demux } from '../render/demux.ts';
 import { FrameSource } from '../render/frame-source.ts';
@@ -78,8 +79,12 @@ export interface RenderOptions {
   onProgress(done: number): void;
 }
 
-/** Renders and sends every frame of `job`. Rejects when it fails or is aborted; the encoder is told either way. */
-export async function renderExport(job: ExportJob, port: MessagePort, layer: VideoLayer, { signal, onProgress }: RenderOptions): Promise<void> {
+/**
+ * Renders and sends every frame of `job`: `clip` with captions from the
+ * transcript's `words`. Rejects when it fails or is aborted; the encoder is
+ * told either way.
+ */
+export async function renderExport(job: ExportJob, port: MessagePort, clip: Clip, words: readonly Word[], { signal, onProgress }: RenderOptions): Promise<void> {
   const link = new EncoderLink(port);
   // Aborting also stops waiting for acks that may never come (the worker gone).
   const stop = () => link.fail(new Error('export stopped'));
@@ -95,6 +100,10 @@ export async function renderExport(job: ExportJob, port: MessagePort, layer: Vid
     if (!response.ok) throw new Error(`loading the working file failed: ${response.status}`);
     const media = await demux(await response.arrayBuffer());
     const size = { width: media.width, height: media.height };
+    const layer = videoLayerOf(clip);
+    // The font is loaded before the first frame, so none is drawn in a stand-in.
+    const captions = await loadCaptionScene(captionLayerOf(clip), words, clip);
+    const painter = new CaptionPainter();
     compositor = new Compositor(canvas);
     frames = new FrameSource(media);
 
@@ -119,7 +128,8 @@ export async function renderExport(job: ExportJob, port: MessagePort, layer: Vid
       }
       c.upload(frame);
       frame.close();
-      c.render(frameRecipe(layer, workingFrameTime(job, index), size));
+      const time = workingFrameTime(job, index);
+      c.render(frameRecipe(layer, time, size), captions && painter.paint(captions, time));
       if (pending.length === SLOTS) await sendOne();
       c.startReadback(slot);
       pending.push(slot);

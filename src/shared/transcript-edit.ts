@@ -56,7 +56,8 @@ export function splitTime(word: Pick<Word, 'start' | 'end'>, texts: readonly str
 
 /**
  * Gives a word new text. Spaces split it into several words; empty text
- * deletes it (and its segment, if it was the only word). Corrected words
+ * deletes it (and its segment, if it was the only word); a caption page
+ * that started at it starts at the next word instead. Corrected words
  * count as certain (p = 1). Returns how many words now stand in its place.
  */
 export function setWordText(segments: Segment[], at: WordRef, text: string): number {
@@ -65,12 +66,17 @@ export function setWordText(segments: Segment[], at: WordRef, text: string): num
   if (!segment || !word) return 0;
   const texts = wordsOfText(text);
   if (texts.length === 0) {
+    const next = nextRef(segments, at);
+    if (word.pageBreak && next) wordOf(segments, next).pageBreak = true;
     removeWord(segments, at);
     return 0;
   }
   if (texts.length === 1 && texts[0] === word.text) return 1;
   const times = splitTime(word, texts);
-  segment.words.splice(at.word, 1, ...texts.map((t, i) => ({ text: t, ...times[i]!, p: 1 })));
+  const words: Word[] = texts.map((t, i) => ({ text: t, ...times[i]!, p: 1 }));
+  // A caption page that started at the word still starts there.
+  if (word.pageBreak) words[0]!.pageBreak = true;
+  segment.words.splice(at.word, 1, ...words);
   fit(segment);
   return texts.length;
 }
