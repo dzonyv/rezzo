@@ -15,6 +15,18 @@ Rezzo uses FFmpeg to read video, cut it, and encode the exported clips. The inst
 
 The app runs on Electron 45.1.0 (MIT). Electron includes Chromium and its dependencies, whose licenses ship with the app in `LICENSES.chromium.html`.
 
+## Fonts
+
+Fonts for captions. Their licenses are in `licenses/fonts` in the installed app, and next to each font in `src/renderer/src/fonts` in the source repository. All three are under the SIL Open Font License 1.1 and come from the Google Fonts repository at commit `6c1dbe27dc` (https://github.com/google/fonts/tree/6c1dbe27dcf7d817d4b62cec033ba77fa8e2a5ec/ofl).
+
+| Font | Version | Files | Copyright |
+|---|---|---|---|
+| Poppins | 4.004 | Medium, SemiBold, Bold, ExtraBold, Black | The Poppins Project Authors (Indian Type Foundry) |
+| Montserrat | 9.000 | Variable weight (`Montserrat[wght].ttf`) | The Montserrat Project Authors (Julieta Ulanovsky) |
+| Anton | 2.116 | Regular | The Anton Project Authors (Vernon Adams) |
+
+Fonts you add yourself are copied into the app's settings folder and never leave your computer.
+
 ## JavaScript libraries
 
 These are compiled into the app's code:

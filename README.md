@@ -12,7 +12,7 @@ There's no release to download yet, but you can build the installer yourself (se
 
 Phase 1 is done, so the basic job works from start to finish. You import an episode, transcribe it, and search the transcript while the video plays. Select a few sentences and they become a clip. You frame it for 9:16 in any of the three layouts, switching between them partway through if you like, and export it as a 1080×1920 MP4. The full plan is in [ROADMAP.md](ROADMAP.md).
 
-Captions are in progress. The groundwork is done: you can fix the transcript where Whisper got it wrong, one word after another without touching the mouse, and nudge word timings against the waveform. Words it always gets wrong (it writes "futbal" every single time) go on a replacement list, and every new transcript gets fixed automatically. Drawing the captions on the video comes next.
+Captions work too. Before drawing them you fix the transcript where Whisper got it wrong, one word after another without touching the mouse, and nudge word timings against the waveform. Words it always gets wrong (it writes "futbal" every single time) go on a replacement list, and every new transcript gets fixed automatically. Every new clip then gets captions that highlight the word being spoken. There are a few built-in styles, and you can change the font, colours, outline, size and how many words fit on a line, then save the result as your own style. Poppins Bold is the default because it's what I always use; Montserrat and Anton are also included, and you can add any TTF or OTF font you have. If a sentence breaks in an awkward spot, you can start a new caption page from any word.
 
 ## Running it from source
 
