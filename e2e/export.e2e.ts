@@ -121,6 +121,7 @@ beforeAll(async () => {
     language: 'sr',
     model: 'test',
     createdAt: new Date().toISOString(),
+    startShift: -0.1,
     segments: [{ start: 5, end: 5.4, words: [{ text: 'Dobro', start: 5, end: 5.4, p: 0.9 }] }],
   };
   project.clips = [

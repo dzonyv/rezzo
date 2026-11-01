@@ -4,13 +4,13 @@ import { segmentsOf, type WhisperJson } from './whisper-json.ts';
 /** Token text as whisper.cpp leaves it after a Latin-1 read: one character per byte. */
 const bytes = (s: string) => Buffer.from(s, 'utf8').toString('latin1');
 
-/** whisper.cpp-style JSON: one segment per array of [text, fromMs] tokens, 100 ms each, DTW 50 ms later. */
+/** whisper.cpp-style JSON: one segment per array of [text, fromMs] tokens, 100 ms each, DTW 150 ms later (50 ms after DTW_START_SHIFT). */
 function json(...segments: [string, number][][]): WhisperJson {
   return {
     transcription: segments.map((tokens) => ({
       text: tokens.map(([t]) => t).join(''),
       offsets: { from: 0, to: 0 },
-      tokens: tokens.map(([text, from]) => ({ text: bytes(text), offsets: { from, to: from + 100 }, p: 0.9, t_dtw: (from + 50) / 10 })),
+      tokens: tokens.map(([text, from]) => ({ text: bytes(text), offsets: { from, to: from + 100 }, p: 0.9, t_dtw: (from + 150) / 10 })),
     })),
   };
 }
@@ -33,8 +33,14 @@ describe('segmentsOf', () => {
 
   it('never lets a word end before it starts', () => {
     const j = json([[' da', 1000]]);
-    j.transcription[0]!.tokens[0]!.t_dtw = 120; // DTW 1.2 s, after the token's end at 1.1 s
+    j.transcription[0]!.tokens[0]!.t_dtw = 130; // DTW 1.3 s, shifted to 1.2 s: after the token's end at 1.1 s
     expect(segmentsOf(j)[0]!.words[0]).toMatchObject({ start: 1.2, end: 1.2 });
+  });
+
+  it('moves DTW starts earlier, but not before 0', () => {
+    const j = json([[' da', 0]]);
+    j.transcription[0]!.tokens[0]!.t_dtw = 5;
+    expect(segmentsOf(j)[0]!.words[0]!.start).toBe(0);
   });
 
   it('starts a new word at an opening quote', () => {

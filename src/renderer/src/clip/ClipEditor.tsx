@@ -7,13 +7,16 @@ import { exportClip, isExporting, useExport } from '../export/state.ts';
 import { formatClipTime } from '../format.ts';
 import { nudgeClip, renameClip } from '../project/clips.ts';
 import { addKeyframe, deleteKeyframe, setFraming, setLayout, setSmooth } from '../project/framing.ts';
-import { projectStore } from '../project/store.ts';
+import { projectStore, useProject } from '../project/store.ts';
+import { retimeWord } from '../project/transcript.ts';
+import { flatOf, refOf, wordAt } from '../transcript/words.ts';
 import { isTypingTarget } from '../ui/focus.ts';
 import { ClipPreview } from './ClipPreview.tsx';
 import { ClipTimeline } from './ClipTimeline.tsx';
 import { FramingOverlay, propertyFor, regionFor, zoomed } from './FramingOverlay.tsx';
 import { currentPlayer, seekClip, toggleClip, useClipPlayback } from './playback.ts';
 import { openClip } from './state.ts';
+import { WordStrip } from './WordStrip.tsx';
 
 const EDGES = ['start', 'end'] as const;
 
@@ -27,6 +30,7 @@ export function ClipEditor({ clip, source }: { clip: Clip; source: Source }) {
   const sourceSize = useClipPlayback((s) => s.sourceSize);
   const playerTime = useClipPlayback((s) => s.time);
   const exporting = useExport(isExporting);
+  const transcript = useProject((s) => s.project?.transcript ?? null);
 
   const rate = workingFrameRate(source);
   const frame = 1 / fps(rate);
@@ -43,8 +47,23 @@ export function ClipEditor({ clip, source }: { clip: Clip; source: Source }) {
 
   useEffect(() => {
     const onKey = (e: KeyboardEvent) => {
-      if (isTypingTarget(e.target) || e.ctrlKey || e.altKey) return;
+      if (isTypingTarget(e.target) || e.ctrlKey) return;
       const player = currentPlayer();
+      if (e.altKey) {
+        // Alt+arrows: the word starting nearest the playhead starts a frame earlier or later.
+        const segments = projectStore.getState().project?.transcript?.segments;
+        if (!segments || !player || (e.key !== 'ArrowLeft' && e.key !== 'ArrowRight')) return;
+        e.preventDefault();
+        const flat = flatOf(segments);
+        const now = player.currentTime;
+        const heard = wordAt(flat.words, now);
+        const after = flat.words[heard + 1];
+        const index = after && (heard < 0 || after.start - now < now - flat.words[heard]!.start) ? heard + 1 : heard;
+        const word = flat.words[index];
+        if (!word) return;
+        retimeWord(refOf(flat, index), word.start + frame * (e.key === 'ArrowLeft' ? -1 : 1), word.end);
+        return;
+      }
       if (e.code === 'Space') {
         // Space plays even with a button focused (after clicking a layout, say);
         // Enter still presses the button.
@@ -111,6 +130,7 @@ export function ClipEditor({ clip, source }: { clip: Clip; source: Source }) {
         </span>
       </div>
       <ClipTimeline clip={clip} layout={layer.layout} keys={keys} time={time} />
+      {transcript && <WordStrip clip={clip} transcript={transcript} time={time} rate={rate} />}
 
       <div className="layouts" role="group" aria-label={t('clipEditor.layout')}>
         {LAYOUTS.map((l) => (

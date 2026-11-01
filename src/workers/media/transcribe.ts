@@ -7,7 +7,7 @@
 import { mkdir, readdir, readFile, rename, rm, stat } from 'node:fs/promises';
 import { availableParallelism } from 'node:os';
 import path from 'node:path';
-import { transcriptSchema, type Transcript } from '../../shared/project.ts';
+import { DTW_START_SHIFT, transcriptSchema, upgradeTranscript, type Transcript } from '../../shared/project.ts';
 import type { TranscribeProgress, TranscribeRequest } from '../../shared/worker-api.ts';
 import { writeFileAtomic } from '../../node/files.ts';
 import { exec, ExecError, ffmpegExe } from './exec.ts';
@@ -33,6 +33,7 @@ export async function transcribe(ctx: JobContext, req: TranscribeRequest): Promi
     language: req.language,
     model: req.modelId,
     createdAt: new Date().toISOString(),
+    startShift: DTW_START_SHIFT,
     segments,
   };
   await writeFileAtomic(done, JSON.stringify(transcript));
@@ -41,7 +42,8 @@ export async function transcribe(ctx: JobContext, req: TranscribeRequest): Promi
 
 async function readTranscript(file: string): Promise<Transcript | null> {
   try {
-    return transcriptSchema.parse(JSON.parse(await readFile(file, 'utf8')));
+    // Cached before word starts were corrected: corrected the same way, not redone.
+    return transcriptSchema.parse(upgradeTranscript(JSON.parse(await readFile(file, 'utf8'))));
   } catch {
     return null;
   }

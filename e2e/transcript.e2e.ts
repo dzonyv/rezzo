@@ -48,6 +48,7 @@ beforeAll(async () => {
     language: 'sr',
     model: 'test',
     createdAt: new Date().toISOString(),
+    startShift: -0.1,
     segments: [
       segment(1, 'Dobro veče, danas pričamo o Đokoviću.'),
       segment(5, 'Ćevapi su najbolji.'),
@@ -97,4 +98,106 @@ describe('transcript', () => {
     await search(page).fill('zzz');
     await expect.poll(() => page.locator('.transcript-search .count').textContent()).toBe('No matches');
   });
+
+  it('corrects words from the keyboard, one undo step each', async () => {
+    await search(page).fill('');
+    await page.locator('.w', { hasText: 'Ćevapi' }).dblclick();
+    const editor = page.getByRole('textbox', { name: 'Correct the word' });
+    expect(await editor.inputValue()).toBe('Ćevapi');
+    await page.keyboard.type('Čevapi');
+    await page.keyboard.press('Tab');
+    expect(await editor.inputValue()).toBe('su');
+    await page.keyboard.press('Tab');
+    // Passing over a word that was right keeps the offer from the correction before it.
+    expect(await page.getByText('Always replace “ćevapi” with “čevapi”?').count()).toBe(1);
+    await page.keyboard.type('najbolji!');
+    await page.keyboard.press('Enter');
+    expect(await editor.count()).toBe(0);
+    expect(await words(page)).toContain('Čevapi su najbolji!');
+    // A corrected word is no longer marked as unsure.
+    expect(await page.locator('.w.unsure').count()).toBe(0);
+
+    await page.getByRole('button', { name: 'Undo', exact: true }).click();
+    expect(await words(page)).toContain('Čevapi su najbolji.');
+    expect(await page.locator('.w.unsure').count()).toBe(1);
+  });
+
+  it('splits, joins and deletes words', async () => {
+    const editor = page.getByRole('textbox', { name: 'Correct the word' });
+    await page.locator('.w', { hasText: 'Dobro' }).dblclick();
+    await page.keyboard.type('Do bro');
+    await page.keyboard.press('Enter');
+    expect(await words(page)).toContain('Do bro veče,');
+
+    await page.locator('.w', { hasText: /^bro $/ }).dblclick();
+    await page.keyboard.press('Home');
+    await page.keyboard.press('Backspace');
+    expect(await editor.inputValue()).toBe('Dobro');
+    await page.keyboard.press('Escape');
+    expect(await words(page)).toContain('Dobro veče,');
+
+    await page.locator('.w', { hasText: 'danas' }).dblclick();
+    await page.keyboard.press('Backspace');
+    await page.keyboard.press('Enter');
+    expect(await words(page)).toContain('veče, pričamo');
+
+    // Backspace again on the emptied box deletes the word and leaves its neighbours apart.
+    await page.locator('.w', { hasText: /^o $/ }).first().dblclick();
+    await page.keyboard.press('Backspace');
+    await page.keyboard.press('Backspace');
+    expect(await editor.inputValue()).toBe('pričamo');
+    await page.keyboard.press('Escape');
+    expect(await words(page)).toContain('veče, pričamo Đokoviću.');
+  });
+
+  it('jumps to the next unsure word', async () => {
+    await page.locator('.w', { hasText: 'veče,' }).click();
+    await page.keyboard.press('Control+ArrowDown');
+    const editor = page.getByRole('textbox', { name: 'Correct the word' });
+    expect(await editor.inputValue()).toBe('najbolji.');
+    // Left as it was, the word counts as checked.
+    await page.keyboard.press('Enter');
+    expect(await page.locator('.w.unsure').count()).toBe(0);
+    await page.getByRole('button', { name: 'Undo', exact: true }).click();
+    expect(await page.locator('.w.unsure').count()).toBe(1);
+  });
+
+  it('learns a replacement from a correction and applies the list as one step', async () => {
+    await page.locator('.w', { hasText: 'njemu.' }).dblclick();
+    await page.keyboard.type('njima.');
+    await page.keyboard.press('Enter');
+    await page.getByText('Always replace “njemu” with “njima”?').waitFor();
+    await page.getByRole('button', { name: 'Always replace' }).click();
+
+    await page.getByRole('button', { name: 'Replacements' }).click();
+    const dialog = page.getByRole('dialog', { name: 'Replacement list' });
+    await expect.poll(() => dialog.getByRole('textbox', { name: 'Whisper writes' }).count()).toBe(1);
+    expect(await dialog.getByRole('textbox', { name: 'Replace with' }).inputValue()).toBe('njima');
+    await dialog.getByRole('button', { name: 'Add a word' }).click();
+    await dialog.getByRole('textbox', { name: 'Whisper writes' }).nth(1).fill('pričamo*');
+    await dialog.getByRole('textbox', { name: 'Replace with' }).nth(1).fill('govorimo*');
+    await dialog.getByRole('button', { name: 'Apply to this transcript' }).click();
+    await page.getByText('Words replaced: 2').waitFor();
+    await dialog.getByRole('button', { name: 'Done' }).click();
+
+    let text = await words(page);
+    expect(text).toContain('veče, govorimo Đokoviću.');
+    expect(text).toContain('Govorimo i o njima.');
+    await page.getByRole('button', { name: 'Undo', exact: true }).click();
+    text = await words(page);
+    expect(text).toContain('veče, pričamo Đokoviću.');
+    expect(text).toContain('Pričamo i o njima.');
+  });
+
+  it('saves the word still being corrected with Ctrl+S', async () => {
+    await page.locator('.w', { hasText: /^A $/ }).dblclick();
+    await page.keyboard.type('I');
+    await page.keyboard.press('Control+S');
+    await expect.poll(() => page.locator('.topbar .dirty').count()).toBe(0);
+    const saved = JSON.parse(await readFile(path.join(dir, 'show.rezzo'), 'utf8')) as { transcript: { segments: Segment[] } };
+    expect(saved.transcript.segments.at(-1)!.words[0]!.text).toBe('I');
+  });
 });
+
+/** The transcript's text as shown, one line per segment. */
+const words = (page: Page) => page.locator('.segment-text').allTextContents().then((lines) => lines.map((l) => l.trim()).join('\n'));

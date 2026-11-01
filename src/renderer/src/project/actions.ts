@@ -110,6 +110,8 @@ export const restoreProject = command(async (project: Project, filePath: string 
 
 /** Saves; `saveAs` (or a project never saved) asks where. Returns true when saved. */
 export const save = command(async (saveAs: boolean): Promise<boolean> => {
+  // A field that applies its value when left (the word being corrected) does so before the save.
+  if (document.activeElement instanceof HTMLElement) document.activeElement.blur();
   const { project, filePath } = projectStore.getState();
   if (!project) return false;
   projectStore.getState().endGesture();

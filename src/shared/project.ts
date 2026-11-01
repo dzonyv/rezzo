@@ -9,9 +9,10 @@
  * Phase 2 lets the user edit it.
  */
 import { z } from 'zod';
+import { fps, frameAt, timeOfFrame, workingFrameRate } from './frames.ts';
 
 /** Bumped when the file format changes in a way older files need migrating for. */
-export const PROJECT_FORMAT = 2;
+export const PROJECT_FORMAT = 3;
 export const PROJECT_EXTENSION = 'rezzo';
 
 export const TRANSCRIPT_LANGUAGES = ['sr', 'hr', 'bs'] as const;
@@ -64,14 +65,63 @@ export const segmentSchema = z.object({
 });
 export type Segment = z.infer<typeof segmentSchema>;
 
+/**
+ * Seconds added to every DTW word start, which turbo places late. Measured
+ * against hand-placed labels in spikes/REPORT.md (Phase 2 checks).
+ */
+export const DTW_START_SHIFT = -0.1;
+
 export const transcriptSchema = z.object({
   language: z.enum(TRANSCRIPT_LANGUAGES),
   /** Model id from tools.json, e.g. "large-v3-turbo-q5_0". */
   model: z.string(),
   createdAt: z.iso.datetime(),
+  /** The DTW_START_SHIFT applied when the transcript was made. */
+  startShift: z.number(),
   segments: z.array(segmentSchema),
 });
 export type Transcript = z.infer<typeof transcriptSchema>;
+
+interface RawTranscript {
+  startShift?: number;
+  segments: { start: number; words: { start: number; end: number }[] }[];
+}
+
+/**
+ * Brings a transcript made before word starts were corrected (it has no
+ * startShift) up to date by shifting every start, as transcription now
+ * does. Anything else comes back as it is, for the schema to judge.
+ */
+export function upgradeTranscript(raw: unknown): unknown {
+  const t = raw as RawTranscript | null;
+  if (typeof t !== 'object' || t === null || t.startShift !== undefined || !Array.isArray(t.segments)) return raw;
+  const segments = t.segments.map((s) => {
+    const words = s.words.map((w) => {
+      const start = Math.max(0, Math.round((w.start + DTW_START_SHIFT) * 1000) / 1000);
+      return { ...w, start, end: Math.max(start, w.end) };
+    });
+    return { ...s, start: words[0]?.start ?? s.start, words };
+  });
+  return { ...t, startShift: DTW_START_SHIFT, segments };
+}
+
+/**
+ * Clips made before word starts were corrected start the usual lead before
+ * their first word's old, late start, which is now exactly where that word
+ * starts. Moving their start back by the same shift gives the lead back.
+ * Framing needs no change: before its first keyframe a value holds that
+ * keyframe's value.
+ */
+function clipsWithLead(old: Record<string, unknown>): unknown {
+  const source = old.source as Pick<Source, 'video'> | null;
+  if (!source?.video || !Array.isArray(old.clips)) return old.clips;
+  const rate = workingFrameRate(source);
+  const lead = Math.round(-DTW_START_SHIFT * fps(rate));
+  return (old.clips as { start: number; end: number }[]).map((clip) => {
+    const start = timeOfFrame(Math.max(0, frameAt(clip.start, rate) - lead), rate);
+    return clip.end - start <= MAX_CLIP_SECONDS + 1e-6 ? { ...clip, start } : clip;
+  });
+}
 
 /** Longest clip; its working file is loaded into memory whole. */
 export const MAX_CLIP_SECONDS = 180;
@@ -172,6 +222,8 @@ export function newProject(name: string, id: string = crypto.randomUUID()): Proj
 const MIGRATIONS: Record<number, (old: Record<string, unknown>) => Record<string, unknown>> = {
   // Format 2 added clips.
   1: (old) => ({ ...old, clips: [] }),
+  // Format 3 corrected the late DTW word starts.
+  2: (old) => ({ ...old, transcript: upgradeTranscript(old.transcript), clips: clipsWithLead(old) }),
 };
 
 export class ProjectFormatError extends Error {

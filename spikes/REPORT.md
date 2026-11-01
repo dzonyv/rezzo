@@ -331,3 +331,18 @@ The Phase 0 export path, as the app now runs it: the page renders each frame wit
 - **The installer** is 178 MB. Installed, Rezzo takes 543 MB, of which FFmpeg is 184 MB and the app's own code 2 MB; the rest is Electron. The end-to-end tests pass against the packaged app too, which shows the worker loads from the asar archive and FFmpeg is found in `resources/tools`.
 
 Export speed on the four real clips in the app is still to be measured.
+
+## Phase 2 checks
+
+### Correcting DTW word starts (2a)
+
+Phase 0 found turbo's DTW starts about 120 ms late on the words the maintainer moved. Before picking a correction, `whisper/metrics.ts --shift-sweep large-v3-turbo-q5_0` shifts every DTW start by a constant and scores it against the reviewed labels of clips B and D (34 labels matched, 12 of them moved by hand), with the model and language the app uses:
+
+| Shift | All labels within 100 ms | All within 200 ms | Moved labels: signed median | Moved within 100 ms |
+|---|---|---|---|---|
+| 0 ms | 79% | 94% | +120 ms | 42% |
+| −60 to −80 ms | 91% | 100% | +40 to +60 ms | 75% |
+| **−100 ms** | **88%** | **100%** | **+20 ms** | **83%** |
+| −140 ms | 32% | 100% | −20 ms | 92% |
+
+Both samples lean one way. The labels the maintainer left alone sit exactly on the draft's DTW times, which favours no shift; the moved ones were picked because they were wrong, which favours a large one. The app uses **−100 ms**: every label lands within 200 ms, most of both groups within 100 ms, and what error is left makes a highlight a little early rather than late, which is easier to watch. Word ends are not shifted; the labels only mark starts.

@@ -6,6 +6,7 @@ import { isDirty, projectStore, useProject } from '../project/store.ts';
 import { EpisodePlayer } from '../player/EpisodePlayer.tsx';
 import { TranscriptView } from '../transcript/TranscriptView.tsx';
 import { ClipList } from './ClipList.tsx';
+import { ReplacementsDialog } from './ReplacementsDialog.tsx';
 import { SourcePanel } from './SourcePanel.tsx';
 import { TranscribePanel } from './TranscribePanel.tsx';
 
@@ -75,6 +76,7 @@ export function Editor() {
         )}
         {openClip && project?.source && <ClipEditor key={openClip.id} clip={openClip} source={project.source} />}
       </section>
+      <ReplacementsDialog />
     </div>
   );
 }

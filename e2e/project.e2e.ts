@@ -133,7 +133,7 @@ describe('projects', () => {
   it('offers unsaved work after a crash', async () => {
     let { page } = await launch();
     await page.evaluate(async () => {
-      const project = { format: 2 as const, id: '0b6f2a52-9d0c-4f39-8f39-7f0e2c9b1a11', name: 'Lost work', source: null, transcript: null, clips: [] };
+      const project = { format: 3 as const, id: '0b6f2a52-9d0c-4f39-8f39-7f0e2c9b1a11', name: 'Lost work', source: null, transcript: null, clips: [] };
       await (globalThis as PageGlobal).rezzo.invoke('project:autosave', project, null);
     });
     await stop();
