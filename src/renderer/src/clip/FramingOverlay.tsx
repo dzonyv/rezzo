@@ -3,7 +3,9 @@ import { MAX_ZOOM, videoLayerOf, type Crop, type FullFrame, type Layout } from '
 import { OUTPUT, panCrop, panFull, regions, valueAt, zoomCrop, type Rect, type Size } from '../../../shared/framing.ts';
 import { setFraming, type FramingProperty } from '../project/framing.ts';
 import { projectStore } from '../project/store.ts';
+import { outputPoint } from './output-point.ts';
 import { pauseClip } from './playback.ts';
+import { selectLayer } from './state.ts';
 
 /** How long the wheel has to rest before a zoom becomes its own undo step. */
 const WHEEL_GESTURE_MS = 400;
@@ -48,11 +50,7 @@ export function FramingOverlay({ clipId, layout, half, onHalf, time, sourceSize 
   const el = useRef<HTMLDivElement>(null);
   const drag = useRef<{ property: FramingProperty; region: Rect; x: number; y: number } | null>(null);
 
-  /** Pointer position in output pixels. */
-  const toOutput = (clientX: number, clientY: number) => {
-    const box = el.current!.getBoundingClientRect();
-    return { x: ((clientX - box.left) / box.width) * OUTPUT.width, y: ((clientY - box.top) / box.height) * OUTPUT.height };
-  };
+  const toOutput = (clientX: number, clientY: number) => outputPoint(el.current!, clientX, clientY);
   const halfAt = (y: number): 'top' | 'bottom' => (y < OUTPUT.height / 2 ? 'top' : 'bottom');
 
   const wheelTimer = useRef(0);
@@ -90,6 +88,8 @@ export function FramingOverlay({ clipId, layout, half, onHalf, time, sourceSize 
       onPointerDown={(e) => {
         if (!sourceSize || e.button !== 0) return;
         pauseClip();
+        // Pressing the picture itself puts its settings back in the editor.
+        selectLayer(null);
         const p = toOutput(e.clientX, e.clientY);
         const h = layout === 'split' ? halfAt(p.y) : half;
         if (h !== half) onHalf(h);

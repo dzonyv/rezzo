@@ -7,6 +7,7 @@
  * Canvas2D rather than text in a shader: it gives kerning, diacritics and
  * outlines without a text renderer of our own.
  */
+import { clamp01, easeOutBack } from '../../../shared/easing.ts';
 import { cssFont } from '../../../shared/fonts.ts';
 import type { CaptionStyle } from '../../../shared/caption-style.ts';
 import { OUTPUT, valueAt } from '../../../shared/framing.ts';
@@ -32,14 +33,6 @@ export interface CaptionScene {
 export interface Overlay {
   image: TexImageSource;
   version: number;
-}
-
-const clamp01 = (v: number) => Math.min(1, Math.max(0, v));
-
-/** Overshoots a little and settles, for the pop. */
-function easeOutBack(f: number): number {
-  const c = 1.7;
-  return 1 + (c + 1) * (f - 1) ** 3 + c * (f - 1) ** 2;
 }
 
 /** Scale and opacity of something that started coming in `since` seconds ago. */

@@ -7,13 +7,12 @@
  * seeks are merged so only the latest one is decoded.
  *
  * Times are source seconds, like everywhere in the project. Each frame is
- * drawn with the framing and captions at that frame's own time, as the
+ * drawn with everything in the clip at that frame's own time, as the
  * export does.
  */
-import type { FrameRecipe, Size } from '../../../shared/framing.ts';
+import type { Size } from '../../../shared/framing.ts';
 import { fps, type FrameRate } from '../../../shared/frames.ts';
 import { workingFrameIndex, workingFrameTime } from '../../../shared/working.ts';
-import type { Overlay } from './captions.ts';
 import type { Compositor } from './compositor.ts';
 import { demux } from './demux.ts';
 import { FrameSource } from './frame-source.ts';
@@ -26,8 +25,8 @@ export interface WorkingFile {
   frameRate: FrameRate;
 }
 
-/** What to draw at a moment: the framing, and the captions over it. */
-export type SceneAt = (time: number, source: Size) => { recipe: FrameRecipe; overlay: Overlay | null };
+/** Draws the clip at a moment into the compositor, over the source frame it has (see SceneRenderer). */
+export type DrawAt = (time: number) => void;
 
 /** Loudness values per second of sound in Peaks. */
 export const PEAKS_PER_SECOND = 100;
@@ -66,7 +65,7 @@ export class ClipPlayer {
   private node: AudioBufferSourceNode | null = null;
 
   private range: { start: number; end: number };
-  private sceneAt: SceneAt;
+  private drawAt: DrawAt;
   private time: number;
   private playing = false;
   /** Bumped to stop the running playback loop. */
@@ -79,18 +78,18 @@ export class ClipPlayer {
   private lock: Promise<void> = Promise.resolve();
   private disposed = false;
 
-  private constructor(file: WorkingFile, size: Size, compositor: Compositor, frames: FrameSource, audio: AudioBuffer | null, range: { start: number; end: number }, sceneAt: SceneAt) {
+  private constructor(file: WorkingFile, size: Size, compositor: Compositor, frames: FrameSource, audio: AudioBuffer | null, range: { start: number; end: number }, drawAt: DrawAt) {
     this.file = file;
     this.size = size;
     this.compositor = compositor;
     this.frames = frames;
     this.audio = audio;
     this.range = range;
-    this.sceneAt = sceneAt;
+    this.drawAt = drawAt;
     this.time = range.start;
   }
 
-  static async load(file: WorkingFile, compositor: Compositor, range: { start: number; end: number }, sceneAt: SceneAt): Promise<ClipPlayer> {
+  static async load(file: WorkingFile, compositor: Compositor, range: { start: number; end: number }, drawAt: DrawAt): Promise<ClipPlayer> {
     const response = await fetch(file.url);
     if (!response.ok) throw new Error(`loading the working file failed: ${response.status}`);
     const bytes = await response.arrayBuffer();
@@ -98,7 +97,7 @@ export class ClipPlayer {
     // decodeAudioData takes the buffer over, so it gets a copy. No audio track: a silent clip.
     const audio = await new OfflineAudioContext(2, 1, 48_000).decodeAudioData(bytes.slice(0)).catch(() => null);
     const size = { width: media.width, height: media.height };
-    const player = new ClipPlayer(file, size, compositor, new FrameSource(media), audio, range, sceneAt);
+    const player = new ClipPlayer(file, size, compositor, new FrameSource(media), audio, range, drawAt);
     player.seek(range.start);
     return player;
   }
@@ -134,9 +133,9 @@ export class ClipPlayer {
     if (this.time < range.start || this.time >= range.end) this.seek(range.start);
   }
 
-  /** New framing or captions: redraws the frame on screen when paused. */
-  setScene(sceneAt: SceneAt): void {
-    this.sceneAt = sceneAt;
+  /** Something to draw changed (framing, captions, layers): redraws the frame on screen when paused. */
+  setScene(drawAt: DrawAt): void {
+    this.drawAt = drawAt;
     if (!this.playing && this.shown >= 0) this.draw(this.shown);
   }
 
@@ -206,10 +205,8 @@ export class ClipPlayer {
   }
 
   private draw(frame: number): void {
-    const size = this.compositor.sourceSize;
-    if (!size) return;
-    const { recipe, overlay } = this.sceneAt(this.timeOf(frame), size);
-    this.compositor.render(recipe, overlay);
+    if (!this.compositor.sourceSize) return;
+    this.drawAt(this.timeOf(frame));
     this.compositor.present();
   }
 

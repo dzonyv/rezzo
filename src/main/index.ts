@@ -1,6 +1,7 @@
 import { app, BrowserWindow, shell } from 'electron';
 import path from 'node:path';
 import { pathToFileURL } from 'node:url';
+import { addAsset, assetFileUrl, checkAsset, locateAsset } from './assets.ts';
 import { prepareClip } from './clip.ts';
 import { cancelExport, openExport, revealExport, startExport } from './export.ts';
 import { addFont, readCustomFont } from './fonts.ts';
@@ -73,6 +74,11 @@ function registerHandlers(): void {
 
   handle('fonts:add', ({ window }) => addFont(window));
   handle('fonts:read', (_ctx, file) => readCustomFont(file));
+
+  handle('asset:add', ({ window }, kind) => addAsset(window, kind));
+  handle('asset:check', (_ctx, asset) => checkAsset(asset));
+  handle('asset:locate', ({ window }, kind, asset) => locateAsset(window, kind, asset));
+  handle('asset:url', (_ctx, asset) => assetFileUrl(asset));
 
   handle('app:close', ({ window }) => {
     closeApproved.add(window);

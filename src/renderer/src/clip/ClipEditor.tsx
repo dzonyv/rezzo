@@ -3,27 +3,35 @@ import { useTranslation } from 'react-i18next';
 import { keyAt, valueAt } from '../../../shared/framing.ts';
 import { fps, workingFrameRate } from '../../../shared/frames.ts';
 import { captionPages } from '../../../shared/captions.ts';
-import { captionLayerOf, LAYOUTS, MAX_ZOOM, videoLayerOf, type Clip, type Source } from '../../../shared/project.ts';
+import { captionLayerOf, isTimed, LAYOUTS, MAX_ZOOM, videoLayerOf, type Clip, type Source } from '../../../shared/project.ts';
 import { exportClip, isExporting, useExport } from '../export/state.ts';
 import { formatClipTime } from '../format.ts';
 import { nudgeClip, renameClip } from '../project/clips.ts';
 import { addKeyframe, deleteKeyframe, setFraming, setLayout, setSmooth } from '../project/framing.ts';
+import { deleteLayer } from '../project/layers.ts';
 import { projectStore, useProject } from '../project/store.ts';
 import { retimeWord } from '../project/transcript.ts';
 import { flatOf, refOf, wordAt } from '../transcript/words.ts';
 import { isTypingTarget } from '../ui/focus.ts';
+import { AddLayerMenu } from './AddLayerMenu.tsx';
 import { CaptionOverlay } from './CaptionOverlay.tsx';
 import { CaptionPanel } from './CaptionPanel.tsx';
 import { ClipPreview } from './ClipPreview.tsx';
 import { ClipTimeline } from './ClipTimeline.tsx';
 import { FramingOverlay, propertyFor, regionFor, zoomed } from './FramingOverlay.tsx';
+import { LayerOverlay } from './LayerOverlay.tsx';
+import { LayerPanel } from './LayerPanel.tsx';
 import { currentPlayer, seekClip, toggleClip, useClipPlayback } from './playback.ts';
-import { openClip } from './state.ts';
+import { clipUiStore, openClip, selectLayer, useSelectedLayerId } from './state.ts';
 import { WordStrip } from './WordStrip.tsx';
 
 const EDGES = ['start', 'end'] as const;
 
-/** The open clip: its range, the 9:16 preview with framing, layouts and keyframes. */
+/**
+ * The open clip: its range, the 9:16 preview, the timeline of its layers,
+ * and the settings of what's selected: the picture (framing, layouts,
+ * keyframes) with its captions, or a layer over it.
+ */
 export function ClipEditor({ clip, source }: { clip: Clip; source: Source }) {
   const { t } = useTranslation();
   const store = projectStore.getState();
@@ -34,6 +42,10 @@ export function ClipEditor({ clip, source }: { clip: Clip; source: Source }) {
   const playerTime = useClipPlayback((s) => s.time);
   const exporting = useExport(isExporting);
   const transcript = useProject((s) => s.project?.transcript ?? null);
+  const assets = useProject((s) => s.project?.assets) ?? [];
+  const selectedId = useSelectedLayerId();
+  const selected = clip.layers.find((l) => l.id === selectedId);
+  const selectedLayer = selected && isTimed(selected) ? selected : null;
 
   const rate = workingFrameRate(source);
   const frame = 1 / fps(rate);
@@ -73,6 +85,13 @@ export function ClipEditor({ clip, source }: { clip: Clip; source: Source }) {
         retimeWord(refOf(flat, index), word.start + frame * (e.key === 'ArrowLeft' ? -1 : 1), word.end);
         return;
       }
+      const layerId = clipUiStore.getState().selectedLayerId;
+      if (layerId && (e.key === 'Delete' || e.key === 'Escape')) {
+        e.preventDefault();
+        if (e.key === 'Delete') deleteLayer(clip.id, layerId);
+        selectLayer(null);
+        return;
+      }
       if (e.code === 'Space') {
         // Space plays even with a button focused (after clicking a layout, say);
         // Enter still presses the button.
@@ -87,7 +106,7 @@ export function ClipEditor({ clip, source }: { clip: Clip; source: Source }) {
     };
     window.addEventListener('keydown', onKey);
     return () => window.removeEventListener('keydown', onKey);
-  }, [frame]);
+  }, [frame, clip.id]);
 
   return (
     <section className="clip-editor">
@@ -128,6 +147,7 @@ export function ClipEditor({ clip, source }: { clip: Clip; source: Source }) {
 
       <ClipPreview clip={clip} source={source}>
         <FramingOverlay clipId={clip.id} layout={layout} half={half} onHalf={setHalf} time={time} sourceSize={sourceSize} />
+        <LayerOverlay clip={clip} assets={assets} selectedId={selectedLayer?.id ?? null} time={time} />
         {captions && <CaptionOverlay clipId={clip.id} layer={captions} time={time} />}
       </ClipPreview>
 
@@ -138,10 +158,23 @@ export function ClipEditor({ clip, source }: { clip: Clip; source: Source }) {
         <span className="time">
           {t('clipEditor.time', { current: formatClipTime(time - clip.start), total: formatClipTime(clip.end - clip.start) })}
         </span>
+        <AddLayerMenu clipId={clip.id} time={time} />
       </div>
-      <ClipTimeline clip={clip} layout={layer.layout} keys={keys} pages={pages} time={time} />
+      <ClipTimeline clip={clip} assets={assets} keys={keys} pages={pages} selectedId={selectedLayer?.id ?? null} time={time} />
       {transcript && <WordStrip clip={clip} transcript={transcript} time={time} rate={rate} captions={captions !== null} />}
 
+      {selectedLayer ? (
+        <LayerPanel clipId={clip.id} layer={selectedLayer} asset={assets.find((a) => a.id === selectedLayer.assetId)} time={time} rate={rate} />
+      ) : (
+        pictureSettings()
+      )}
+    </section>
+  );
+
+  /** The source video's framing and the captions: what's edited when no layer is selected. */
+  function pictureSettings() {
+    return (
+      <>
       <div className="layouts" role="group" aria-label={t('clipEditor.layout')}>
         {LAYOUTS.map((l) => (
           <button
@@ -202,6 +235,7 @@ export function ClipEditor({ clip, source }: { clip: Clip; source: Source }) {
       <p className="dim hint">{t('clipEditor.keyframeHelp')}</p>
 
       <CaptionPanel clipId={clip.id} layer={captions} time={time} rate={rate} />
-    </section>
-  );
+      </>
+    );
+  }
 }

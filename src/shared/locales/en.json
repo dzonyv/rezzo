@@ -44,14 +44,24 @@
     "removeCaptions": "remove captions",
     "captionStyle": "caption style",
     "moveCaptions": "move captions",
-    "pageBreak": "caption page break"
+    "pageBreak": "caption page break",
+    "addImage": "add image",
+    "replaceImage": "change image",
+    "moveLayer": "move layer in time",
+    "trimLayer": "change layer length",
+    "reorderLayer": "change layer order",
+    "deleteLayer": "delete layer",
+    "duplicateLayer": "duplicate layer",
+    "placeLayer": "move layer",
+    "layerAnimation": "layer animation"
   },
   "files": {
     "project": "Rezzo project",
     "video": "Video",
     "all": "All files",
     "mp4": "MP4 video",
-    "font": "Font file"
+    "font": "Font file",
+    "image": "Image"
   },
   "unsaved": {
     "title": "Save changes to “{{name}}”?",
@@ -218,7 +228,8 @@
       "body": "Stop it? The unfinished file is deleted.",
       "stop": "Stop export",
       "keep": "Keep exporting"
-    }
+    },
+    "missingFiles": "These files can't be found, so the clip can't be exported: {{names}}. Find them in the layer settings."
   },
   "replacements": {
     "title": "Replacement list",
@@ -317,5 +328,81 @@
     "newPageHelp": "Start a new caption page at the word being spoken",
     "joinPage": "Join with the page before",
     "joinPageHelp": "This word starts a caption page; join it with the page before"
+  },
+  "layers": {
+    "add": "Add",
+    "addHelp": "Add a layer over the picture, from the playhead on",
+    "kinds": {
+      "image": "Image"
+    },
+    "video": "Video",
+    "captions": "Captions",
+    "rows": "Layers",
+    "select": "Select {{name}}",
+    "moveBar": "{{name}}: drag to move it in time",
+    "startHandle": "Start of {{name}}",
+    "endHandle": "End of {{name}}",
+    "up": "Bring forward",
+    "down": "Send backward",
+    "delete": "Delete layer",
+    "duplicate": "Duplicate",
+    "zoomHelp": "Ctrl+scroll to zoom the timeline",
+    "title": "Image: {{name}}",
+    "deselect": "Back to the picture",
+    "change": "Change image…",
+    "missing": "{{name}} isn't at {{path}} anymore, so it isn't shown.",
+    "locate": "Find it…",
+    "x": "Across",
+    "y": "Down",
+    "scale": "Size",
+    "rotation": "Rotation",
+    "opacity": "Opacity",
+    "placeHelp": "Drag the image in the preview to move it, its corners to resize it and the round handle to turn it. Shift turns off snapping.",
+    "keyframeHelp": "Without keyframes the image stays put for its whole time. Add one where it should move, then move it there.",
+    "rotate": "Turn the image",
+    "resize": "Resize the image",
+    "in": "Comes in",
+    "out": "Goes out",
+    "loop": "While shown",
+    "seconds": "Length",
+    "strength": "Strength",
+    "direction": "Direction",
+    "entrances": {
+      "none": "At once",
+      "fade": "Fade",
+      "pop": "Pop",
+      "slide": "Slide",
+      "zoom": "Zoom",
+      "bounce": "Bounce"
+    },
+    "exits": {
+      "none": "At once",
+      "fade": "Fade",
+      "pop": "Pop",
+      "slide": "Slide",
+      "zoom": "Zoom"
+    },
+    "loops": {
+      "none": "Still",
+      "shake": "Shake",
+      "pulse": "Pulse",
+      "kenBurns": "Ken Burns"
+    },
+    "directions": {
+      "left": "Left",
+      "right": "Right",
+      "up": "Up",
+      "down": "Down"
+    },
+    "errors": {
+      "unreadable": "That file isn't an image Rezzo can read.",
+      "too-large": "That image is too large (over 100 MB).",
+      "different-file": "That's a different file. Choose the one this project used."
+    },
+    "units": {
+      "percent": "{{value}}%",
+      "degrees": "{{value}}°",
+      "seconds": "{{value}} s"
+    }
   }
 }

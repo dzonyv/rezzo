@@ -1,7 +1,9 @@
 /**
- * rezzo-media://: how the sandboxed page plays local video. Only files the
- * app has handed out (the open project's source and its preview proxy) are
- * served, and Range requests are honoured so the player can seek.
+ * rezzo-media://: how the sandboxed page plays local video and reads the
+ * images in its clips. Only files the app has handed out (the open
+ * project's source, its preview proxy, working files and the files its
+ * layers show) are served, and Range requests are honoured so the player
+ * can seek.
  */
 import { protocol } from 'electron';
 import { createReadStream } from 'node:fs';
@@ -14,6 +16,8 @@ export const MEDIA_SCHEME = 'rezzo-media';
 const allowed = new Set<string>();
 /** Source videos the main process has seen in an import or a project file it read itself. */
 const knownSources = new Set<string>();
+/** Layer files picked in a dialog or listed in a project file the main process read itself. */
+const knownAssets = new Set<string>();
 const key = (file: string) => path.resolve(file).toLowerCase();
 
 export function rememberSource(file: string): void {
@@ -26,6 +30,16 @@ export function rememberSource(file: string): void {
  */
 export function sourceUrl(file: string): string {
   if (!knownSources.has(key(file))) throw new Error('Not a known source video');
+  return allowMedia(file);
+}
+
+export function rememberAsset(file: string): void {
+  knownAssets.add(key(file));
+}
+
+/** A URL for reading a layer's file; like sourceUrl, only for files the main process came across. */
+export function assetUrl(file: string): string {
+  if (!knownAssets.has(key(file))) throw new Error('Not a known file');
   return allowMedia(file);
 }
 
@@ -50,6 +64,7 @@ export function registerMediaScheme(): void {
 const TYPES: Record<string, string> = {
   '.mp4': 'video/mp4', '.m4v': 'video/mp4', '.mov': 'video/quicktime', '.webm': 'video/webm',
   '.mkv': 'video/x-matroska', '.wav': 'audio/wav',
+  '.png': 'image/png', '.jpg': 'image/jpeg', '.jpeg': 'image/jpeg', '.webp': 'image/webp',
 };
 
 /** Parses "bytes=a-b", "bytes=a-" or "bytes=-n" against a file size; null if absent or unusable. */

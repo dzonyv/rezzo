@@ -123,6 +123,9 @@ export async function launchApp(dir: string): Promise<Launched> {
     },
   });
   const page = await app.firstWindow();
+  // The smallest window the app allows (minWidth/minHeight in main/index.ts), so a test that only
+  // passes on a large screen fails here too, not just on the smaller CI runner.
+  await app.evaluate(({ BrowserWindow }) => BrowserWindow.getAllWindows()[0]!.setSize(1000, 640));
   await page.locator('h1, .topbar').first().waitFor();
   return { app, page };
 }

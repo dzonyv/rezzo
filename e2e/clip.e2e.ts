@@ -162,6 +162,8 @@ describe('clips', () => {
   });
 
   it('frames by dragging the picture, as one undo step', async () => {
+    // Pressing buttons further down may have scrolled the editor; the mouse only reaches what's on screen.
+    await page.locator('.framing-overlay').scrollIntoViewIfNeeded();
     const box = await page.locator('.framing-overlay').boundingBox();
     const cx = box!.x + box!.width / 2;
     const cy = box!.y + box!.height / 2;
@@ -233,6 +235,7 @@ describe('clips', () => {
 
   it('moves the captions by dragging them, not the picture', async () => {
     const before = videoLayerOf((await saved()).clips[0]!).follow;
+    await page.locator('.caption-overlay').scrollIntoViewIfNeeded();
     const band = (await page.locator('.caption-overlay').boundingBox())!;
     const preview = (await page.locator('.clip-preview').boundingBox())!;
     const x = band.x + band.width / 2;

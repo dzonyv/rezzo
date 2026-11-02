@@ -1,13 +1,13 @@
 /**
  * The WebGL2 renderer, generalised from the Phase 0 export lab
- * (spikes/export/lab/gl.ts). It draws a FrameRecipe (shared/framing.ts)
- * into an offscreen 1080×1920 texture, "comp". The preview shows comp on a
- * canvas; the export (Phase 1c) will convert comp to YUV and read it back,
- * so both see the same pixels.
+ * (spikes/export/lab/gl.ts). It draws a scene (shared/scene.ts) into an
+ * offscreen 1080×1920 texture, "comp": the framed source video, then the
+ * layers over it in order. The preview shows comp on a canvas; the export
+ * converts comp to YUV and reads it back, so both see the same pixels.
  *
- * Captions arrive as a transparent canvas (render/captions.ts) and are
- * blended over the picture as the last step, in both the preview and the
- * export.
+ * Images are drawn as quads, possibly turned, with soft edges. Captions
+ * arrive as a transparent canvas (render/captions.ts). Both are blended
+ * premultiplied, so semi-transparent edges get no dark fringe.
  *
  * Inside the offscreen textures row 0 is the TOP of the image, so output
  * rectangles (origin top left) map straight to framebuffer rows, and a
@@ -15,6 +15,7 @@
  * to the canvas flips to WebGL's bottom-up convention.
  */
 import { cropRect, OUTPUT, type FrameRecipe, type Size } from '../../../shared/framing.ts';
+import type { Quad, SceneOp } from '../../../shared/scene.ts';
 import type { Overlay } from './captions.ts';
 
 /** The blurred background is drawn at a quarter of the output size. */
@@ -91,6 +92,39 @@ void main() {
   o = texture(uTex, gl_FragCoord.xy / uSize);
 }`;
 
+/**
+ * A quad: uCenter, uHalf (half its size) and uAngle (clockwise) in output
+ * pixels, grown by a pixel all round so the fragment shader can soften its
+ * edges. Output rows run top down, like comp's.
+ */
+const QUAD_VERT = `#version 300 es
+uniform vec2 uCenter;
+uniform vec2 uHalf;
+uniform float uAngle;
+uniform vec2 uOut;
+out vec2 vLocal;
+void main() {
+  vec2 corner = vec2(float(gl_VertexID & 1), float((gl_VertexID >> 1) & 1)) * 2.0 - 1.0;
+  vLocal = corner * (uHalf + 1.0);
+  float s = sin(uAngle);
+  float c = cos(uAngle);
+  vec2 p = uCenter + vec2(vLocal.x * c - vLocal.y * s, vLocal.x * s + vLocal.y * c);
+  gl_Position = vec4(p / uOut * 2.0 - 1.0, 0.0, 1.0);
+}`;
+
+/** A premultiplied texture over the quad, faded to nothing across its outermost pixel. */
+const QUAD = `${HEADER}
+uniform sampler2D uTex;
+uniform vec2 uHalf;
+uniform float uOpacity;
+in vec2 vLocal;
+void main() {
+  vec2 inside = uHalf - abs(vLocal);
+  float edge = clamp(min(inside.x, inside.y) + 0.5, 0.0, 1.0);
+  vec2 uv = clamp((vLocal + uHalf) / (2.0 * uHalf), 0.0, 1.0);
+  o = texture(uTex, uv) * (uOpacity * edge);
+}`;
+
 const DISPLAY = `${HEADER}
 uniform sampler2D uTex;
 uniform vec2 uSize;
@@ -145,7 +179,10 @@ interface Target {
   h: number;
 }
 
-type Uniforms = Record<string, WebGLTexture | number[]>;
+type Uniforms = Record<string, WebGLTexture | number[] | number>;
+
+/** A picture for an image layer; its texture is made on first use and kept while the same object comes back. */
+export type LayerImage = TexImageSource & { width: number; height: number };
 
 const mipLevels = (w: number, h: number) => Math.floor(Math.log2(Math.max(w, h))) + 1;
 
@@ -158,6 +195,9 @@ export class Compositor {
   private programs: Record<'cover' | 'blur' | 'background' | 'draw' | 'overlay' | 'display', WebGLProgram>;
   /** Made with the first overlay; `version` is the one uploaded. */
   private overlayTex: { tex: WebGLTexture; version: number } | undefined;
+  private quadProgram: WebGLProgram;
+  /** Image textures by asset id, with the picture each holds. */
+  private images = new Map<string, { tex: WebGLTexture; image: LayerImage }>();
   /** Made on the first readback: only the export needs them. */
   private packer: { program: WebGLProgram; yuv: Target } | undefined;
   private pbos: { buf: WebGLBuffer; sync: WebGLSync | null }[] = [];
@@ -184,6 +224,7 @@ export class Compositor {
       overlay: this.program(OVERLAY),
       display: this.program(DISPLAY),
     };
+    this.quadProgram = this.program(QUAD, QUAD_VERT);
     gl.bindVertexArray(gl.createVertexArray());
   }
 
@@ -207,11 +248,35 @@ export class Compositor {
     gl.generateMipmap(gl.TEXTURE_2D);
   }
 
-  /** Draws one output frame from the uploaded source into comp, with `overlay` (the captions) over it. */
-  render(recipe: FrameRecipe, overlay: Overlay | null = null): void {
+  /**
+   * Draws one output frame into comp: `ops` in order, the video from the
+   * uploaded source, images from `images` by asset id (one not there yet is
+   * skipped) and `captions` where the captions go.
+   */
+  render(ops: readonly SceneOp[], images: ReadonlyMap<string, LayerImage>, captions: Overlay | null): void {
+    if (!this.src) return;
+    // Textures of pictures the scene no longer has (a deleted or replaced image) go.
+    for (const [id, held] of this.images) {
+      if (images.has(id)) continue;
+      this.gl.deleteTexture(held.tex);
+      this.images.delete(id);
+    }
+    for (const op of ops) {
+      if (op.type === 'video') {
+        this.drawVideo(op.recipe);
+      } else if (op.type === 'captions') {
+        if (captions) this.drawOverlay(captions);
+      } else {
+        const image = images.get(op.assetId);
+        // A closed ImageBitmap (let go of after its layer went) is 0×0 and can't be uploaded.
+        if (image && image.width > 0) this.drawQuad(this.imageTexture(op.assetId, image), op.quad, op.opacity);
+      }
+    }
+  }
+
+  private drawVideo(recipe: FrameRecipe): void {
     const gl = this.gl;
-    const src = this.src;
-    if (!src) return;
+    const src = this.src!;
     if (recipe.background === 'blur') {
       const r = cropRect({ x: 0.5, y: 0.5, zoom: 1 }, OUTPUT.width / OUTPUT.height, { width: src.w, height: src.h });
       this.pass(this.programs.cover, this.bgA, { uSrc: src.tex, uRect: [r.x, r.y, r.w, r.h], uSize: [BG_W, BG_H] });
@@ -233,7 +298,40 @@ export class Compositor {
       this.pass(this.programs.draw, this.comp, { uSrc: src.tex, uSrcRect: [s.x, s.y, s.w, s.h], uDstRect: [d.x, d.y, d.w, d.h] });
     }
     gl.disable(gl.SCISSOR_TEST);
-    if (overlay) this.drawOverlay(overlay);
+  }
+
+  private imageTexture(assetId: string, image: LayerImage): WebGLTexture {
+    const gl = this.gl;
+    const held = this.images.get(assetId);
+    if (held?.image === image) return held.tex;
+    if (held) gl.deleteTexture(held.tex);
+    const tex = this.texture(image.width, image.height, mipLevels(image.width, image.height));
+    gl.bindTexture(gl.TEXTURE_2D, tex);
+    // Images come decoded premultiplied (render/images.ts); this covers any other source.
+    gl.pixelStorei(gl.UNPACK_PREMULTIPLY_ALPHA_WEBGL, true);
+    gl.texSubImage2D(gl.TEXTURE_2D, 0, 0, 0, gl.RGBA, gl.UNSIGNED_BYTE, image);
+    gl.pixelStorei(gl.UNPACK_PREMULTIPLY_ALPHA_WEBGL, false);
+    // Images are usually drawn smaller than they are; mipmaps keep that clean.
+    gl.generateMipmap(gl.TEXTURE_2D);
+    this.images.set(assetId, { tex, image });
+    return tex;
+  }
+
+  private drawQuad(tex: WebGLTexture, q: Quad, opacity: number): void {
+    const gl = this.gl;
+    gl.enable(gl.BLEND);
+    // As for the captions: colour over, comp stays opaque.
+    gl.blendFuncSeparate(gl.ONE, gl.ONE_MINUS_SRC_ALPHA, gl.ZERO, gl.ONE);
+    this.use(this.quadProgram, this.comp, {
+      uTex: tex,
+      uCenter: [q.cx, q.cy],
+      uHalf: [q.w / 2, q.h / 2],
+      uAngle: q.rotation,
+      uOut: [OUTPUT.width, OUTPUT.height],
+      uOpacity: opacity,
+    });
+    gl.drawArrays(gl.TRIANGLE_STRIP, 0, 4);
+    gl.disable(gl.BLEND);
   }
 
   private drawOverlay(overlay: Overlay): void {
@@ -326,7 +424,9 @@ export class Compositor {
     }
     if (this.src) gl.deleteTexture(this.src.tex);
     if (this.overlayTex) gl.deleteTexture(this.overlayTex.tex);
+    for (const { tex } of this.images.values()) gl.deleteTexture(tex);
     for (const p of Object.values(this.programs)) gl.deleteProgram(p);
+    gl.deleteProgram(this.quadProgram);
     if (this.packer) {
       gl.deleteProgram(this.packer.program);
       gl.deleteFramebuffer(this.packer.yuv.fbo);
@@ -338,11 +438,18 @@ export class Compositor {
     }
     this.src = undefined;
     this.overlayTex = undefined;
+    this.images.clear();
     this.packer = undefined;
     this.pbos = [];
   }
 
   private pass(program: WebGLProgram, target: Target | null, uniforms: Uniforms): void {
+    this.use(program, target, uniforms);
+    this.gl.drawArrays(this.gl.TRIANGLES, 0, 3);
+  }
+
+  /** Binds `program` and its uniforms, drawing into `target` (the canvas when null). */
+  private use(program: WebGLProgram, target: Target | null, uniforms: Uniforms): void {
     const gl = this.gl;
     gl.useProgram(program);
     gl.bindFramebuffer(gl.FRAMEBUFFER, target?.fbo ?? null);
@@ -350,7 +457,9 @@ export class Compositor {
     let unit = 0;
     for (const [name, value] of Object.entries(uniforms)) {
       const at = gl.getUniformLocation(program, name);
-      if (Array.isArray(value)) {
+      if (typeof value === 'number') {
+        gl.uniform1f(at, value);
+      } else if (Array.isArray(value)) {
         if (value.length === 2) gl.uniform2f(at, value[0]!, value[1]!);
         else gl.uniform4f(at, value[0]!, value[1]!, value[2]!, value[3]!);
       } else {
@@ -359,7 +468,6 @@ export class Compositor {
         gl.uniform1i(at, unit++);
       }
     }
-    gl.drawArrays(gl.TRIANGLES, 0, 3);
   }
 
   private texture(w: number, h: number, levels: number, filter: number = this.gl.LINEAR): WebGLTexture {
@@ -383,7 +491,7 @@ export class Compositor {
     return { fbo, tex, w, h };
   }
 
-  private program(fragment: string): WebGLProgram {
+  private program(fragment: string, vertex: string = VERT): WebGLProgram {
     const gl = this.gl;
     const compile = (type: number, source: string) => {
       const s = gl.createShader(type)!;
@@ -393,7 +501,7 @@ export class Compositor {
       return s;
     };
     const p = gl.createProgram();
-    gl.attachShader(p, compile(gl.VERTEX_SHADER, VERT));
+    gl.attachShader(p, compile(gl.VERTEX_SHADER, vertex));
     gl.attachShader(p, compile(gl.FRAGMENT_SHADER, fragment));
     gl.linkProgram(p);
     if (!gl.getProgramParameter(p, gl.LINK_STATUS)) throw new Error(gl.getProgramInfoLog(p) ?? 'link error');

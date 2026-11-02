@@ -6,6 +6,7 @@
  * Source rectangles are normalised (0..1 across and down the source);
  * output rectangles are in output pixels. Both have their origin top left.
  */
+import { smoothstep } from './easing.ts';
 import { sameFrame, snapToFrame, type FrameRate } from './frames.ts';
 import type { Animated, Crop, FullFrame, Key, Layout, VideoLayer } from './project.ts';
 
@@ -47,7 +48,6 @@ export function regions(layout: Layout, out: Size = OUTPUT): Rect[] {
 }
 
 const clamp = (v: number, lo: number, hi: number) => Math.min(hi, Math.max(lo, v));
-const smoothstep = (f: number) => f * f * (3 - 2 * f);
 
 function mix<T>(a: T, b: T, f: number): T {
   if (typeof a === 'number' && typeof b === 'number') return (a + (b - a) * f) as T;

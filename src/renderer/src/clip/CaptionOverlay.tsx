@@ -6,6 +6,7 @@ import type { CaptionLayer } from '../../../shared/project.ts';
 import { moveCaptions } from '../project/captions.ts';
 import { projectStore } from '../project/store.ts';
 import { pauseClip } from './playback.ts';
+import { selectLayer } from './state.ts';
 
 /**
  * The band of the preview the captions sit in, over the framing overlay:
@@ -55,6 +56,7 @@ export function CaptionOverlay({ clipId, layer, time }: { clipId: string; layer:
         if (e.button !== 0) return;
         e.stopPropagation();
         pauseClip();
+        selectLayer(null);
         e.currentTarget.setPointerCapture(e.pointerId);
         // The preview's height on screen turns pointer pixels into output fractions.
         const height = e.currentTarget.parentElement!.getBoundingClientRect().height;

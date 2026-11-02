@@ -7,10 +7,10 @@ import { mkdir, readdir, readFile, rm } from 'node:fs/promises';
 import path from 'node:path';
 import { z } from 'zod';
 import type { OpenResult, RecentProject, RecoveredProject, SaveResult } from '../shared/api.ts';
-import { parseProject, PROJECT_EXTENSION, ProjectFormatError, projectSchema, serializeProject } from '../shared/project.ts';
+import { parseProject, PROJECT_EXTENSION, ProjectFormatError, projectSchema, serializeProject, type Project } from '../shared/project.ts';
 import { translate } from '../shared/translate.ts';
 import { safeFileName, writeFileAtomic } from '../node/files.ts';
-import { rememberSource } from './media-protocol.ts';
+import { rememberAsset, rememberSource } from './media-protocol.ts';
 import { getSettings } from './settings.ts';
 
 const recentFile = () => path.join(app.getPath('userData'), 'recent.json');
@@ -20,6 +20,12 @@ const RECENT_LIMIT = 10;
 async function filters() {
   const { uiLanguage } = await getSettings();
   return [{ name: translate(uiLanguage, 'files.project'), extensions: [PROJECT_EXTENSION] }];
+}
+
+/** Lets the page play the project's source and read its layers' files. */
+function rememberFiles(project: Project): void {
+  if (project.source) rememberSource(project.source.path);
+  for (const asset of project.assets) rememberAsset(asset.path);
 }
 
 export async function chooseProjectToOpen(win: BrowserWindow): Promise<string | null> {
@@ -49,7 +55,7 @@ export async function openProject(file: string): Promise<OpenResult> {
   }
   try {
     const project = parseProject(text);
-    if (project.source) rememberSource(project.source.path);
+    rememberFiles(project);
     await remember(file, project.name);
     return { ok: true, path: file, project };
   } catch (e) {
@@ -122,7 +128,7 @@ export async function recoveredProjects(): Promise<RecoveredProject[]> {
     try {
       const copy = recoverySchema.parse(JSON.parse(await readFile(path.join(recoveryDir(), name), 'utf8')));
       const project = projectSchema.parse(copy.project);
-      if (project.source) rememberSource(project.source.path);
+      rememberFiles(project);
       found.push({ filePath: copy.filePath, savedAt: copy.savedAt, project });
     } catch {
       // A half-written or outdated copy; nothing to offer.

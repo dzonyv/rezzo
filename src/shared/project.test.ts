@@ -1,5 +1,6 @@
 import { describe, expect, it } from 'vitest';
 import { clipFromWords } from './clips.ts';
+import { DEFAULT_MOTION } from './motion.ts';
 import { DTW_START_SHIFT, MAX_CLIP_SECONDS, newProject, parseProject, PROJECT_FORMAT, ProjectFormatError, serializeProject, type Project } from './project.ts';
 
 const sample: Project = {
@@ -87,6 +88,56 @@ describe('project files', () => {
   it('upgrades a format 3 file, which had no captions, as it is', () => {
     const old = { ...sample, format: 3, clips: sample.clips.map((c) => ({ ...c, layers: c.layers.filter((l) => l.kind === 'video') })) };
     expect(parseProject(JSON.stringify(old))).toEqual({ ...old, format: PROJECT_FORMAT });
+  });
+
+  it('upgrades a format 4 file, which had no layers over the picture, with no assets', () => {
+    const { assets: _, ...old } = sample;
+    expect(parseProject(JSON.stringify({ ...old, format: 4 }))).toEqual(sample);
+  });
+
+  const asset = {
+    id: '5d3c2b1a-0f9e-4d8c-8b7a-6f5e4d3c2b1a',
+    kind: 'image' as const,
+    name: 'logo.png',
+    path: 'D:\\Slike\\logo.png',
+    size: 2048,
+    fingerprint: 'c'.repeat(64),
+    width: 400,
+    height: 200,
+  };
+  const withImage = (assetId = asset.id): Project => {
+    const clip = sample.clips[0]!;
+    const image = {
+      id: '9a8b7c6d-5e4f-4a3b-8c2d-1e0f9a8b7c6d',
+      kind: 'image' as const,
+      assetId,
+      start: 0.3,
+      end: 1.2,
+      transform: [{ t: 0.3, value: { x: 0.5, y: 0.3, scale: 0.6, rotation: 0, opacity: 1 }, ease: 'cut' as const }],
+      motion: DEFAULT_MOTION,
+    };
+    return { ...sample, assets: [asset], clips: [{ ...clip, layers: [...clip.layers, image] }] };
+  };
+
+  it('round-trips image layers and their files', () => {
+    expect(parseProject(serializeProject(withImage()))).toEqual(withImage());
+  });
+
+  it('rejects a layer whose file is not in the project', () => {
+    expect(code(() => parseProject(JSON.stringify(withImage(crypto.randomUUID()))))).toBe('invalid');
+  });
+
+  it('rejects a clip whose source video is not the bottom layer', () => {
+    const p = withImage();
+    p.clips[0]!.layers.reverse();
+    expect(code(() => parseProject(JSON.stringify(p)))).toBe('invalid');
+  });
+
+  it('rejects a layer that ends before it starts', () => {
+    const p = withImage();
+    const image = p.clips[0]!.layers.at(-1)!;
+    if (image.kind === 'image') image.end = image.start;
+    expect(code(() => parseProject(JSON.stringify(p)))).toBe('invalid');
   });
 
   it('gives a new clip captions', () => {
