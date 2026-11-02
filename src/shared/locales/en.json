@@ -53,8 +53,7 @@
     "deleteLayer": "delete layer",
     "duplicateLayer": "duplicate layer",
     "placeLayer": "move layer",
-    "layerAnimation": "layer animation",
-    "locateFile": "find file"
+    "layerAnimation": "layer animation"
   },
   "files": {
     "project": "Rezzo project",
@@ -399,6 +398,11 @@
       "unreadable": "That file isn't an image Rezzo can read.",
       "too-large": "That image is too large (over 100 MB).",
       "different-file": "That's a different file. Choose the one this project used."
+    },
+    "units": {
+      "percent": "{{value}}%",
+      "degrees": "{{value}}°",
+      "seconds": "{{value}} s"
     }
   }
 }

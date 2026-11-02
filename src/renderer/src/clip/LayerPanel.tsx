@@ -8,7 +8,7 @@ import {
 } from '../../../shared/motion.ts';
 import type { TimedLayer } from '../../../shared/project.ts';
 import { changeImage, locateAsset, useAssetMissing } from '../project/assets.ts';
-import { addLayerKey, deleteLayer, deleteLayerKey, duplicateLayer, setLayerKeySmooth, setMotion, setTransform } from '../project/layers.ts';
+import { addLayerKey, deleteLayer, deleteLayerKey, duplicateLayer, insideLayer, setLayerKeySmooth, setMotion, setTransform } from '../project/layers.ts';
 import { projectStore, type EditLabel } from '../project/store.ts';
 import { selectLayer } from './state.ts';
 
@@ -24,13 +24,17 @@ interface Props {
 const PLACE: EditLabel = 'history.placeLayer';
 const ANIMATE: EditLabel = 'history.layerAnimation';
 
-/** The placement sliders: which value, its range and step, and how it's shown. */
-const PLACEMENT: { key: keyof Transform; min: number; max: number; step: number; show: (v: number) => string }[] = [
-  { key: 'x', min: 0, max: 1, step: 0.001, show: (v) => `${Math.round(v * 100)}%` },
-  { key: 'y', min: 0, max: 1, step: 0.001, show: (v) => `${Math.round(v * 100)}%` },
-  { key: 'scale', min: MIN_LAYER_SCALE, max: Math.min(MAX_LAYER_SCALE, 3), step: 0.01, show: (v) => `${Math.round(v * 100)}%` },
-  { key: 'rotation', min: -180, max: 180, step: 1, show: (v) => `${Math.round(v)}°` },
-  { key: 'opacity', min: 0, max: 1, step: 0.01, show: (v) => `${Math.round(v * 100)}%` },
+/**
+ * The placement sliders: which value, its usual range and step, and its
+ * unit. A value dragged past the usual range (a layer partly off screen)
+ * widens the slider rather than being pulled back by it.
+ */
+const PLACEMENT: { key: keyof Transform; min: number; max: number; step: number; unit: 'percent' | 'degrees' }[] = [
+  { key: 'x', min: 0, max: 1, step: 0.001, unit: 'percent' },
+  { key: 'y', min: 0, max: 1, step: 0.001, unit: 'percent' },
+  { key: 'scale', min: MIN_LAYER_SCALE, max: Math.min(MAX_LAYER_SCALE, 3), step: 0.01, unit: 'percent' },
+  { key: 'rotation', min: -180, max: 180, step: 1, unit: 'degrees' },
+  { key: 'opacity', min: 0, max: 1, step: 0.01, unit: 'percent' },
 ];
 
 /** The three animation settings, each with the kinds it offers and where a direction applies. */
@@ -46,9 +50,14 @@ export function LayerPanel({ clipId, layer, asset, time, rate }: Props) {
   const missing = useAssetMissing(asset?.id);
   const store = projectStore.getState();
   const name = asset?.name ?? t('layers.kinds.image');
-  const value = valueAt(layer.transform, time);
+  // Edits land inside the layer's time even with the playhead outside it (see insideLayer).
+  const at = insideLayer(layer, time);
+  const value = valueAt(layer.transform, at);
   const keys = layer.transform;
-  const keyIndex = keyAt(keys, time, rate);
+  const keyIndex = keyAt(keys, at, rate);
+
+  const percent = (v: number) => t('layers.units.percent', { value: Math.round(v * 100) });
+  const shown = (v: number, unit: 'percent' | 'degrees') => (unit === 'percent' ? percent(v) : t('layers.units.degrees', { value: Math.round(v) }));
 
   /** One undo step per drag of a slider; arrow keys make a step each. */
   const gesture = (label: EditLabel) => ({ onPointerDown: () => store.beginGesture(label), onPointerUp: () => store.endGesture() });
@@ -95,9 +104,9 @@ export function LayerPanel({ clipId, layer, asset, time, rate }: Props) {
           </label>
         )}
         {m.kind !== 'none' && 'seconds' in m &&
-          slider(t('layers.seconds'), m.seconds, { min: MIN_MOTION_SECONDS, max: MAX_MOTION_SECONDS, step: 0.05 }, `${m.seconds.toFixed(2)} s`, ANIMATE, (seconds) => set({ seconds }))}
+          slider(t('layers.seconds'), m.seconds, { min: MIN_MOTION_SECONDS, max: MAX_MOTION_SECONDS, step: 0.05 }, t('layers.units.seconds', { value: m.seconds.toFixed(2) }), ANIMATE, (seconds) => set({ seconds }))}
         {m.kind !== 'none' && 'strength' in m &&
-          slider(t('layers.strength'), m.strength, { min: 0, max: 1, step: 0.01 }, `${Math.round(m.strength * 100)}%`, ANIMATE, (strength) => set({ strength }))}
+          slider(t('layers.strength'), m.strength, { min: 0, max: 1, step: 0.01 }, percent(m.strength), ANIMATE, (strength) => set({ strength }))}
       </div>
     );
   };
@@ -134,7 +143,16 @@ export function LayerPanel({ clipId, layer, asset, time, rate }: Props) {
 
       <div className="layer-grid">
         {PLACEMENT.map((p) => (
-          <div key={p.key}>{slider(t(`layers.${p.key}`), value[p.key], p, p.show(value[p.key]), PLACE, (v) => setTransform(clipId, layer.id, time, { [p.key]: v }))}</div>
+          <div key={p.key}>
+            {slider(
+              t(`layers.${p.key}`),
+              value[p.key],
+              { min: Math.min(p.min, value[p.key]), max: Math.max(p.max, value[p.key]), step: p.step },
+              shown(value[p.key], p.unit),
+              PLACE,
+              (v) => setTransform(clipId, layer.id, time, { [p.key]: v }),
+            )}
+          </div>
         ))}
       </div>
 

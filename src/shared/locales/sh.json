@@ -53,8 +53,7 @@
     "deleteLayer": "brisanje sloja",
     "duplicateLayer": "dupliranje sloja",
     "placeLayer": "pomeranje sloja",
-    "layerAnimation": "animacija sloja",
-    "locateFile": "pronalaženje fajla"
+    "layerAnimation": "animacija sloja"
   },
   "files": {
     "project": "Rezzo projekat",
@@ -399,6 +398,11 @@
       "unreadable": "Taj fajl nije slika koju Rezzo može da pročita.",
       "too-large": "Ta slika je prevelika (preko 100 MB).",
       "different-file": "To je drugi fajl. Izaberi onaj koji je ovaj projekat koristio."
+    },
+    "units": {
+      "percent": "{{value}} %",
+      "degrees": "{{value}}°",
+      "seconds": "{{value}} s"
     }
   }
 }

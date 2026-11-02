@@ -9,7 +9,7 @@ import { createStore } from 'zustand/vanilla';
 import type { AddAssetResult, LocateAssetResult } from '../../../shared/api.ts';
 import type { Asset, AssetFile } from '../../../shared/assets.ts';
 import type { Size } from '../../../shared/framing.ts';
-import { decodeImage, keepImage } from '../render/images.ts';
+import { decodeImage, keepImage, keepOnlyImages } from '../render/images.ts';
 import { notify } from '../ui/prompts.ts';
 import { addImageLayer, replaceImage } from './layers.ts';
 import { projectStore } from './store.ts';
@@ -30,9 +30,11 @@ export function useAssetMissing(id: string | undefined): boolean {
   return useStore(missingAssetsStore, (s) => id !== undefined && s.missing.has(id));
 }
 
-// A different project starts with nothing known to be missing.
 projectStore.subscribe((s, prev) => {
+  // A different project starts with nothing known to be missing.
   if (s.project?.id !== prev.project?.id) missingAssetsStore.setState({ missing: new Set() });
+  // Images no layer uses any more (deleted, replaced, another project) don't stay in memory.
+  if (s.project?.assets !== prev.project?.assets) keepOnlyImages(s.project?.assets ?? []);
 });
 
 /** The picked image, decoded; null (after saying why) when it can't be used. */
@@ -68,7 +70,8 @@ export async function changeImage(clipId: string, layerId: string): Promise<void
 export async function locateAsset(asset: Asset): Promise<void> {
   const picked = await readPicked(await window.rezzo.invoke('asset:locate', asset.kind, asset));
   if (!picked) return;
-  projectStore.getState().edit('history.locateFile', (d) => {
+  // Moving the file isn't an edit to undo, as for the source video: undo would point back where it isn't.
+  projectStore.getState().replace((d) => {
     const a = d.assets.find((x) => x.id === asset.id);
     if (a) Object.assign(a, { path: picked.file.path, name: picked.file.name, size: picked.file.size });
   });

@@ -61,6 +61,25 @@ export function ClipTimeline({ clip, assets, keys, pages, selectedId, time }: Pr
   const lower = (id: string) => reorderLayer(clip.id, id, 'down');
   const nameOf = (layer: TimedLayer) => assets.find((a) => a.id === layer.assetId)?.name ?? t('layers.kinds.image');
 
+  /** Diamonds for keyframes inside the clip; pressing one goes to it. */
+  const keyMarks = (marks: Animated<unknown>) =>
+    marks
+      .filter((k) => k.t >= clip.start && k.t <= clip.end)
+      .map((k) => (
+        <button
+          key={k.t}
+          type="button"
+          className="key"
+          style={{ left: at(k.t) }}
+          aria-label={t('clipEditor.goToKeyframe')}
+          title={t('clipEditor.goToKeyframe')}
+          onPointerDown={(e) => {
+            e.stopPropagation();
+            seekClip(k.t);
+          }}
+        />
+      ));
+
   /** Where an edge at `seconds` snaps to: the playhead, the clip's ends or another layer's ends. */
   const snap = (seconds: number, self: string) => {
     const targets = [time, clip.start, clip.end, ...clip.layers.filter((l) => isTimed(l) && l.id !== self).flatMap((l) => (isTimed(l) ? [l.start, l.end] : []))];
@@ -199,24 +218,7 @@ export function ClipTimeline({ clip, assets, keys, pages, selectedId, time }: Pr
                   <div className="edge start" role="separator" aria-label={t('layers.startHandle', { name: nameOf(layer) })} onPointerDown={(e) => startLayerDrag(e, layer, 'start')} />
                   <div className="edge end" role="separator" aria-label={t('layers.endHandle', { name: nameOf(layer) })} onPointerDown={(e) => startLayerDrag(e, layer, 'end')} />
                 </div>
-                {layer.id === selectedId &&
-                  layer.transform.length > 1 &&
-                  layer.transform
-                    .filter((k) => k.t >= clip.start && k.t <= clip.end)
-                    .map((k) => (
-                      <button
-                        key={k.t}
-                        type="button"
-                        className="key"
-                        style={{ left: at(k.t) }}
-                        aria-label={t('clipEditor.goToKeyframe')}
-                        title={t('clipEditor.goToKeyframe')}
-                        onPointerDown={(e) => {
-                          e.stopPropagation();
-                          seekClip(k.t);
-                        }}
-                      />
-                    ))}
+                {layer.id === selectedId && layer.transform.length > 1 && keyMarks(layer.transform)}
               </div>
             ) : (
               <div key={layer.id} className="timeline-row captions">
@@ -235,22 +237,7 @@ export function ClipTimeline({ clip, assets, keys, pages, selectedId, time }: Pr
               .map((b) => (
                 <div key={b.from} className={`band ${b.layout}`} style={span(b.from, b.to)} title={t(`clipEditor.layouts.${b.layout}`)} />
               ))}
-            {keys
-              .filter((k) => k.t >= clip.start && k.t <= clip.end)
-              .map((k) => (
-                <button
-                  key={k.t}
-                  type="button"
-                  className="key"
-                  style={{ left: at(k.t) }}
-                  aria-label={t('clipEditor.goToKeyframe')}
-                  title={t('clipEditor.goToKeyframe')}
-                  onPointerDown={(e) => {
-                    e.stopPropagation();
-                    seekClip(k.t);
-                  }}
-                />
-              ))}
+            {keyMarks(keys)}
           </div>
           <div className="playhead" style={{ left: at(time) }} />
         </div>

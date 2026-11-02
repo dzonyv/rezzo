@@ -7,6 +7,7 @@ import { timedLayers, type Clip, type TimedLayer } from '../../../shared/project
 import { quadOf, showsAt } from '../../../shared/scene.ts';
 import { setTransform } from '../project/layers.ts';
 import { projectStore } from '../project/store.ts';
+import { outputPoint } from './output-point.ts';
 import { pauseClip } from './playback.ts';
 import { selectLayer } from './state.ts';
 
@@ -64,10 +65,7 @@ export function LayerOverlay({ clip, assets, selectedId, time }: Props) {
   const shown = timedLayers(clip).filter((l) => showsAt(l, time));
   const assetOf = (layer: TimedLayer) => assets.find((a) => a.id === layer.assetId);
 
-  const toOutput = (clientX: number, clientY: number) => {
-    const box = el.current!.getBoundingClientRect();
-    return { x: ((clientX - box.left) / box.width) * OUTPUT.width, y: ((clientY - box.top) / box.height) * OUTPUT.height };
-  };
+  const toOutput = (clientX: number, clientY: number) => outputPoint(el.current!, clientX, clientY);
 
   const begin = (e: React.PointerEvent, layer: TimedLayer, grab: Grab) => {
     if (e.button !== 0) return;

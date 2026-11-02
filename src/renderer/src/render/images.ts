@@ -45,6 +45,20 @@ export async function loadImage(asset: ImageAsset): Promise<ImageBitmap> {
   return loading;
 }
 
+/**
+ * Lets go of every image except those of `files` (the open project's
+ * assets); a closed project keeps none. An image needed again later is read
+ * from its file again.
+ */
+export function keepOnlyImages(files: readonly AssetFile[]): void {
+  const wanted = new Set(files.map(key));
+  for (const [k, loading] of cache) {
+    if (wanted.has(k)) continue;
+    cache.delete(k);
+    loading.then((image) => image.close(), () => {});
+  }
+}
+
 /** Puts an image just decoded (when adding it) where loadImage will find it. */
 export function keepImage(file: AssetFile, image: ImageBitmap): void {
   cache.set(key(file), Promise.resolve(image));

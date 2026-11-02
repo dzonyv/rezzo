@@ -5,7 +5,7 @@
  * the same frame for the same time.
  */
 import type { Asset } from '../../../shared/assets.ts';
-import { timedLayers, type Clip, type Word } from '../../../shared/project.ts';
+import { captionLayerOf, timedLayers, type Clip, type Word } from '../../../shared/project.ts';
 import { sceneAt } from '../../../shared/scene.ts';
 import { CaptionPainter, loadCaptionScene, type CaptionScene } from './captions.ts';
 import type { Compositor, LayerImage } from './compositor.ts';
@@ -61,7 +61,7 @@ export async function loadImages(assets: readonly Asset[], { strict = false, onM
 /** A Scene for the export: every font and picture loaded, or an error. */
 export async function loadScene(clip: Clip, assets: readonly Asset[], words: readonly Word[]): Promise<Scene> {
   const [captions, images] = await Promise.all([
-    loadCaptionScene(clip.layers.find((l) => l.kind === 'caption') ?? null, words, clip),
+    loadCaptionScene(captionLayerOf(clip), words, clip),
     loadImages(assetsOf(clip, assets), { strict: true }),
   ]);
   return { clip, assets, captions, images };

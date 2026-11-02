@@ -255,6 +255,12 @@ export class Compositor {
    */
   render(ops: readonly SceneOp[], images: ReadonlyMap<string, LayerImage>, captions: Overlay | null): void {
     if (!this.src) return;
+    // Textures of pictures the scene no longer has (a deleted or replaced image) go.
+    for (const [id, held] of this.images) {
+      if (images.has(id)) continue;
+      this.gl.deleteTexture(held.tex);
+      this.images.delete(id);
+    }
     for (const op of ops) {
       if (op.type === 'video') {
         this.drawVideo(op.recipe);
@@ -262,7 +268,8 @@ export class Compositor {
         if (captions) this.drawOverlay(captions);
       } else {
         const image = images.get(op.assetId);
-        if (image) this.drawQuad(this.imageTexture(op.assetId, image), op.quad, op.opacity);
+        // A closed ImageBitmap (let go of after its layer went) is 0×0 and can't be uploaded.
+        if (image && image.width > 0) this.drawQuad(this.imageTexture(op.assetId, image), op.quad, op.opacity);
       }
     }
   }

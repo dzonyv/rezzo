@@ -72,6 +72,30 @@ describe('layer edits', () => {
     expect(images()[0]).toMatchObject({ start: 17, end: 20 });
   });
 
+  it('keeps keyframes in order when moving pushes some of them before 0', () => {
+    const id = addImageLayer(CLIP, FILE, SIZE, 12)!;
+    state().edit('history.addKeyframe', (d) => {
+      const l = d.clips[0]!.layers[1] as ImageLayer;
+      const value = l.transform[0]!.value;
+      // Left before the layer by an earlier trim.
+      l.transform = [0.5, 1, 12].map((t) => ({ t, value: { ...value, x: t / 20 }, ease: 'cut' as const }));
+    });
+    moveLayer(CLIP, id, 10);
+    expect(images()[0]!.transform.map((k) => k.t)).toEqual([0, 10]);
+    expect(images()[0]!.transform[0]!.value.x).toBeCloseTo(1 / 20);
+    expect(() => projectSchema.parse(state().project)).not.toThrow();
+  });
+
+  it('puts placement edits inside the layer when the playhead is outside it', () => {
+    const id = addImageLayer(CLIP, FILE, SIZE, 12)!;
+    state().edit('history.addKeyframe', (d) => {
+      const l = d.clips[0]!.layers[1] as ImageLayer;
+      l.transform.push({ t: 14, value: l.transform[0]!.value, ease: 'cut' });
+    });
+    setTransform(CLIP, id, 18, { x: 0.9 });
+    expect(images()[0]!.transform.map((k) => k.t)).toEqual([12, 14, 15 - 1 / 30]);
+  });
+
   it('trims an image, keeping it a frame long at least', () => {
     const id = addImageLayer(CLIP, FILE, SIZE, 12)!;
     trimLayer(CLIP, id, 'end', 11);

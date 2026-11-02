@@ -114,7 +114,15 @@ export function moveLayer(clipId: string, layerId: string, start: number): void 
     layer.start = timeOfFrame(to, rate);
     layer.end = timeOfFrame(to + length, rate);
     for (const key of layer.transform) key.t = Math.max(0, key.t + shift);
+    // Keyframes left before a trimmed start can be pushed together at 0; the last of them wins.
+    layer.transform = layer.transform.filter((k, i, keys) => i === keys.length - 1 || keys[i + 1]!.t > k.t);
   });
+}
+
+/** `time` moved inside the layer, so placement edits and keyframes land where the layer shows. */
+export function insideLayer(layer: Pick<TimedLayer, 'start' | 'end'>, time: number): number {
+  const rate = sourceRate();
+  return timeOfFrame(Math.min(Math.max(frameAt(time, rate), frameAt(layer.start, rate)), frameAt(layer.end, rate) - 1), rate);
 }
 
 /** Moves one end of the layer to `time`, snapped to a frame, inside the clip and at least a frame long. */
@@ -162,13 +170,15 @@ export function duplicateLayer(clipId: string, layerId: string): string {
 /** Changes some of the layer's placement at `time`; dragging and sliders call it inside a gesture. */
 export function setTransform(clipId: string, layerId: string, time: number, patch: Partial<Transform>): void {
   editLayer(clipId, layerId, 'history.placeLayer', (layer) => {
-    layer.transform = editAt(layer.transform, time, clampTransform({ ...valueAt(layer.transform, time), ...patch }), sourceRate());
+    const t = insideLayer(layer, time);
+    layer.transform = editAt(layer.transform, t, clampTransform({ ...valueAt(layer.transform, t), ...patch }), sourceRate());
   });
 }
 
 export function addLayerKey(clipId: string, layerId: string, time: number): void {
   editLayer(clipId, layerId, 'history.addKeyframe', (layer) => {
-    layer.transform = setKey(layer.transform, time, valueAt(layer.transform, time), sourceRate());
+    const t = insideLayer(layer, time);
+    layer.transform = setKey(layer.transform, t, valueAt(layer.transform, t), sourceRate());
   });
 }
 

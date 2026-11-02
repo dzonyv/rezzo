@@ -64,17 +64,21 @@ export async function exportClip(clip: Clip, source: Source): Promise<void> {
   const segments = project?.transcript?.segments;
   const words = segments ? flatOf(segments).words : [];
   const assets = assetsOf(clip, project?.assets ?? []);
+  const controller = new AbortController();
+  abort = controller;
+  // Running from here on, before anything is awaited, so a second click can't start another export.
+  exportStore.setState({ status: 'choosing', clipName }, true);
+
   // A layer's file gone missing would fail the export after the save dialog; better to say so first.
   try {
     await loadImages(assets, { strict: true });
   } catch (e) {
     const detail = e instanceof Error ? e.message : String(e);
     notify('error', e instanceof MissingFilesError ? i18n.t('export.missingFiles', { names: e.names.join(', ') }) : i18n.t('errors.unexpected', { detail }));
+    if (abort === controller) abort = null;
+    exportStore.setState({ status: 'idle' }, true);
     return;
   }
-  const controller = new AbortController();
-  abort = controller;
-  exportStore.setState({ status: 'choosing', clipName }, true);
 
   const stopProgress = window.rezzo.on('export:prepare-progress', ({ fraction }) => {
     const s = exportStore.getState();
