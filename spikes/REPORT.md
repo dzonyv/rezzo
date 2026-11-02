@@ -346,3 +346,93 @@ Phase 0 found turbo's DTW starts about 120 ms late on the words the maintainer m
 | −140 ms | 32% | 100% | −20 ms | 92% |
 
 Both samples lean one way. The labels the maintainer left alone sit exactly on the draft's DTW times, which favours no shift; the moved ones were picked because they were wrong, which favours a large one. The app uses **−100 ms**: every label lands within 200 ms, most of both groups within 100 ms, and what error is left makes a highlight a little early rather than late, which is easier to watch. Word ends are not shifted; the labels only mark starts.
+
+## Phase 3 checks
+
+### Video layers with alpha (3b)
+
+Before building video layers I wanted to know three things: which files with transparency our FFmpeg can actually read, whether the "stacked" trick holds up (colour in the top half of an ordinary H.264 working file, alpha as brightness in the bottom half, so a layer with transparency goes through the same WebCodecs decoder as everything else), and how many such layers the GTX 1660 can decode alongside the main video. Everything here is synthetic except the main video in the decoding lab, which is real clip A's working file. Scripts are in `layers/`.
+
+The test pattern is 1920×1080, 30 fps, 4 s, made with FFmpeg's `geq`: a moving circle with a soft 24 px edge, a hard-edged rectangle, 2 px vertical lines and an alpha ramp along the bottom. The colour keeps changing under transparent areas, so anything that smears chroma across an edge shows.
+
+#### Which formats keep their alpha
+
+Each format is encoded from the lossless pattern, decoded back with FFmpeg and compared with the original. "Colour × alpha" ignores colour under fully transparent pixels.
+
+| Format | MB/s | Stream `pix_fmt` | First frame `pix_fmt` | Alpha kept | Alpha PSNR | Colour × alpha |
+|---|---|---|---|---|---|---|
+| WebM VP9, default decoder | 0.17 | yuv420p (`alpha_mode=1`) | yuv420p | **no** | | |
+| WebM VP9, `-c:v libvpx-vp9` | | | yuva420p | yes | 57.4 dB | 52.0 dB |
+| WebM VP8, default decoder | 0.89 | yuv420p (`alpha_mode=1`) | yuv420p | **no** | | |
+| WebM VP8, `-c:v libvpx` | | | yuva420p | yes | 57.4 dB | 51.0 dB |
+| ProRes 4444 | 34.8 | yuva444p12le | yuva444p12le | yes | 57.0 dB | 61.4 dB |
+| HEVC with alpha (x265) | 0.14 | **yuv420p** | yuva420p | yes | 55.6 dB | 51.8 dB |
+| QuickTime Animation (qtrle) | 230 | argb | argb | yes | lossless | lossless |
+| PNG in MOV | 8.4 | rgba | rgba | yes | lossless | lossless |
+| APNG | 8.4 | rgba | rgba | yes | lossless | lossless |
+| Animated WebP | 0.81 | argb | yuva420p | yes | 58.0 dB | 49.1 dB |
+| GIF | 5.0 | bgra | bgra | yes, 1 bit | 17.6 dB | 21.5 dB |
+| H.264 (no alpha, control) | 0.33 | yuv420p | yuv420p | no | | |
+
+Two traps. FFmpeg's own VP8/VP9 decoders silently drop the alpha; only libvpx keeps it, so WebM needs `-c:v libvpx-vp9` (or `libvpx`) in front of the input. And HEVC with alpha reports plain `yuv420p` on the stream; only a decoded frame shows `yuva420p`. So the probe can't trust the stream's pixel format. What works for every file above: if the stream has `alpha_mode=1`, it has alpha (and needs libvpx); otherwise ask ffprobe for the first frame's `pix_fmt` (`-read_intervals %+#1 -show_entries frame=pix_fmt`) and look for an alpha channel. GIF transparency is on or off per pixel, which is what GIF is; it works, with hard edges.
+
+#### The stacked working file
+
+The pattern converted to stacked H.264 the way the app makes working files (x264 veryfast, CRF 16, keyframe every 15, no B-frames, BT.709), decoded with FFmpeg and judged as a composite over a grey checkerboard:
+
+| Variant | Size | MB/min | Alpha PSNR | Colour × alpha | Composite | Composite, soft edges only | Alpha leaking across the seam (max) |
+|---|---|---|---|---|---|---|---|
+| straight, halves of 1080 rows | 1920×2160 | 30.7 | 56.9 dB | 50.6 dB | 51.4 dB | 47.3 dB | 4 |
+| **straight, halves padded to 1088** | 1920×2176 | 30.7 | 56.7 dB | 50.6 dB | 51.3 dB | 47.3 dB | 1 |
+| straight, padded, NVENC | 1920×2176 | 74.0 | 57.8 dB | 50.7 dB | 51.4 dB | 47.5 dB | 0 |
+| premultiplied, padded | 1920×2176 | 18.4 | 56.7 dB | 42.3 dB | 42.5 dB | 40.5 dB | 1 |
+| straight, black under transparent pixels | 1920×2176 | 24.8 | 56.7 dB | 43.7 dB | 43.9 dB | 41.0 dB | 1 |
+
+Alpha survives at about 57 dB in every variant, so the layout itself is sound. Colour depends on what sits under the transparent pixels. With 4:2:0 each chroma sample covers 2×2 pixels, so at a hard alpha edge the visible pixel shares its colour with the invisible one next to it. If the file's colour carries on smoothly under the transparency, that costs nothing; if it's black there, edge pixels get darker and less saturated. I expected premultiplying (colour × alpha, black where transparent) to help and it does the opposite: it makes every file behave like the worst case. So the colour half stays **straight**, exactly as the file has it. Real files with black or garbage under the alpha will land around 44 dB on the composite, which is still clean to the eye.
+
+The seam needs padding. With 1080-row halves the boundary falls inside a 16-row macroblock and up to 4/255 of alpha leaks into the first rows of the alpha half: a faint line along the top edge of the layer. Padding each half to a multiple of 16 stops it. The decoding lab found a second reason (below): there must also be at least two black rows between the colour and the alpha, or the GPU blends chroma across the seam. Rule: each half is `ceil((height + 2) / 16) × 16` rows.
+
+NVENC makes files 2.4 times bigger for no visible gain and, as the next table shows, isn't much faster here.
+
+#### How long the conversion takes
+
+Time to turn a 4 s 1080p overlay into a stacked working file, as a multiple of real time:
+
+| Input | Decode only | RGBA filter graph | RGBA + x264 | YUV filter graph | YUV + x264 | YUV + NVENC |
+|---|---|---|---|---|---|---|
+| WebM VP9 (libvpx) | 16–20× | 5.5× | 3.0× | 7–14× | 3.5–4.3× | 5.0× |
+| ProRes 4444 | 11.8× | 4.3× | 2.5× | 4.6× | 2.2–3.4× | 2.6× |
+| HEVC with alpha | 3.5× | 2.6× | 2.6× | 3.2× | 2.9× | 2.5× |
+
+The filter graph, not the encoder, is the slow part when it goes through RGBA; keeping it in YUV (copy the alpha plane out with `extractplanes=a`, expand it to limited range, stack) makes that step faster, after which x264 is the limit; how much faster depends on whether the input needs a colour-matrix conversion on the way (VP9 files often don't say which matrix they use). Either way a full-size 1080p overlay converts at 2.5–4× real time: a 30 s clip is ready in 8–12 s, smaller overlays much faster. That's fine with the progress shown on the layer's bar, as planned. I'll use the YUV graph and x264, like the main working file.
+
+#### Decoding in the app (WebCodecs + WebGL)
+
+`layers/lab/` uses the app's own `demux` and `FrameSource`, decodes the main working file (real clip A, 1080p30) and N stacked overlays in lockstep, uploads every frame to a texture and closes it right away, and composites at 1080×1920. Overlay sizes: 1920 wide (1920×2176 stacked), 1280 wide (1280×1472) and a full-screen vertical one (1080×3872).
+
+First, does the alpha come out of WebCodecs the same as out of FFmpeg? Reading the bottom half's green channel, mostly yes, with one catch: when the content height is a multiple of 16 (720) and there is no padding, the first alpha row came out up to 38/255 too high across the whole width. The GPU interpolates chroma between neighbouring chroma rows, so the first alpha row gets colour from the last colour row, and once that colour is clamped to RGB no formula can undo it. With at least two black rows between the halves and alpha read as BT.709 luma of the bottom half (which cancels whatever chroma the encoder left there), WebCodecs and FFmpeg agree to within 1/255 on every pixel of the three frames compared, at both sizes.
+
+Speed from the second of three runs (the other two, one of them with hardware decoding forced, are within a few percent unless noted); "uncapped" is decode and composite as fast as possible, the ceiling for export. Paced is 300 frames at 30 fps; a frame counts as late when it's more than one frame behind.
+
+| Overlays | Uncapped | Late frames at 30 fps (worst lateness) | Paused seek, median / p95 |
+|---|---|---|---|
+| none | 249 fps | 0 (0 ms) | 28 / 53 ms |
+| 1 × 1920 wide | 274 fps | 0 (1 ms) | 49 / 99 ms |
+| 2 × 1920 wide | 183 fps | 0 (2 ms) | 76 / 145 ms |
+| **4 × 1920 wide** | **103 fps** | **0 (3 ms)** | **118 / 193 ms** |
+| 6 × 1920 wide | 72 fps | 0 (20 ms) | 180 / 236 ms |
+| 8 × 1920 wide | 55 fps | 1 (42 ms); 37 in the hardware-only run | 215 / 299 ms |
+| 4 × 1280 wide | 197 fps | 0 (0 ms) | 75 / 134 ms |
+| 8 × 1280 wide | 113 fps | 0 (17 ms) | 127 / 202 ms |
+| 4 × full-screen vertical | 104 fps | 0 (0 ms) | 104 / 172 ms |
+
+With `hardwareAcceleration: 'prefer-hardware'` (which Chromium treats as "GPU or fail") every case up to nine decoders at once still works and gives the same numbers, so the app's `no-preference` gets the GPU decoder for all of them. The decoder pool I worried about isn't what runs out first; the decoder's throughput is. Uncapped speed follows the total number of pixels decoded per frame almost exactly: about 1.9–2.0 gigapixels per second, whether that's four big overlays or eight medium ones. Seeks add roughly 20–25 ms per big overlay, because every source seeks from its own keyframe.
+
+#### Decisions for 3b
+
+- **At most 4 video layers playing at the same time.** Four full-size layers play at 30 fps with more than 3× headroom and export at about 100 fps (a 60 s clip in about 20 s instead of 8). Six still play, but frames start running late, and on a slower card they would drop. Paused seeks with four big layers take 110–195 ms, slower than the 100 ms I aimed for in Phase 0, but they only happen when you click or scrub, and the main video still lands first.
+- **Overlay working files fit inside the 1080×1920 output frame**, not "1920 on the longer side" as the plan said. The export is 1080 wide, so a landscape overlay never needs more than 1080 columns; at 1080×608 its stacked file has a third of the pixels of the 1920-wide one, and decoding cost is all about pixels. A full-screen vertical overlay stays at 1080×1920 and costs the same as a 1920-wide one, which the table covers.
+- **Stacked layout:** colour straight as the file has it; alpha as luma in the bottom half; each half `ceil((height + 2) / 16) × 16` rows, padded with black. The shader reads alpha as BT.709 luma, clamps rows to each half's content so linear filtering never crosses the seam, and premultiplies itself.
+- **Conversion:** a YUV filter graph (`extractplanes=a`, no RGBA round trip) and x264 with the working-file settings. VP8/VP9 files with `alpha_mode=1` are decoded with libvpx.
+- **Alpha detection:** `alpha_mode=1` on the stream, or an alpha channel in the first decoded frame's `pix_fmt`. The stream's `pix_fmt` alone misses HEVC with alpha.
+- GIF works, with on/off transparency; animated WebP, APNG, ProRes 4444, QuickTime Animation, PNG-in-MOV and HEVC with alpha all keep smooth alpha.

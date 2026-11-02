@@ -1500,3 +1500,67 @@ button.icon {
   color: #ffd76a;
   font-size: 12px;
 }
+
+/* A video layer's working file being made: fills the bar from the left. */
+.layer-bar .layer-progress {
+  position: absolute;
+  top: 0;
+  bottom: 0;
+  left: 0;
+  background: rgb(255 255 255 / 0.3);
+  pointer-events: none;
+}
+
+.layer-bar .layer-progress.failed {
+  right: 0;
+  background: repeating-linear-gradient(135deg, rgb(0 0 0 / 0.35) 0 6px, transparent 6px 12px);
+  pointer-events: auto;
+}
+
+.layer-bar.overlay {
+  background: #3f86c9;
+}
+
+/* Picking a green screen colour: the whole preview takes the click. */
+.layer-overlay.picking {
+  pointer-events: auto;
+  cursor: crosshair;
+}
+
+.layer-overlay.picking .layer-box {
+  cursor: crosshair;
+}
+
+/* A video's sound and the green screen: sliders two by two, everything else across. */
+.layer-section {
+  padding-top: 8px;
+  border-top: 1px solid var(--border);
+}
+
+.layer-section > :not(.layer-slider) {
+  grid-column: 1 / -1;
+}
+
+.layer-section h4 {
+  margin: 0;
+  font-size: 12px;
+}
+
+.layer-grid label.layer-check {
+  flex-direction: row;
+  align-items: center;
+  gap: 6px;
+  color: var(--text);
+}
+
+.layer-color input {
+  width: 48px;
+  height: 26px;
+  padding: 0;
+  border: 0;
+  background: none;
+}
+
+.layer-bar.over-limit {
+  background: repeating-linear-gradient(135deg, #3f86c9 0 6px, #2b5a87 6px 12px);
+}

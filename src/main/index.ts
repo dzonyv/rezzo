@@ -3,6 +3,7 @@ import path from 'node:path';
 import { pathToFileURL } from 'node:url';
 import { addAsset, assetFileUrl, checkAsset, locateAsset } from './assets.ts';
 import { prepareClip } from './clip.ts';
+import { cancelOverlay, prepareOverlay } from './overlay.ts';
 import { cancelExport, openExport, revealExport, startExport } from './export.ts';
 import { addFont, readCustomFont } from './fonts.ts';
 import { checkEpisode, chooseEpisode, episodeMediaUrl, importEpisode, locateEpisode, makePreview } from './episode.ts';
@@ -66,8 +67,10 @@ function registerHandlers(): void {
   handle('transcribe:cancel', () => cancelTranscription());
 
   handle('clip:prepare', ({ window }, source, range) => prepareClip(window.webContents, source, range));
+  handle('overlay:prepare', ({ window }, asset, range, rate, requestId) => prepareOverlay(window.webContents, asset, range, rate, requestId));
+  handle('overlay:cancel', (_ctx, requestId) => cancelOverlay(requestId));
 
-  handle('export:start', ({ window }, source, clip) => startExport(window, source, clip));
+  handle('export:start', ({ window }, source, clip, assets) => startExport(window, source, clip, assets));
   handle('export:cancel', () => cancelExport());
   handle('export:reveal', () => revealExport());
   handle('export:open', () => openExport());

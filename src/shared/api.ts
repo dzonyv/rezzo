@@ -3,7 +3,8 @@
  * sandboxed and reaches the rest of the app only through `window.rezzo`,
  * which the preload script builds from these channel lists.
  */
-import type { AssetFile, AssetKind, AssetStatus } from './assets.ts';
+import type { Asset, AssetFile, AssetKind, AssetStatus, VideoAsset, VideoInfo } from './assets.ts';
+import type { OverlayLayout } from './overlay-files.ts';
 import type { CustomFont } from './fonts.ts';
 import type { FrameRate } from './frames.ts';
 import type { Clip, Project, ProjectFormatError, Source, Transcript, TranscriptLanguage } from './project.ts';
@@ -41,6 +42,12 @@ export type PrepareResult =
   | { ok: false; error: 'cancelled' }
   | { ok: false; error: 'failed'; detail: string };
 
+/** A video layer's working file: where to load it from, the seconds of the layer's file it holds, and its layout. */
+export type OverlayPrepareResult =
+  | { ok: true; url: string; start: number; end: number; frameRate: FrameRate; layout: OverlayLayout }
+  | { ok: false; error: 'missing' | 'cancelled' }
+  | { ok: false; error: 'failed'; detail: string };
+
 export type ExportResult =
   | { ok: true; path: string; seconds: number; encoder: Encoder }
   | { ok: false; error: 'cancelled' | 'busy' }
@@ -72,8 +79,13 @@ export type AddFontResult =
   | { ok: false; error: 'unreadable' }
   | { ok: false; error: 'built-in'; family: string };
 
-/** A file for a layer, and a URL the page can read it from. "too-large": over the limit for its kind. */
-export type AddAssetResult = { ok: true; file: AssetFile; url: string } | { ok: false; error: 'unreadable' | 'too-large' };
+/**
+ * A file for a layer, and a URL the page can read it from; for a video,
+ * also what ffprobe found. "too-large": over the limit for its kind.
+ */
+export type AddAssetResult =
+  | { ok: true; file: AssetFile; url: string; video?: VideoInfo }
+  | { ok: false; error: 'unreadable' | 'too-large' };
 
 export type LocateAssetResult = AddAssetResult | { ok: false; error: 'different-file' };
 
@@ -127,13 +139,21 @@ export interface InvokeApi {
    * window cancels an older one.
    */
   'clip:prepare': (source: Source, range: { start: number; end: number }) => PrepareResult;
+  /**
+   * Makes (or finds in the cache) the working file of a video layer's file
+   * for `range` (seconds of that file, see overlayRange) at the clip's
+   * frame rate; progress as overlay:prepare-progress with the same requestId.
+   */
+  'overlay:prepare': (asset: VideoAsset, range: { start: number; end: number }, frameRate: FrameRate, requestId: string) => OverlayPrepareResult;
+  /** The page no longer needs that overlay:prepare; it resolves as "cancelled". */
+  'overlay:cancel': (requestId: string) => void;
 
   /**
    * Asks where to save, then exports the clip; resolves when the file is
    * written. Progress of the working file comes as export:prepare-progress,
    * then the page gets an ExportJob to render. Null: the user cancelled the dialog.
    */
-  'export:start': (source: Source, clip: Clip) => ExportResult | null;
+  'export:start': (source: Source, clip: Clip, assets: Asset[]) => ExportResult | null;
   'export:cancel': () => void;
   /** Shows the last exported file in Explorer. */
   'export:reveal': () => void;
@@ -165,6 +185,7 @@ export interface EventApi {
   'transcribe:progress': { projectId: string; progress: TranscribeProgress };
   'episode:preview-progress': { fingerprint: string; fraction: number };
   'clip:prepare-progress': { fraction: number };
+  'overlay:prepare-progress': { requestId: string; fraction: number };
   'export:prepare-progress': { fraction: number };
 }
 
@@ -194,6 +215,8 @@ export const INVOKE_CHANNELS = {
   'transcribe:start': true,
   'transcribe:cancel': true,
   'clip:prepare': true,
+  'overlay:prepare': true,
+  'overlay:cancel': true,
   'export:start': true,
   'export:cancel': true,
   'export:reveal': true,
@@ -213,6 +236,7 @@ export const EVENT_CHANNELS = {
   'transcribe:progress': true,
   'episode:preview-progress': true,
   'clip:prepare-progress': true,
+  'overlay:prepare-progress': true,
   'export:prepare-progress': true,
 } as const satisfies Record<EventChannel, true>;
 

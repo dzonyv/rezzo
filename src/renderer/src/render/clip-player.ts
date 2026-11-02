@@ -2,13 +2,15 @@
  * Plays a clip from its working file through the compositor.
  *
  * The working file is fetched once; its video goes to WebCodecs and its
- * audio to Web Audio. While playing, the audio clock decides which frame is
- * due: frames that come too late are skipped, never the sound. While paused,
- * seeks are merged so only the latest one is decoded.
+ * audio to Web Audio, where the video layers' sound joins it (setSounds).
+ * While playing, the audio clock decides which frame is due: frames that
+ * come too late are skipped, never the sound. While paused, seeks are
+ * merged so only the latest one is decoded.
  *
  * Times are source seconds, like everywhere in the project. Each frame is
  * drawn with everything in the clip at that frame's own time, as the
- * export does.
+ * export does. What takes time to get ready for a frame (video layers'
+ * frames) is prepared before the frame is shown.
  */
 import type { Size } from '../../../shared/framing.ts';
 import { fps, type FrameRate } from '../../../shared/frames.ts';
@@ -27,6 +29,25 @@ export interface WorkingFile {
 
 /** Draws the clip at a moment into the compositor, over the source frame it has (see SceneRenderer). */
 export type DrawAt = (time: number) => void;
+
+/**
+ * Gets what DrawAt needs for a moment ready (see SceneRenderer.prepare);
+ * `sequential` while playing forward. Resolves true when something changed.
+ */
+export type PrepareAt = (time: number, sequential: boolean) => Promise<boolean>;
+
+const nothingToPrepare: PrepareAt = () => Promise.resolve(false);
+
+/**
+ * A video layer's sound: its working file's audio, the stretches of it
+ * that play (`at` in source seconds, `from` seconds into `buffer`) and
+ * how loud.
+ */
+export interface LayerSound {
+  buffer: AudioBuffer;
+  pieces: { at: number; from: number; duration: number }[];
+  volume: number;
+}
 
 /** Loudness values per second of sound in Peaks. */
 export const PEAKS_PER_SECOND = 100;
@@ -63,9 +84,14 @@ export class ClipPlayer {
   private readonly audio: AudioBuffer | null;
   private readonly context = new AudioContext({ latencyHint: 'interactive' });
   private node: AudioBufferSourceNode | null = null;
+  private sounds: LayerSound[] = [];
+  private soundNodes: AudioBufferSourceNode[] = [];
+  /** While playing: the audio context's time at which source time `time` was rendered. */
+  private origin: { contextTime: number; time: number } | null = null;
 
   private range: { start: number; end: number };
   private drawAt: DrawAt;
+  private prepareAt: PrepareAt = nothingToPrepare;
   private time: number;
   private playing = false;
   /** Bumped to stop the running playback loop. */
@@ -133,10 +159,29 @@ export class ClipPlayer {
     if (this.time < range.start || this.time >= range.end) this.seek(range.start);
   }
 
-  /** Something to draw changed (framing, captions, layers): redraws the frame on screen when paused. */
-  setScene(drawAt: DrawAt): void {
+  /**
+   * Something to draw changed (framing, captions, layers): redraws the frame
+   * on screen when paused, at once, and again if the change needed a video
+   * layer's frame decoded.
+   */
+  setScene(drawAt: DrawAt, prepareAt: PrepareAt = nothingToPrepare): void {
     this.drawAt = drawAt;
-    if (!this.playing && this.shown >= 0) this.draw(this.shown);
+    this.prepareAt = prepareAt;
+    if (this.playing || this.shown < 0) return;
+    const shown = this.shown;
+    this.draw(shown);
+    void this.exclusive(async () => {
+      if ((await this.prepareAt(this.timeOf(shown), false)) && !this.playing && this.shown === shown) this.draw(shown);
+    });
+  }
+
+  /** The video layers' sound; while playing it's rescheduled from where playback is. */
+  setSounds(sounds: LayerSound[]): void {
+    this.sounds = sounds;
+    if (!this.origin) return;
+    this.stopSounds();
+    const { contextTime, time } = this.origin;
+    this.startSounds(time + (this.context.currentTime - contextTime));
   }
 
   seek(time: number): void {
@@ -221,6 +266,10 @@ export class ClipPlayer {
     while (!this.playing && !this.disposed && this.wanted !== null && this.wanted !== this.shown) {
       const target = this.wanted;
       const frame = await this.frames.seek(target);
+      await this.prepareAt(this.timeOf(target), false).catch((e: unknown) => {
+        frame.close();
+        throw e;
+      });
       if (this.playing || this.disposed) {
         frame.close();
         return;
@@ -253,6 +302,7 @@ export class ClipPlayer {
     // Audio reaches the speakers this much after the context renders it.
     const latency = this.audio ? this.context.baseLatency + (this.context.outputLatency || 0) : 0;
     const startedAt = this.audio ? this.context.currentTime : performance.now() / 1000;
+    this.origin = { contextTime: this.context.currentTime, time: from };
     const now = this.audio ? () => this.context.currentTime : () => performance.now() / 1000;
     this.clock = () => from + Math.max(0, now() - startedAt - latency);
     if (this.audio) {
@@ -262,6 +312,7 @@ export class ClipPlayer {
       node.start(0, Math.max(0, from - this.file.start));
       this.node = node;
     }
+    this.startSounds(from);
 
     const frameSeconds = 1 / fps(this.file.frameRate);
     for await (const { frame, index } of this.frames.frames(first, end - first)) {
@@ -282,6 +333,16 @@ export class ClipPlayer {
         frame.close();
         continue;
       }
+      try {
+        await this.prepareAt(due, true);
+      } catch (e) {
+        frame.close();
+        throw e;
+      }
+      if (run !== this.run) {
+        frame.close();
+        return;
+      }
       this.show(frame, index);
       this.time = due;
       this.emit();
@@ -296,5 +357,42 @@ export class ClipPlayer {
     this.node?.stop();
     this.node?.disconnect();
     this.node = null;
+    this.stopSounds();
+    this.origin = null;
+  }
+
+  /** Schedules every stretch of the layers' sound from source time `from` to the end of the clip. */
+  private startSounds(from: number): void {
+    const origin = this.origin;
+    if (!origin) return;
+    const now = this.context.currentTime;
+    for (const sound of this.sounds) {
+      if (sound.volume <= 0) continue;
+      for (const piece of sound.pieces) {
+        let start = Math.max(piece.at, from);
+        const end = Math.min(piece.at + piece.duration, this.range.end);
+        let when = origin.contextTime + (start - origin.time);
+        // Already due: start now, that much further in.
+        if (when < now) {
+          start += now - when;
+          when = now;
+        }
+        if (end - start <= 0.001) continue;
+        const node = this.context.createBufferSource();
+        node.buffer = sound.buffer;
+        const gain = this.context.createGain();
+        gain.gain.value = sound.volume;
+        node.connect(gain).connect(this.context.destination);
+        node.start(when, piece.from + (start - piece.at), end - start);
+        this.soundNodes.push(node);
+      }
+    }
+  }
+
+  private stopSounds(): void {
+    for (const node of this.soundNodes.splice(0)) {
+      node.stop();
+      node.disconnect();
+    }
   }
 }

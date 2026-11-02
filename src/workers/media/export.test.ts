@@ -7,6 +7,8 @@ const request = (patch: Partial<ExportRequest> = {}): ExportRequest => ({
   workingFile: 'D:\\cache\\work.mp4',
   audioStart: 2.002,
   duration: 31.031,
+  hasAudio: true,
+  sounds: [],
   frameRate: [30000, 1001],
   frames: 930,
   encoder: 'nvenc',
@@ -34,6 +36,31 @@ describe('export arguments', () => {
     expect(arg(args, '-t')).toBe('31.031000');
     expect(args).toContain('1:a:0?');
     expect(arg(args, '-c:a')).toBe('aac');
+  });
+
+  it("mixes video layers' sound over the clip's, each stretch delayed to where it plays", () => {
+    const sounds = [
+      { file: 'a.mp4', start: 1.5, duration: 2, at: 3.25, volume: 0.5 },
+      { file: 'b.mp4', start: 0, duration: 1, at: 0, volume: 1 },
+    ];
+    const args = exportArgs(request({ sounds }), 'out.part');
+    const inputs = args.flatMap((a, i) => (a === '-i' ? [args[i + 1]] : []));
+    expect(inputs).toEqual(['pipe:0', 'D:\\cache\\work.mp4', 'a.mp4', 'b.mp4']);
+    const a = args.indexOf('a.mp4');
+    expect(args.slice(a - 5, a)).toEqual(['-ss', '1.500000', '-t', '2.000000', '-i']);
+    const graph = arg(args, '-filter_complex')!;
+    expect(graph).toContain('[1:a:0]aformat=sample_rates=48000:channel_layouts=stereo[a0]');
+    expect(graph).toContain('[2:a:0]aformat=sample_rates=48000:channel_layouts=stereo,volume=0.5000,adelay=3250:all=1[s0]');
+    expect(graph).toContain('[3:a:0]aformat=sample_rates=48000:channel_layouts=stereo,volume=1.0000,adelay=0:all=1[s1]');
+    expect(graph).toContain('[a0][s0][s1]amix=inputs=3:normalize=0:duration=longest,apad,atrim=end=31.031000[a]');
+    expect(args.filter((x, i) => args[i - 1] === '-map')).toEqual(['0:v', '[a]']);
+  });
+
+  it("mixes layers' sound into silence when the source has none", () => {
+    const args = exportArgs(request({ hasAudio: false, sounds: [{ file: 'b.mp4', start: 0, duration: 1, at: 2, volume: 1 }] }), 'o');
+    const graph = arg(args, '-filter_complex')!;
+    expect(graph).not.toContain('[1:a');
+    expect(graph).toContain('[s0]amix=inputs=1:normalize=0');
   });
 
   it('uses the chosen encoder with a keyframe every two seconds', () => {

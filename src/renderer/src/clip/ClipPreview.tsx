@@ -1,17 +1,23 @@
 import i18n from 'i18next';
 import { useEffect, useMemo, useRef, useState } from 'react';
 import { useTranslation } from 'react-i18next';
+import { useStore } from 'zustand';
 import type { Asset } from '../../../shared/assets.ts';
+import { workingFrameRate } from '../../../shared/frames.ts';
+import { videoLayersOf } from '../../../shared/overlay-files.ts';
 import { captionLayerOf, type Clip, type Source } from '../../../shared/project.ts';
 import { markMissing } from '../project/assets.ts';
 import { useProject } from '../project/store.ts';
 import { loadCaptionScene, type CaptionScene } from '../render/captions.ts';
-import { ClipPlayer, type DrawAt } from '../render/clip-player.ts';
+import { ClipPlayer, type DrawAt, type LayerSound, type PrepareAt } from '../render/clip-player.ts';
 import { Compositor, type LayerImage } from '../render/compositor.ts';
+import { forgetOverlayFile, overlayFilesStore, prepareOverlayFiles, readyFiles, retryFailedOverlayFiles, WorkingFileGoneError, type OverlayFile } from '../render/overlay-files.ts';
+import { layerSounds } from '../render/overlay-sound.ts';
 import { assetsOf, loadImages, SceneRenderer } from '../render/scene-renderer.ts';
 import { useSettings } from '../settings.ts';
 import { flatOf } from '../transcript/words.ts';
 import { notify } from '../ui/prompts.ts';
+import { setSampler } from './eyedropper.ts';
 import { clipPlaybackStore, currentPlayer, setPlayer, useClipPlayback } from './playback.ts';
 
 /** Trimming a clip in small steps shouldn't start a conversion for every step. */
@@ -43,6 +49,26 @@ export function ClipPreview({ clip, source, children }: { clip: Clip; source: So
   const [images, setImages] = useState<ReadonlyMap<string, LayerImage>>(new Map());
   /** What a player loading in the background will start with. */
   const drawAt = useRef<DrawAt>(() => {});
+  const prepareAt = useRef<PrepareAt>(() => Promise.resolve(false));
+  const overlayStates = useStore(overlayFilesStore, (s) => s.files);
+  const overlays = useMemo(() => readyFiles(overlayStates), [overlayStates]);
+  /** The video layers' sound, for a player that loads later too. */
+  const sounds = useRef<LayerSound[]>([]);
+  /** Asks for the video layers' working files again, as they are now. */
+  const prepareFiles = useRef(() => {});
+  // What the layers' sound depends on, as a value that changes only when that does (not when a layer moves on screen).
+  const soundJson = JSON.stringify({
+    clip: {
+      start: clip.start,
+      end: clip.end,
+      layers: clip.layers.flatMap((l) =>
+        l.kind === 'overlay' ? [{ id: l.id, kind: l.kind, assetId: l.assetId, start: l.start, end: l.end, offset: l.offset, loop: l.loop, volume: l.volume }] : [],
+      ),
+    },
+    assets: videoLayersOf(clip, allAssets ?? []).map(({ asset }) => asset),
+    files: [...overlays].filter(([id]) => clip.layers.some((l) => l.id === id)),
+  });
+  const soundInput = useMemo(() => JSON.parse(soundJson) as { clip: Clip; assets: Asset[]; files: [string, OverlayFile][] }, [soundJson]);
 
   // The files the layers show, as a value that changes only when they do (not when a layer moves).
   const usedJson = JSON.stringify(assetsOf(clip, allAssets ?? []));
@@ -52,7 +78,18 @@ export function ClipPreview({ clip, source, children }: { clip: Clip; source: So
     const el = canvas.current!;
     const c = new Compositor(el);
     compositor.current = c;
-    renderer.current = new SceneRenderer(c);
+    const r = new SceneRenderer(c);
+    renderer.current = r;
+    r.layers.onError = (layerId, e) => {
+      // Its working file was pruned or deleted: made again, quietly.
+      if (e instanceof WorkingFileGoneError) {
+        forgetOverlayFile(layerId);
+        prepareFiles.current();
+      } else {
+        notify('error', i18n.t('layers.errors.prepare', { detail: e instanceof Error ? e.message : String(e) }));
+      }
+    };
+    setSampler((layerId, assetId, u, v) => c.sampleLayer(layerId, assetId, u, v));
     const resize = new ResizeObserver(() => {
       el.width = Math.round(el.clientWidth * devicePixelRatio);
       el.height = Math.round(el.clientHeight * devicePixelRatio);
@@ -78,6 +115,8 @@ export function ClipPreview({ clip, source, children }: { clip: Clip; source: So
       setPlayer(null);
       compositor.current = null;
       renderer.current = null;
+      setSampler(null);
+      r.dispose();
       c.dispose();
     };
   }, [generation]);
@@ -116,6 +155,8 @@ export function ClipPreview({ clip, source, children }: { clip: Clip; source: So
             return;
           }
           player.onError = (e) => clipPlaybackStore.setState({ status: 'failed', error: String(e) });
+          player.setScene(drawAt.current, prepareAt.current);
+          player.setSounds(sounds.current);
           setPlayer(player);
           clipPlaybackStore.setState({ status: 'ready' });
         } catch (e) {
@@ -159,12 +200,36 @@ export function ClipPreview({ clip, source, children }: { clip: Clip; source: So
     };
   }, [used]);
 
+  // A clip opened again gives layers whose file failed or went missing another try.
+  useEffect(() => retryFailedOverlayFiles(), []);
+
+  // Working files for the video layers, made in the background; the timeline shows their progress.
+  useEffect(() => {
+    prepareFiles.current = () => prepareOverlayFiles(clip, allAssets ?? [], workingFrameRate(source));
+    prepareFiles.current();
+  }, [clip, allAssets, source]);
+
+  // The video layers' sound, once their working files are there.
+  useEffect(() => {
+    let current = true;
+    void layerSounds(soundInput.clip, soundInput.assets, new Map(soundInput.files)).then((s) => {
+      if (!current) return;
+      sounds.current = s;
+      currentPlayer()?.setSounds(s);
+    });
+    return () => {
+      current = false;
+    };
+  }, [soundInput]);
+
   // Anything in the clip changed: redraw the frame on screen.
   useEffect(() => {
     const assets = allAssets ?? [];
-    drawAt.current = (time) => renderer.current?.draw({ clip, assets, captions: scene, images }, time);
-    currentPlayer()?.setScene(drawAt.current);
-  }, [clip, allAssets, scene, images, generation]);
+    const s = { clip, assets, captions: scene, images, overlays };
+    drawAt.current = (time) => renderer.current?.draw(s, time);
+    prepareAt.current = (time, sequential) => renderer.current?.prepare(s, time, sequential) ?? Promise.resolve(false);
+    currentPlayer()?.setScene(drawAt.current, prepareAt.current);
+  }, [clip, allAssets, scene, images, overlays, generation]);
 
   return (
     <div className="clip-preview">

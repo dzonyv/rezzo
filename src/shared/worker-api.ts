@@ -3,6 +3,7 @@
  * process). Heavy or slow work runs there so the main process, which routes
  * every window event, never stalls.
  */
+import type { VideoInfo } from './assets.ts';
 import type { FrameRate } from './frames.ts';
 import type { Source, Transcript, TranscriptLanguage } from './project.ts';
 
@@ -34,8 +35,38 @@ export interface WorkingFileRequest {
   out: string;
 }
 
+/** A stretch of a video layer's file to convert into its working file. */
+export interface OverlayFileRequest {
+  path: string;
+  /** From the asset's probe. */
+  codec: string;
+  colorSpace: string | null;
+  /** The file's own height, for guessing its colour matrix when it doesn't say. */
+  sourceHeight: number;
+  alpha: boolean;
+  /** Seconds into the file of the first frame, and how long. */
+  start: number;
+  duration: number;
+  /** The clip's frame rate, which the file is converted to. */
+  frameRate: FrameRate;
+  /** The picture's size in the file (overlaySize). */
+  width: number;
+  height: number;
+  out: string;
+}
+
 /** h264_nvenc on an NVIDIA card, libx264 everywhere else. */
 export type Encoder = 'nvenc' | 'x264';
+
+/** A stretch of a video layer's sound in an export: `duration` seconds from `start` in its working file, heard `at` seconds into the clip. */
+export interface ExportSound {
+  file: string;
+  start: number;
+  duration: number;
+  at: number;
+  /** 0..1 */
+  volume: number;
+}
 
 /** One clip to encode. The frames come over the MessagePort sent with the call. */
 export interface ExportRequest {
@@ -46,6 +77,10 @@ export interface ExportRequest {
   /** The clip's stretch of the working file, in seconds from its start. */
   audioStart: number;
   duration: number;
+  /** Whether the working file has sound (the source does). */
+  hasAudio: boolean;
+  /** Video layers' sound, mixed in over the clip's. */
+  sounds: ExportSound[];
   frameRate: FrameRate;
   /** Frames the renderer will send. */
   frames: number;
@@ -72,6 +107,8 @@ export type TranscribeProgress =
 export interface WorkerMethods {
   /** Reads streams and duration. Fails with code "unreadable" or "no-video". */
   probe(file: string): ProbeResult;
+  /** Reads a video layer's file, alpha included. Fails like probe. */
+  probeVideo(file: string): VideoInfo;
   /** A content hash of the file (see workers/media/fingerprint.ts). */
   fingerprint(file: string): string;
   /** Installs a tool from tools.json into `dir`; reports DownloadProgress. */
@@ -82,6 +119,8 @@ export interface WorkerMethods {
   makePreview(request: { sourcePath: string; duration: number; out: string }): void;
   /** Writes a working file to `request.out` unless it exists; reports 0..1. */
   makeWorkingFile(request: WorkingFileRequest): void;
+  /** Writes a video layer's working file to `request.out` unless it exists; reports 0..1. */
+  makeOverlayFile(request: OverlayFileRequest): void;
   /** NVENC if a quick test encode works, else x264. Decided once per run. */
   pickEncoder(): Encoder;
   /**

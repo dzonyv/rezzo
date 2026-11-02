@@ -2,9 +2,11 @@ import { useEffect, useRef, useState } from 'react';
 import { useTranslation } from 'react-i18next';
 import type { Asset } from '../../../shared/assets.ts';
 import type { CaptionPage } from '../../../shared/captions.ts';
-import { isTimed, videoLayerOf, type Animated, type Clip, type TimedLayer } from '../../../shared/project.ts';
+import { ASSET_KIND_OF, isTimed, videoLayerOf, type Animated, type Clip, type TimedLayer } from '../../../shared/project.ts';
 import { moveLayer, reorderLayer, trimLayer } from '../project/layers.ts';
+import { videoLayersOverLimit } from '../../../shared/overlay-files.ts';
 import { projectStore } from '../project/store.ts';
+import { useOverlayFile } from '../render/overlay-files.ts';
 import { pauseClip, seekClip } from './playback.ts';
 import { selectLayer } from './state.ts';
 
@@ -59,7 +61,8 @@ export function ClipTimeline({ clip, assets, keys, pages, selectedId, time }: Pr
   const rows = clip.layers.slice(1).reverse();
   const raise = (id: string) => reorderLayer(clip.id, id, 'up');
   const lower = (id: string) => reorderLayer(clip.id, id, 'down');
-  const nameOf = (layer: TimedLayer) => assets.find((a) => a.id === layer.assetId)?.name ?? t('layers.kinds.image');
+  const overLimit = videoLayersOverLimit(clip);
+  const nameOf = (layer: TimedLayer) => assets.find((a) => a.id === layer.assetId)?.name ?? t(`layers.kinds.${ASSET_KIND_OF[layer.kind]}`);
 
   /** Diamonds for keyframes inside the clip; pressing one goes to it. */
   const keyMarks = (marks: Animated<unknown>) =>
@@ -207,13 +210,14 @@ export function ClipTimeline({ clip, assets, keys, pages, selectedId, time }: Pr
             isTimed(layer) ? (
               <div key={layer.id} className="timeline-row">
                 <div
-                  className={`layer-bar ${layer.kind}${layer.id === selectedId ? ' selected' : ''}`}
+                  className={`layer-bar ${layer.kind}${layer.id === selectedId ? ' selected' : ''}${overLimit.has(layer.id) ? ' over-limit' : ''}`}
                   style={span(layer.start, layer.end)}
                   role="button"
                   aria-label={t('layers.moveBar', { name: nameOf(layer) })}
                   title={nameOf(layer)}
                   onPointerDown={(e) => startLayerDrag(e, layer, 'move')}
                 >
+                  {layer.kind === 'overlay' && <OverlayProgress layerId={layer.id} />}
                   <span className="layer-name">{nameOf(layer)}</span>
                   <div className="edge start" role="separator" aria-label={t('layers.startHandle', { name: nameOf(layer) })} onPointerDown={(e) => startLayerDrag(e, layer, 'start')} />
                   <div className="edge end" role="separator" aria-label={t('layers.endHandle', { name: nameOf(layer) })} onPointerDown={(e) => startLayerDrag(e, layer, 'end')} />
@@ -244,4 +248,15 @@ export function ClipTimeline({ clip, assets, keys, pages, selectedId, time }: Pr
       </div>
     </div>
   );
+}
+
+/** How far a video layer's working file is, filling its bar from the left; nothing once it's ready. */
+function OverlayProgress({ layerId }: { layerId: string }) {
+  const { t } = useTranslation();
+  const state = useOverlayFile(layerId);
+  if (state?.status === 'preparing') {
+    return <div className="layer-progress" role="progressbar" aria-label={t('layers.preparing')} aria-valuenow={Math.round(state.progress * 100)} style={{ width: `${state.progress * 100}%` }} />;
+  }
+  if (state?.status === 'failed') return <div className="layer-progress failed" title={t('layers.errors.prepare', { detail: state.detail })} />;
+  return null;
 }

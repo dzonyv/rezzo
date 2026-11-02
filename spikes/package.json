@@ -9,7 +9,7 @@
   },
   "scripts": {
     "test": "node --test \"**/*.test.ts\"",
-    "typecheck": "tsc --noEmit",
+    "typecheck": "tsc --noEmit && tsc --noEmit -p layers/lab",
     "fetch-tools": "node scripts/fetch-tools.ts",
     "make-source": "node export/make-source.ts",
     "lab": "node export/lab/build.ts && electron export/lab/dist/main.cjs",
@@ -21,7 +21,11 @@
     "faces:lab": "node faces/lab/build.ts && electron faces/lab/dist/main.cjs",
     "faces:speakers": "node faces/speakers.ts",
     "ipc:working": "node ipc/make-working.ts",
-    "ipc:lab": "node ipc/build.ts && electron ipc/dist/main.cjs"
+    "ipc:lab": "node ipc/build.ts && electron ipc/dist/main.cjs",
+    "layers:formats": "node layers/formats.ts",
+    "layers:stacked": "node layers/stacked.ts",
+    "layers:convert": "node layers/convert-speed.ts",
+    "layers:lab": "node layers/lab/build.ts && electron layers/lab/dist/main.cjs"
   },
   "devDependencies": {
     "@mediapipe/tasks-vision": "^1.1.1",

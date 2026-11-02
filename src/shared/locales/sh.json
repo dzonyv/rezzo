@@ -53,7 +53,12 @@
     "deleteLayer": "brisanje sloja",
     "duplicateLayer": "dupliranje sloja",
     "placeLayer": "pomeranje sloja",
-    "layerAnimation": "animacija sloja"
+    "layerAnimation": "animacija sloja",
+    "addVideo": "dodavanje videa",
+    "replaceVideo": "promena videa",
+    "layerSound": "zvuk videa",
+    "videoStart": "početak videa",
+    "greenScreen": "green screen"
   },
   "files": {
     "project": "Rezzo projekat",
@@ -333,7 +338,8 @@
     "add": "Dodaj",
     "addHelp": "Dodaj sloj preko slike, od playheada nadalje",
     "kinds": {
-      "image": "Slika"
+      "image": "Slika",
+      "video": "Video"
     },
     "video": "Video",
     "captions": "Titlovi",
@@ -397,12 +403,35 @@
     "errors": {
       "unreadable": "Taj fajl nije slika koju Rezzo može da pročita.",
       "too-large": "Ta slika je prevelika (preko 100 MB).",
-      "different-file": "To je drugi fajl. Izaberi onaj koji je ovaj projekat koristio."
+      "different-file": "To je drugi fajl. Izaberi onaj koji je ovaj projekat koristio.",
+      "prepare": "Video nije mogao da se pripremi: {{detail}}",
+      "video": {
+        "unreadable": "Taj fajl nije video koji Rezzo može da pročita.",
+        "too-large": "Taj video je prevelik."
+      },
+      "tooManyVideos": "Najviše {{count}} videa može da se vidi u istom trenutku. Prvo napravi mesta na timeline-u."
     },
     "units": {
       "percent": "{{value}} %",
       "degrees": "{{value}}°",
       "seconds": "{{value}} s"
-    }
+    },
+    "preparing": "Pripremam video",
+    "changeVideo": "Promeni video…",
+    "sound": "Zvuk",
+    "volume": "Jačina",
+    "noSound": "Ovaj video nema zvuk.",
+    "loopVideo": "Kreni ispočetka na kraju",
+    "videoStart": "Početak u videu",
+    "videoHelp": "Ako ne kreće ispočetka, kad se video završi ostaje poslednji kadar, a zvuk prestaje.",
+    "overLimit": "Najviše {{count}} videa može da se vidi u istom trenutku. Gde ih se preklapa više, ovaj se ne prikazuje.",
+    "greenScreen": "Green screen",
+    "keyColor": "Boja",
+    "pickColor": "Uzmi sa slike",
+    "picking": "Klikni u previewu na boju koju treba ukloniti",
+    "similarity": "Sličnost",
+    "smoothness": "Mekoća",
+    "spill": "Uklanjanje odsjaja",
+    "titleVideo": "Video: {{name}}"
   }
 }

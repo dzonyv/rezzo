@@ -1,18 +1,19 @@
 /**
  * The files the open project's layers show, from the page's side: adding
- * an image to a clip, finding a file that moved, and which files couldn't
- * be read.
+ * an image or a video to a clip, finding a file that moved, and which
+ * files couldn't be read.
  */
 import i18n from 'i18next';
 import { useStore } from 'zustand';
 import { createStore } from 'zustand/vanilla';
 import type { AddAssetResult, LocateAssetResult } from '../../../shared/api.ts';
-import type { Asset, AssetFile } from '../../../shared/assets.ts';
+import type { Asset, AssetFile, AssetKind, VideoInfo } from '../../../shared/assets.ts';
 import type { Size } from '../../../shared/framing.ts';
 import { decodeImage, keepImage, keepOnlyImages } from '../render/images.ts';
 import { notify } from '../ui/prompts.ts';
-import { addImageLayer, replaceImage } from './layers.ts';
+import { addImageLayer, addVideoLayer, replaceImage, replaceVideo } from './layers.ts';
 import { projectStore } from './store.ts';
+import { MAX_VIDEO_LAYERS } from '../../../shared/overlay-files.ts';
 
 /** Asset ids whose files couldn't be read, so the editor can offer to find them. */
 export const missingAssetsStore = createStore<{ missing: ReadonlySet<string> }>()(() => ({ missing: new Set() }));
@@ -37,38 +38,50 @@ projectStore.subscribe((s, prev) => {
   if (s.project?.assets !== prev.project?.assets) keepOnlyImages(s.project?.assets ?? []);
 });
 
-/** The picked image, decoded; null (after saying why) when it can't be used. */
-async function readPicked(result: AddAssetResult | LocateAssetResult | null): Promise<{ file: AssetFile; size: Size } | null> {
+type Picked = { kind: 'image'; file: AssetFile; size: Size } | { kind: 'video'; file: AssetFile; video: VideoInfo };
+
+/** Why a picked file can't be used, in words for its kind. */
+function refuse(kind: AssetKind, error: 'unreadable' | 'too-large' | 'different-file'): null {
+  notify('error', i18n.t(kind === 'video' && error !== 'different-file' ? `layers.errors.video.${error}` : `layers.errors.${error}`));
+  return null;
+}
+
+/** A picked file of `kind`: an image decoded, a video as the main process read it; null (after saying why) when it can't be used. */
+async function readPicked(kind: AssetKind, result: AddAssetResult | LocateAssetResult | null): Promise<Picked | null> {
   if (!result) return null;
-  if (!result.ok) {
-    notify('error', i18n.t(`layers.errors.${result.error}`));
-    return null;
-  }
+  if (!result.ok) return refuse(kind, result.error);
+  if (kind === 'video') return result.video ? { kind, file: result.file, video: result.video } : refuse(kind, 'unreadable');
   try {
     const image = await decodeImage(result.url);
     keepImage(result.file, image);
-    return { file: result.file, size: { width: image.width, height: image.height } };
+    return { kind, file: result.file, size: { width: image.width, height: image.height } };
   } catch {
     notify('error', i18n.t('layers.errors.unreadable'));
     return null;
   }
 }
 
-/** Asks for an image and puts it in the clip from `time` on. Returns the new layer's id. */
-export async function addImage(clipId: string, time: number): Promise<string | null> {
-  const picked = await readPicked(await window.rezzo.invoke('asset:add', 'image'));
-  return picked ? addImageLayer(clipId, picked.file, picked.size, time) : null;
+/** Asks for an image or a video and puts it in the clip from `time` on. Returns the new layer's id. */
+export async function addLayerFile(kind: AssetKind, clipId: string, time: number): Promise<string | null> {
+  const picked = await readPicked(kind, await window.rezzo.invoke('asset:add', kind));
+  if (!picked) return null;
+  if (picked.kind === 'image') return addImageLayer(clipId, picked.file, picked.size, time);
+  const added = addVideoLayer(clipId, picked.file, picked.video, time);
+  if (added !== 'too-many') return added;
+  notify('error', i18n.t('layers.errors.tooManyVideos', { count: MAX_VIDEO_LAYERS }));
+  return null;
 }
 
-/** Asks for another image for the layer. */
-export async function changeImage(clipId: string, layerId: string): Promise<void> {
-  const picked = await readPicked(await window.rezzo.invoke('asset:add', 'image'));
-  if (picked) replaceImage(clipId, layerId, picked.file, picked.size);
+/** Asks for another file of the same kind for the layer. */
+export async function changeLayerFile(clipId: string, layerId: string, kind: AssetKind): Promise<void> {
+  const picked = await readPicked(kind, await window.rezzo.invoke('asset:add', kind));
+  if (picked?.kind === 'image') replaceImage(clipId, layerId, picked.file, picked.size);
+  else if (picked?.kind === 'video') replaceVideo(clipId, layerId, picked.file, picked.video);
 }
 
 /** Asks where a file went; the project then uses it from there. */
 export async function locateAsset(asset: Asset): Promise<void> {
-  const picked = await readPicked(await window.rezzo.invoke('asset:locate', asset.kind, asset));
+  const picked = await readPicked(asset.kind, await window.rezzo.invoke('asset:locate', asset.kind, asset));
   if (!picked) return;
   // Moving the file isn't an edit to undo, as for the source video: undo would point back where it isn't.
   projectStore.getState().replace((d) => {

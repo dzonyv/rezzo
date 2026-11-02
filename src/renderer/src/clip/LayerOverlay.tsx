@@ -3,10 +3,11 @@ import { useTranslation } from 'react-i18next';
 import type { Asset } from '../../../shared/assets.ts';
 import { OUTPUT, valueAt } from '../../../shared/framing.ts';
 import { layerTransformAt, MAX_LAYER_SCALE, MIN_LAYER_SCALE, type Transform } from '../../../shared/motion.ts';
-import { timedLayers, type Clip, type TimedLayer } from '../../../shared/project.ts';
+import { isTimed, timedLayers, type Clip, type TimedLayer } from '../../../shared/project.ts';
 import { quadOf, showsAt } from '../../../shared/scene.ts';
-import { setTransform } from '../project/layers.ts';
+import { setChromaKey, setTransform } from '../project/layers.ts';
 import { projectStore } from '../project/store.ts';
+import { sampleColor, stopPicking, usePicking } from './eyedropper.ts';
 import { outputPoint } from './output-point.ts';
 import { pauseClip } from './playback.ts';
 import { selectLayer } from './state.ts';
@@ -47,7 +48,7 @@ const snapTo = (value: number, target: number, reach: number, off: boolean) => (
 /** The layer's transform without animations at `time`, as it is in the document right now. */
 function ownTransform(clipId: string, layerId: string, time: number): Transform | null {
   const layer = projectStore.getState().project?.clips.find((c) => c.id === clipId)?.layers.find((l) => l.id === layerId);
-  return layer && layer.kind === 'image' ? valueAt(layer.transform, time) : null;
+  return layer && isTimed(layer) ? valueAt(layer.transform, time) : null;
 }
 
 /**
@@ -63,6 +64,7 @@ export function LayerOverlay({ clip, assets, selectedId, time }: Props) {
   const wheel = useRef({ timer: 0, layerId: '' });
 
   const shown = timedLayers(clip).filter((l) => showsAt(l, time));
+  const picking = usePicking();
   const assetOf = (layer: TimedLayer) => assets.find((a) => a.id === layer.assetId);
 
   const toOutput = (clientX: number, clientY: number) => outputPoint(el.current!, clientX, clientY);
@@ -140,11 +142,44 @@ export function LayerOverlay({ clip, assets, selectedId, time }: Props) {
     return () => node.removeEventListener('wheel', listener);
   }, []);
 
+  /** Picking a key colour: a click on the layer takes its colour there; anywhere else, or Escape, stops. */
+  const pick = (e: React.PointerEvent) => {
+    if (!picking) return;
+    e.stopPropagation();
+    e.preventDefault();
+    const layer = shown.find((l) => l.id === picking);
+    const asset = layer && assetOf(layer);
+    if (layer && asset) {
+      const q = quadOf(layerTransformAt(layer, time), asset);
+      const p = toOutput(e.clientX, e.clientY);
+      // Into the layer's own axes: undo its turn about its centre.
+      const cos = Math.cos(-q.rotation);
+      const sin = Math.sin(-q.rotation);
+      const dx = p.x - q.cx;
+      const dy = p.y - q.cy;
+      const u = (dx * cos - dy * sin) / q.w + 0.5;
+      const v = (dx * sin + dy * cos) / q.h + 0.5;
+      const color = u >= 0 && u <= 1 && v >= 0 && v <= 1 ? sampleColor(layer.id, asset.id, u, v) : null;
+      if (color) setChromaKey(clip.id, layer.id, { color });
+    }
+    stopPicking();
+  };
+  useEffect(() => {
+    if (!picking) return;
+    const onKey = (e: KeyboardEvent) => {
+      if (e.key !== 'Escape') return;
+      e.stopImmediatePropagation();
+      stopPicking();
+    };
+    window.addEventListener('keydown', onKey, true);
+    return () => window.removeEventListener('keydown', onKey, true);
+  }, [picking]);
+
   const pctX = (px: number) => `${(px / OUTPUT.width) * 100}%`;
   const pctY = (px: number) => `${(px / OUTPUT.height) * 100}%`;
 
   return (
-    <div ref={el} className="layer-overlay" onPointerMove={onMove} onPointerUp={end} onLostPointerCapture={end}>
+    <div ref={el} className={`layer-overlay${picking ? ' picking' : ''}`} onPointerDownCapture={pick} onPointerMove={onMove} onPointerUp={end} onLostPointerCapture={end}>
       {shown.map((layer) => {
         const asset = assetOf(layer);
         if (!asset) return null;

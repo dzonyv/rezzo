@@ -38,14 +38,17 @@ export function spanCovers(span: WorkingSpan, range: { start: number; end: numbe
   return spanStart(span) <= range.start + 1e-6 && spanEnd(span) >= range.end - 1e-6;
 }
 
-/** "1500-3300@30000-1001.v1.mp4": frames, frame rate, conversion version. */
-export function workingFileName(span: WorkingSpan): string {
-  return `${span.first}-${span.end}@${span.rate[0]}-${span.rate[1]}.v${WORKING_VERSION}.mp4`;
+/**
+ * "1500-3300@30000-1001.v1.mp4": frames, frame rate, conversion version.
+ * Video layers' files (shared/overlay-files.ts) are named the same way, with their own version.
+ */
+export function workingFileName(span: WorkingSpan, version = WORKING_VERSION): string {
+  return `${span.first}-${span.end}@${span.rate[0]}-${span.rate[1]}.v${version}.mp4`;
 }
 
-export function parseWorkingFileName(name: string): WorkingSpan | null {
+export function parseWorkingFileName(name: string, version = WORKING_VERSION): WorkingSpan | null {
   const m = /^(\d+)-(\d+)@(\d+)-(\d+)\.v(\d+)\.mp4$/.exec(name);
-  if (!m || Number(m[5]) !== WORKING_VERSION) return null;
+  if (!m || Number(m[5]) !== version) return null;
   return { first: Number(m[1]), end: Number(m[2]), rate: [Number(m[3]), Number(m[4])] };
 }
 
@@ -70,4 +73,15 @@ export const workingFrameTime = (file: WorkingPlacement, index: number): number 
 export function clipFrames(file: WorkingPlacement, range: { start: number; end: number }): { first: number; count: number } {
   const first = workingFrameIndex(file, range.start);
   return { first, count: Math.max(0, workingFrameIndex(file, range.end) - first) };
+}
+
+/**
+ * `range` cut to the frames a file `duration` long has at `rate`. A working
+ * file ends on the last whole frame, so a range reaching the very end of a
+ * file whose length isn't a whole number of frames would never count as
+ * covered by it.
+ */
+export function withinFrames(range: { start: number; end: number }, duration: number, rate: FrameRate): { start: number; end: number } {
+  const last = timeOfFrame(Math.floor(duration * fps(rate)), rate);
+  return { start: Math.min(range.start, last), end: Math.min(range.end, last) };
 }

@@ -1,15 +1,20 @@
 import { useTranslation } from 'react-i18next';
 import type { Asset } from '../../../shared/assets.ts';
 import { keyAt, valueAt } from '../../../shared/framing.ts';
-import type { FrameRate } from '../../../shared/frames.ts';
+import { fps, type FrameRate } from '../../../shared/frames.ts';
 import {
   DIRECTIONS, ENTRANCES, EXITS, LOOPS, MAX_LAYER_SCALE, MAX_MOTION_SECONDS, MIN_LAYER_SCALE, MIN_MOTION_SECONDS, type Direction, type Motion,
   type Transform,
 } from '../../../shared/motion.ts';
-import type { TimedLayer } from '../../../shared/project.ts';
-import { changeImage, locateAsset, useAssetMissing } from '../project/assets.ts';
-import { addLayerKey, deleteLayer, deleteLayerKey, duplicateLayer, insideLayer, setLayerKeySmooth, setMotion, setTransform } from '../project/layers.ts';
+import { MAX_VIDEO_LAYERS } from '../../../shared/overlay-files.ts';
+import { ASSET_KIND_OF, type TimedLayer } from '../../../shared/project.ts';
+import { changeLayerFile, locateAsset, useAssetMissing } from '../project/assets.ts';
+import {
+  addLayerKey, deleteLayer, deleteLayerKey, duplicateLayer, insideLayer, setChromaKey, setLayerKeySmooth, setLayerSound, setMotion, setTransform,
+  setVideoStart,
+} from '../project/layers.ts';
 import { projectStore, type EditLabel } from '../project/store.ts';
+import { startPicking, stopPicking, usePicking } from './eyedropper.ts';
 import { selectLayer } from './state.ts';
 
 interface Props {
@@ -19,10 +24,15 @@ interface Props {
   /** Source seconds of the frame on screen; placement edits and keyframes land there. */
   time: number;
   rate: FrameRate;
+  /** A video layer that's left out somewhere because too many others show then. */
+  overLimit: boolean;
 }
 
 const PLACE: EditLabel = 'history.placeLayer';
 const ANIMATE: EditLabel = 'history.layerAnimation';
+const KEY: EditLabel = 'history.greenScreen';
+const SOUND: EditLabel = 'history.layerSound';
+const VIDEO_START: EditLabel = 'history.videoStart';
 
 /**
  * The placement sliders: which value, its usual range and step, and its
@@ -44,12 +54,14 @@ const PARTS = [
   { part: 'loop', kinds: LOOPS, names: 'loops', directed: 'kenBurns' },
 ] as const;
 
-/** The selected image's settings: its file, placement, keyframes and animations. */
-export function LayerPanel({ clipId, layer, asset, time, rate }: Props) {
+/** The selected layer's settings: its file, placement, keyframes, animations, a video's sound and the green screen. */
+export function LayerPanel({ clipId, layer, asset, time, rate, overLimit }: Props) {
   const { t } = useTranslation();
   const missing = useAssetMissing(asset?.id);
+  const picking = usePicking() === layer.id;
   const store = projectStore.getState();
-  const name = asset?.name ?? t('layers.kinds.image');
+  const kind = ASSET_KIND_OF[layer.kind];
+  const name = asset?.name ?? t(`layers.kinds.${kind}`);
   // Edits land inside the layer's time even with the playhead outside it (see insideLayer).
   const at = insideLayer(layer, time);
   const value = valueAt(layer.transform, at);
@@ -111,10 +123,73 @@ export function LayerPanel({ clipId, layer, asset, time, rate }: Props) {
     );
   };
 
+  /** A video layer's sound and where in its file it starts. */
+  const video = () => {
+    if (layer.kind !== 'overlay' || asset?.kind !== 'video') return null;
+    const frame = 1 / fps(rate);
+    return (
+      <div className="layer-grid layer-section">
+        <h4>{t('layers.sound')}</h4>
+        {asset.hasAudio
+          ? slider(t('layers.volume'), layer.volume, { min: 0, max: 1, step: 0.01 }, percent(layer.volume), SOUND, (volume) => setLayerSound(clipId, layer.id, { volume }))
+          : <p className="dim hint">{t('layers.noSound')}</p>}
+        {slider(
+          t('layers.videoStart'),
+          layer.offset,
+          { min: 0, max: Math.max(frame, asset.duration - frame), step: frame },
+          t('layers.units.seconds', { value: layer.offset.toFixed(2) }),
+          VIDEO_START,
+          (offset) => setVideoStart(clipId, layer.id, offset, asset.duration),
+        )}
+        <label className="layer-check">
+          <input type="checkbox" checked={layer.loop} onChange={(e) => setLayerSound(clipId, layer.id, { loop: e.target.checked })} />
+          {t('layers.loopVideo')}
+        </label>
+        <p className="dim hint">{t('layers.videoHelp')}</p>
+      </div>
+    );
+  };
+
+  /** The green screen: on or off, its colour (typed, chosen or picked from the picture) and how it keys. */
+  const greenScreen = () => {
+    const key = layer.key;
+    return (
+      <div className="layer-grid layer-section">
+        <label className="layer-check">
+          <input type="checkbox" checked={key !== null} onChange={(e) => setChromaKey(clipId, layer.id, e.target.checked ? {} : null)} />
+          {t('layers.greenScreen')}
+        </label>
+        {key && (
+          <>
+            <div className="layer-row">
+              <label className="layer-color">
+                <span>{t('layers.keyColor')}</span>
+                <input
+                  type="color"
+                  value={key.color}
+                  onFocus={() => store.beginGesture(KEY)}
+                  onBlur={() => store.endGesture()}
+                  onChange={(e) => setChromaKey(clipId, layer.id, { color: e.target.value })}
+                />
+              </label>
+              <button type="button" aria-pressed={picking} onClick={() => (picking ? stopPicking() : startPicking(layer.id))}>
+                {t('layers.pickColor')}
+              </button>
+            </div>
+            {picking && <p className="hint">{t('layers.picking')}</p>}
+            {slider(t('layers.similarity'), key.similarity, { min: 0, max: 1, step: 0.01 }, percent(key.similarity), KEY, (similarity) => setChromaKey(clipId, layer.id, { similarity }))}
+            {slider(t('layers.smoothness'), key.smoothness, { min: 0, max: 1, step: 0.01 }, percent(key.smoothness), KEY, (smoothness) => setChromaKey(clipId, layer.id, { smoothness }))}
+            {slider(t('layers.spill'), key.spill, { min: 0, max: 1, step: 0.01 }, percent(key.spill), KEY, (spill) => setChromaKey(clipId, layer.id, { spill }))}
+          </>
+        )}
+      </div>
+    );
+  };
+
   return (
     <section className="layer-panel">
       <header>
-        <h3>{t('layers.title', { name })}</h3>
+        <h3>{t(kind === 'video' ? 'layers.titleVideo' : 'layers.title', { name })}</h3>
         <button type="button" onClick={() => selectLayer(null)}>
           {t('layers.deselect')}
         </button>
@@ -129,9 +204,15 @@ export function LayerPanel({ clipId, layer, asset, time, rate }: Props) {
         </div>
       )}
 
+      {overLimit && (
+        <div className="layer-warning">
+          <span>{t('layers.overLimit', { count: MAX_VIDEO_LAYERS })}</span>
+        </div>
+      )}
+
       <div className="layer-row">
-        <button type="button" onClick={() => void changeImage(clipId, layer.id)}>
-          {t('layers.change')}
+        <button type="button" onClick={() => void changeLayerFile(clipId, layer.id, kind)}>
+          {t(kind === 'video' ? 'layers.changeVideo' : 'layers.change')}
         </button>
         <button type="button" onClick={() => selectLayer(duplicateLayer(clipId, layer.id))}>
           {t('layers.duplicate')}
@@ -178,6 +259,9 @@ export function LayerPanel({ clipId, layer, asset, time, rate }: Props) {
       <p className="dim hint">{t('layers.keyframeHelp')}</p>
 
       <div className="layer-grid">{PARTS.map(animation)}</div>
+
+      {video()}
+      {greenScreen()}
     </section>
   );
 }

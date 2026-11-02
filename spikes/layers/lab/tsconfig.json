@@ -1,0 +1,10 @@
+{
+  "$comment": "The lab imports the app's decoder from src/renderer. esbuild bundles it, so it is checked with bundler resolution; under NodeNext those files would count as CommonJS (the root package has no \"type\").",
+  "extends": "../../tsconfig.json",
+  "compilerOptions": {
+    "module": "ESNext",
+    "moduleResolution": "Bundler"
+  },
+  "include": ["*.ts"],
+  "exclude": []
+}

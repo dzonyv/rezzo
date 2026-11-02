@@ -2,7 +2,8 @@
  * The export's FFmpeg end (decisions in spikes/REPORT.md): the renderer
  * draws each frame, converts it to yuv420p on the GPU and sends it over a
  * MessagePort; here it's piped into FFmpeg, which encodes it with NVENC or
- * x264 and adds the clip's sound from the working file.
+ * x264 and adds the clip's sound from the working file, with the video
+ * layers' sound mixed in.
  */
 import { spawn } from 'node:child_process';
 import { randomUUID } from 'node:crypto';
@@ -24,16 +25,45 @@ const ENCODER_ARGS: Record<Encoder, string[]> = {
   x264: ['-c:v', 'libx264', '-preset', 'medium', '-crf', '18', '-profile:v', 'high'],
 };
 
+const STEREO_48K = 'aformat=sample_rates=48000:channel_layouts=stereo';
+
+/**
+ * The video layers' sound over the clip's: each stretch of a layer's
+ * working file is an input of its own, set to its volume and delayed to
+ * where it plays, then everything is added up as it is (no loudness
+ * evening-out, so a layer at full volume is as loud as in its file) and
+ * cut to the clip's length.
+ */
+function soundMix(req: ExportRequest): { inputs: string[]; graph: string } {
+  const inputs: string[] = [];
+  const parts: string[] = [];
+  const mix: string[] = [];
+  if (req.hasAudio) {
+    parts.push(`[1:a:0]${STEREO_48K}[a0]`);
+    mix.push('[a0]');
+  }
+  req.sounds.forEach((s, i) => {
+    inputs.push('-ss', s.start.toFixed(6), '-t', s.duration.toFixed(6), '-i', s.file);
+    parts.push(`[${i + 2}:a:0]${STEREO_48K},volume=${s.volume.toFixed(4)},adelay=${Math.round(s.at * 1000)}:all=1[s${i}]`);
+    mix.push(`[s${i}]`);
+  });
+  parts.push(`${mix.join('')}amix=inputs=${mix.length}:normalize=0:duration=longest,apad,atrim=end=${req.duration.toFixed(6)}[a]`);
+  return { inputs, graph: parts.join(';') };
+}
+
 /** FFmpeg arguments for an export written to `out`. Frames come on stdin. */
 export function exportArgs(req: ExportRequest, out: string): string[] {
   const [num, den] = req.frameRate;
+  const mix = req.sounds.length > 0 ? soundMix(req) : null;
   return [
     '-y', '-v', 'error', '-nostats',
     '-f', 'rawvideo', '-pix_fmt', 'yuv420p', '-s', `${OUTPUT.width}x${OUTPUT.height}`, '-framerate', `${num}/${den}`,
     ...COLOR_TAGS, '-i', 'pipe:0',
     '-ss', req.audioStart.toFixed(6), '-t', req.duration.toFixed(6), '-i', req.workingFile,
-    // A working file without sound gives a silent clip.
-    '-map', '0:v', '-map', '1:a:0?',
+    ...(mix
+      ? [...mix.inputs, '-filter_complex', mix.graph, '-map', '0:v', '-map', '[a]']
+      : // A working file without sound gives a silent clip.
+        ['-map', '0:v', '-map', '1:a:0?']),
     ...ENCODER_ARGS[req.encoder],
     // A keyframe every two seconds.
     '-g', String(Math.round(2 * fps(req.frameRate))),
