@@ -138,6 +138,7 @@ export function parseVideoInfo(json: FfprobeJson, alpha: boolean): VideoInfo {
     height: sideways ? video.width : video.height,
     duration,
     frameRate,
+    colorSpace: video.color_space && video.color_space !== 'unknown' ? video.color_space : null,
     alpha,
     hasAudio: (json.streams ?? []).some((s) => s.codec_type === 'audio'),
   };

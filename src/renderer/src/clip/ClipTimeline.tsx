@@ -5,6 +5,7 @@ import type { CaptionPage } from '../../../shared/captions.ts';
 import { ASSET_KIND_OF, isTimed, videoLayerOf, type Animated, type Clip, type TimedLayer } from '../../../shared/project.ts';
 import { moveLayer, reorderLayer, trimLayer } from '../project/layers.ts';
 import { projectStore } from '../project/store.ts';
+import { useOverlayFile } from '../render/overlay-files.ts';
 import { pauseClip, seekClip } from './playback.ts';
 import { selectLayer } from './state.ts';
 
@@ -214,6 +215,7 @@ export function ClipTimeline({ clip, assets, keys, pages, selectedId, time }: Pr
                   title={nameOf(layer)}
                   onPointerDown={(e) => startLayerDrag(e, layer, 'move')}
                 >
+                  {layer.kind === 'overlay' && <OverlayProgress layerId={layer.id} />}
                   <span className="layer-name">{nameOf(layer)}</span>
                   <div className="edge start" role="separator" aria-label={t('layers.startHandle', { name: nameOf(layer) })} onPointerDown={(e) => startLayerDrag(e, layer, 'start')} />
                   <div className="edge end" role="separator" aria-label={t('layers.endHandle', { name: nameOf(layer) })} onPointerDown={(e) => startLayerDrag(e, layer, 'end')} />
@@ -244,4 +246,15 @@ export function ClipTimeline({ clip, assets, keys, pages, selectedId, time }: Pr
       </div>
     </div>
   );
+}
+
+/** How far a video layer's working file is, filling its bar from the left; nothing once it's ready. */
+function OverlayProgress({ layerId }: { layerId: string }) {
+  const { t } = useTranslation();
+  const state = useOverlayFile(layerId);
+  if (state?.status === 'preparing') {
+    return <div className="layer-progress" role="progressbar" aria-label={t('layers.preparing')} aria-valuenow={Math.round(state.progress * 100)} style={{ width: `${state.progress * 100}%` }} />;
+  }
+  if (state?.status === 'failed') return <div className="layer-progress failed" title={t('layers.errors.prepare', { detail: state.detail })} />;
+  return null;
 }

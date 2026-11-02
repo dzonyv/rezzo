@@ -1500,3 +1500,23 @@ button.icon {
   color: #ffd76a;
   font-size: 12px;
 }
+
+/* A video layer's working file being made: fills the bar from the left. */
+.layer-bar .layer-progress {
+  position: absolute;
+  top: 0;
+  bottom: 0;
+  left: 0;
+  background: rgb(255 255 255 / 0.3);
+  pointer-events: none;
+}
+
+.layer-bar .layer-progress.failed {
+  right: 0;
+  background: repeating-linear-gradient(135deg, rgb(0 0 0 / 0.35) 0 6px, transparent 6px 12px);
+  pointer-events: auto;
+}
+
+.layer-bar.overlay {
+  background: #3f86c9;
+}

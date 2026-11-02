@@ -57,6 +57,7 @@ describe('video layer files', () => {
       height: 1080,
       duration: 4.5,
       frameRate: [30, 1],
+      colorSpace: null,
       alpha: false,
       hasAudio: true,
     });

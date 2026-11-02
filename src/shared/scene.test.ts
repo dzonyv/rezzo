@@ -40,6 +40,7 @@ const video: VideoAsset = {
   height: 1920,
   duration: 3,
   frameRate: [30, 1],
+  colorSpace: null,
   alpha: true,
   hasAudio: false,
 };

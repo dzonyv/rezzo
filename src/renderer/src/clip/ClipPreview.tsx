@@ -2,12 +2,14 @@ import i18n from 'i18next';
 import { useEffect, useMemo, useRef, useState } from 'react';
 import { useTranslation } from 'react-i18next';
 import type { Asset } from '../../../shared/assets.ts';
+import { workingFrameRate } from '../../../shared/frames.ts';
 import { captionLayerOf, type Clip, type Source } from '../../../shared/project.ts';
 import { markMissing } from '../project/assets.ts';
 import { useProject } from '../project/store.ts';
 import { loadCaptionScene, type CaptionScene } from '../render/captions.ts';
 import { ClipPlayer, type DrawAt } from '../render/clip-player.ts';
 import { Compositor, type LayerImage } from '../render/compositor.ts';
+import { prepareOverlayFiles } from '../render/overlay-files.ts';
 import { assetsOf, loadImages, SceneRenderer } from '../render/scene-renderer.ts';
 import { useSettings } from '../settings.ts';
 import { flatOf } from '../transcript/words.ts';
@@ -158,6 +160,11 @@ export function ClipPreview({ clip, source, children }: { clip: Clip; source: So
       current = false;
     };
   }, [used]);
+
+  // Working files for the video layers, made in the background; the timeline shows their progress.
+  useEffect(() => {
+    prepareOverlayFiles(clip, allAssets ?? [], workingFrameRate(source));
+  }, [clip, allAssets, source]);
 
   // Anything in the clip changed: redraw the frame on screen.
   useEffect(() => {

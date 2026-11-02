@@ -3,16 +3,16 @@
  * kept in the cache, next to the source's other cached files.
  */
 import type { WebContents } from 'electron';
-import { readdir, rm, stat, utimes } from 'node:fs/promises';
 import path from 'node:path';
 import { z } from 'zod';
 import type { PrepareResult } from '../shared/api.ts';
 import { workingFrameRate } from '../shared/frames.ts';
 import { MAX_CLIP_SECONDS, sourceSchema, type Source } from '../shared/project.ts';
-import { parseWorkingFileName, spanCovers, spanEnd, spanStart, workingFileName, workingSpan, type WorkingSpan } from '../shared/working.ts';
+import { spanEnd, spanStart, WORKING_VERSION, workingFileName, workingSpan, type WorkingSpan } from '../shared/working.ts';
 import { allowMedia, sourceUrl } from './media-protocol.ts';
 import { cacheDir } from './paths.ts';
 import { callWorker } from './worker-host.ts';
+import { findCovering, prune } from './working-cache.ts';
 
 /** Working files kept per source; older ones are deleted. */
 const KEEP = 20;
@@ -23,26 +23,6 @@ const rangeSchema = z
 
 /** One preparation per window: a newer request (another clip, a new range) replaces the old one. */
 const running = new Map<number, AbortController>();
-
-async function cachedSpans(dir: string): Promise<{ file: string; span: WorkingSpan }[]> {
-  let names: string[];
-  try {
-    names = await readdir(dir);
-  } catch {
-    return [];
-  }
-  return names.flatMap((name) => {
-    const span = parseWorkingFileName(name);
-    return span ? [{ file: path.join(dir, name), span }] : [];
-  });
-}
-
-async function prune(dir: string): Promise<void> {
-  const files = await cachedSpans(dir);
-  const dated = await Promise.all(files.map(async ({ file }) => ({ file, at: (await stat(file)).mtimeMs })));
-  dated.sort((a, b) => b.at - a.at);
-  await Promise.all(dated.slice(KEEP).map(({ file }) => rm(file, { force: true })));
-}
 
 /**
  * A working file holding `range` of the source: one from the cache if it
@@ -58,12 +38,8 @@ export async function ensureWorkingFile(
   const dir = path.join(cacheDir(), source.fingerprint, 'work');
 
   // A file made for this clip before it was trimmed, or for an overlapping clip.
-  const cached = (await cachedSpans(dir)).find(({ span }) => span.rate.join() === rate.join() && spanCovers(span, range));
-  if (cached) {
-    const now = new Date();
-    await utimes(cached.file, now, now); // keeps it from being pruned
-    return cached;
-  }
+  const cached = await findCovering(dir, WORKING_VERSION, rate, range);
+  if (cached) return cached;
 
   const span = workingSpan(range, source, rate);
   const file = path.join(dir, workingFileName(span));
@@ -80,7 +56,7 @@ export async function ensureWorkingFile(
     }],
     { signal: options.signal, onProgress: (fraction) => options.onProgress?.(fraction as number) },
   );
-  await prune(dir);
+  await prune(dir, WORKING_VERSION, KEEP);
   return { file, span };
 }
 

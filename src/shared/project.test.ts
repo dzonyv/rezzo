@@ -133,6 +133,7 @@ describe('project files', () => {
     height: 1920,
     duration: 3.5,
     frameRate: [30, 1] as [number, number],
+    colorSpace: null,
     alpha: true,
     hasAudio: false,
   };

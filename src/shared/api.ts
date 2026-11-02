@@ -3,7 +3,8 @@
  * sandboxed and reaches the rest of the app only through `window.rezzo`,
  * which the preload script builds from these channel lists.
  */
-import type { AssetFile, AssetKind, AssetStatus, VideoInfo } from './assets.ts';
+import type { AssetFile, AssetKind, AssetStatus, VideoAsset, VideoInfo } from './assets.ts';
+import type { OverlayLayout } from './overlay-files.ts';
 import type { CustomFont } from './fonts.ts';
 import type { FrameRate } from './frames.ts';
 import type { Clip, Project, ProjectFormatError, Source, Transcript, TranscriptLanguage } from './project.ts';
@@ -39,6 +40,12 @@ export type TranscribeResult =
 export type PrepareResult =
   | { ok: true; url: string; start: number; end: number; frameRate: FrameRate }
   | { ok: false; error: 'cancelled' }
+  | { ok: false; error: 'failed'; detail: string };
+
+/** A video layer's working file: where to load it from, the seconds of the layer's file it holds, and its layout. */
+export type OverlayPrepareResult =
+  | { ok: true; url: string; start: number; end: number; frameRate: FrameRate; layout: OverlayLayout }
+  | { ok: false; error: 'missing' }
   | { ok: false; error: 'failed'; detail: string };
 
 export type ExportResult =
@@ -132,6 +139,12 @@ export interface InvokeApi {
    * window cancels an older one.
    */
   'clip:prepare': (source: Source, range: { start: number; end: number }) => PrepareResult;
+  /**
+   * Makes (or finds in the cache) the working file of a video layer's file
+   * for `range` (seconds of that file, see overlayRange) at the clip's
+   * frame rate; progress as overlay:prepare-progress with the same requestId.
+   */
+  'overlay:prepare': (asset: VideoAsset, range: { start: number; end: number }, frameRate: FrameRate, requestId: string) => OverlayPrepareResult;
 
   /**
    * Asks where to save, then exports the clip; resolves when the file is
@@ -170,6 +183,7 @@ export interface EventApi {
   'transcribe:progress': { projectId: string; progress: TranscribeProgress };
   'episode:preview-progress': { fingerprint: string; fraction: number };
   'clip:prepare-progress': { fraction: number };
+  'overlay:prepare-progress': { requestId: string; fraction: number };
   'export:prepare-progress': { fraction: number };
 }
 
@@ -199,6 +213,7 @@ export const INVOKE_CHANNELS = {
   'transcribe:start': true,
   'transcribe:cancel': true,
   'clip:prepare': true,
+  'overlay:prepare': true,
   'export:start': true,
   'export:cancel': true,
   'export:reveal': true,
@@ -218,6 +233,7 @@ export const EVENT_CHANNELS = {
   'transcribe:progress': true,
   'episode:preview-progress': true,
   'clip:prepare-progress': true,
+  'overlay:prepare-progress': true,
   'export:prepare-progress': true,
 } as const satisfies Record<EventChannel, true>;
 

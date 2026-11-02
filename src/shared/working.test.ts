@@ -31,6 +31,12 @@ describe('working file spans', () => {
     expect(parseWorkingFileName('1-2@30-1.v0.mp4')).toBeNull();
     expect(parseWorkingFileName('1-2@30-1.v1.part.mp4')).toBeNull();
   });
+
+  it('keeps versions of different kinds of working file apart', () => {
+    const span = workingSpan({ start: 0, end: 3 }, { duration: 3 }, [30, 1]);
+    expect(parseWorkingFileName(workingFileName(span, 7), 7)).toEqual(span);
+    expect(parseWorkingFileName(workingFileName(span, 7))).toBeNull();
+  });
 });
 
 describe('frames of a clip in its working file', () => {

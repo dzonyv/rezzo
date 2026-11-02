@@ -10,7 +10,7 @@ import { fingerprint } from './fingerprint.ts';
 import { makePreview } from './preview.ts';
 import { probe, probeVideo } from './probe.ts';
 import { transcribe } from './transcribe.ts';
-import { makeWorkingFile } from './working.ts';
+import { makeOverlayFile, makeWorkingFile } from './working.ts';
 import { install } from '../../node/tools/download.ts';
 import { tool } from '../../node/tools/manifest.ts';
 
@@ -33,6 +33,7 @@ const handlers: Handlers = {
   transcribe: (ctx, request) => transcribe(ctx, request),
   makePreview: (ctx, request) => makePreview(ctx, request),
   makeWorkingFile: (ctx, request) => makeWorkingFile(ctx, request),
+  makeOverlayFile: (ctx, request) => makeOverlayFile(ctx, request),
   pickEncoder: () => pickEncoder(),
   encodeExport: (ctx, request) => encodeExport(ctx, request),
 };

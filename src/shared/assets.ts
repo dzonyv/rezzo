@@ -47,6 +47,8 @@ export const videoInfoSchema = z.object({
   duration: z.number().finite().positive(),
   /** Nominal frame rate as a fraction; the working file is converted to the clip's rate anyway. */
   frameRate: z.tuple([z.number().int().positive(), z.number().int().positive()]),
+  /** Colour matrix tag, or null when the file doesn't say. */
+  colorSpace: z.string().nullable(),
   /** Has a transparent background (an alpha channel). */
   alpha: z.boolean(),
   hasAudio: z.boolean(),

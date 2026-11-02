@@ -398,12 +398,14 @@
     "errors": {
       "unreadable": "Taj fajl nije slika koju Rezzo može da pročita.",
       "too-large": "Ta slika je prevelika (preko 100 MB).",
-      "different-file": "To je drugi fajl. Izaberi onaj koji je ovaj projekat koristio."
+      "different-file": "To je drugi fajl. Izaberi onaj koji je ovaj projekat koristio.",
+      "prepare": "Video nije mogao da se pripremi: {{detail}}"
     },
     "units": {
       "percent": "{{value}} %",
       "degrees": "{{value}}°",
       "seconds": "{{value}} s"
-    }
+    },
+    "preparing": "Pripremam video"
   }
 }

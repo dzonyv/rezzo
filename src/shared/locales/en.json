@@ -398,12 +398,14 @@
     "errors": {
       "unreadable": "That file isn't an image Rezzo can read.",
       "too-large": "That image is too large (over 100 MB).",
-      "different-file": "That's a different file. Choose the one this project used."
+      "different-file": "That's a different file. Choose the one this project used.",
+      "prepare": "The video couldn't be prepared: {{detail}}"
     },
     "units": {
       "percent": "{{value}}%",
       "degrees": "{{value}}°",
       "seconds": "{{value}} s"
-    }
+    },
+    "preparing": "Preparing the video"
   }
 }
