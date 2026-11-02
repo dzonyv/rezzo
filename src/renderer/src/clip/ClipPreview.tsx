@@ -13,7 +13,8 @@ import { ClipPlayer, type DrawAt, type LayerSound, type PrepareAt } from '../ren
 import { Compositor, type LayerImage } from '../render/compositor.ts';
 import { forgetOverlayFile, overlayFilesStore, prepareOverlayFiles, readyFiles, retryFailedOverlayFiles, WorkingFileGoneError, type OverlayFile } from '../render/overlay-files.ts';
 import { layerSounds } from '../render/overlay-sound.ts';
-import { assetsOf, loadImages, SceneRenderer } from '../render/scene-renderer.ts';
+import type { LottieData } from '../render/lottie.ts';
+import { assetsOf, loadImages, loadLotties, SceneRenderer } from '../render/scene-renderer.ts';
 import { useSettings } from '../settings.ts';
 import { flatOf } from '../transcript/words.ts';
 import { notify } from '../ui/prompts.ts';
@@ -47,6 +48,7 @@ export function ClipPreview({ clip, source, children }: { clip: Clip; source: So
   const fonts = useSettings((s) => s.fonts);
   const [scene, setScene] = useState<CaptionScene | null>(null);
   const [images, setImages] = useState<ReadonlyMap<string, LayerImage>>(new Map());
+  const [lotties, setLotties] = useState<ReadonlyMap<string, LottieData>>(new Map());
   /** What a player loading in the background will start with. */
   const drawAt = useRef<DrawAt>(() => {});
   const prepareAt = useRef<PrepareAt>(() => Promise.resolve(false));
@@ -89,6 +91,7 @@ export function ClipPreview({ clip, source, children }: { clip: Clip; source: So
         notify('error', i18n.t('layers.errors.prepare', { detail: e instanceof Error ? e.message : String(e) }));
       }
     };
+    r.lotties.onError = (_layerId, e) => notify('error', i18n.t('layers.errors.lottie.play', { detail: e instanceof Error ? e.message : String(e) }));
     setSampler((layerId, assetId, u, v) => c.sampleLayer(layerId, assetId, u, v));
     const resize = new ResizeObserver(() => {
       el.width = Math.round(el.clientWidth * devicePixelRatio);
@@ -187,13 +190,15 @@ export function ClipPreview({ clip, source, children }: { clip: Clip; source: So
     };
   }, [captions, segments, fonts, clip.start, clip.end]);
 
-  // The layers' pictures. One that can't be read is left out, and the editor offers to find it.
+  // The layers' pictures and animations. One that can't be read is left out, and the editor offers to find it.
   useEffect(() => {
     let current = true;
-    void loadImages(used, { onMissing: (a) => current && markMissing(a.id, true) }).then((loaded) => {
+    const onMissing = (a: Asset) => current && markMissing(a.id, true);
+    void Promise.all([loadImages(used, { onMissing }), loadLotties(used, { onMissing })]).then(([loadedImages, loadedLotties]) => {
       if (!current) return;
-      for (const a of used) if (loaded.has(a.id)) markMissing(a.id, false);
-      setImages(loaded);
+      for (const a of used) if (loadedImages.has(a.id) || loadedLotties.has(a.id)) markMissing(a.id, false);
+      setImages(loadedImages);
+      setLotties(loadedLotties);
     });
     return () => {
       current = false;
@@ -225,11 +230,11 @@ export function ClipPreview({ clip, source, children }: { clip: Clip; source: So
   // Anything in the clip changed: redraw the frame on screen.
   useEffect(() => {
     const assets = allAssets ?? [];
-    const s = { clip, assets, captions: scene, images, overlays };
+    const s = { clip, assets, captions: scene, images, overlays, lotties };
     drawAt.current = (time) => renderer.current?.draw(s, time);
     prepareAt.current = (time, sequential) => renderer.current?.prepare(s, time, sequential) ?? Promise.resolve(false);
     currentPlayer()?.setScene(drawAt.current, prepareAt.current);
-  }, [clip, allAssets, scene, images, overlays, generation]);
+  }, [clip, allAssets, scene, images, overlays, lotties, generation]);
 
   return (
     <div className="clip-preview">

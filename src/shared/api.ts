@@ -4,6 +4,7 @@
  * which the preload script builds from these channel lists.
  */
 import type { Asset, AssetFile, AssetKind, AssetStatus, VideoAsset, VideoInfo } from './assets.ts';
+import type { LottieInfo } from './lottie.ts';
 import type { OverlayLayout } from './overlay-files.ts';
 import type { CustomFont } from './fonts.ts';
 import type { FrameRate } from './frames.ts';
@@ -81,11 +82,13 @@ export type AddFontResult =
 
 /**
  * A file for a layer, and a URL the page can read it from; for a video,
- * also what ffprobe found. "too-large": over the limit for its kind.
+ * also what ffprobe found, and for an animation what its JSON says.
+ * "too-large": over the limit for its kind; "external-images": an
+ * animation that shows image files kept beside it.
  */
 export type AddAssetResult =
-  | { ok: true; file: AssetFile; url: string; video?: VideoInfo }
-  | { ok: false; error: 'unreadable' | 'too-large' };
+  | { ok: true; file: AssetFile; url: string; video?: VideoInfo; lottie?: LottieInfo }
+  | { ok: false; error: 'unreadable' | 'too-large' | 'external-images' };
 
 export type LocateAssetResult = AddAssetResult | { ok: false; error: 'different-file' };
 

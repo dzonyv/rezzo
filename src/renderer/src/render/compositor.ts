@@ -5,13 +5,17 @@
  * layers over it in order. The preview shows comp on a canvas; the export
  * converts comp to YUV and reads it back, so both see the same pixels.
  *
- * Images and video layers are drawn as quads, possibly turned, with soft
- * edges. A video layer's frame, and an image with a green screen, first go
- * through PREP into a premultiplied texture of their own: that's where a
- * stacked file's colour and alpha halves come together and where the
- * chroma key works. Captions arrive as a transparent canvas
- * (render/captions.ts). Everything is blended premultiplied, so
- * semi-transparent edges get no dark fringe.
+ * Images, video layers and Lottie animations are drawn as quads, possibly
+ * turned, with soft edges. A video layer's frame, an animation's frame and
+ * an image with a green screen first go through PREP into a premultiplied
+ * texture of their own: that's where a stacked file's colour and alpha
+ * halves come together and where the chroma key works. Captions arrive as
+ * a transparent canvas (render/captions.ts). Everything is blended
+ * premultiplied, so semi-transparent edges get no dark fringe.
+ *
+ * An effect layer changes everything drawn so far: one pass reads comp
+ * and writes the result into a second texture of the same size, and the
+ * two swap places.
  *
  * Inside the offscreen textures row 0 is the TOP of the image, so output
  * rectangles (origin top left) map straight to framebuffer rows, and a
@@ -19,6 +23,7 @@
  * to the canvas flips to WebGL's bottom-up convention.
  */
 import { chromaOf, rgbOf, type ChromaKey } from '../../../shared/chroma-key.ts';
+import type { EffectPass } from '../../../shared/effects.ts';
 import { cropRect, OUTPUT, type FrameRecipe, type Size } from '../../../shared/framing.ts';
 import type { OverlayLayout } from '../../../shared/overlay-files.ts';
 import type { Quad, SceneOp } from '../../../shared/scene.ts';
@@ -135,7 +140,8 @@ void main() {
  * A layer's picture made ready for QUAD: premultiplied, the size of the
  * picture, row 0 at the top. uMode 0: a premultiplied image; 1: a video
  * frame without alpha; 2: a stacked video frame, colour in the top
- * uContent of the rows and alpha as luma from uAlphaAt down. Rows are
+ * uContent of the rows and alpha as luma from uAlphaAt down; 3: a picture
+ * with straight (not premultiplied) alpha, as Lottie renders. Rows are
  * clamped to the colour so linear filtering never reaches the padding or
  * the alpha below. Then the chroma key, the same sums as applyChromaKey in
  * shared/chroma-key.ts.
@@ -155,10 +161,10 @@ void main() {
   vec2 f = gl_FragCoord.xy / uSize;
   vec3 c;
   float a;
-  if (uMode < 0.5) {
+  if (uMode < 0.5 || uMode > 2.5) {
     vec4 t = texture(uTex, f);
     a = t.a;
-    c = a > 0.0 ? t.rgb / a : vec3(0.0);
+    c = uMode > 2.5 ? t.rgb : a > 0.0 ? t.rgb / a : vec3(0.0);
   } else {
     float y = clamp(f.y * uContent, 0.5 * uTexelY, uContent - 0.5 * uTexelY);
     c = texture(uTex, vec2(f.x, y)).rgb;
@@ -183,6 +189,98 @@ void main() {
   }
   o = vec4(c * a, a);
 }`;
+
+/**
+ * Effect passes (shared/effects.ts, EffectPass). Each reads comp at its
+ * own size, so they sample level 0 only: comp's smaller levels are made
+ * for the preview and are a frame old here.
+ */
+const EFFECT_HEADER = `${HEADER}
+uniform sampler2D uTex;
+uniform vec2 uSize;
+const vec3 K = vec3(0.2126, 0.7152, 0.0722);
+vec3 at(vec2 uv) { return textureLod(uTex, uv, 0.0).rgb; }
+float hash(vec2 p) { return fract(sin(dot(p, vec2(12.9898, 78.233))) * 43758.5453); }
+`;
+
+/** Zoom about the centre, a shift (share of the output) and a turn (clockwise): where each output pixel comes from. */
+const CAMERA = `${EFFECT_HEADER}
+uniform float uZoom;
+uniform vec2 uShift;
+uniform float uAngle;
+void main() {
+  vec2 p = gl_FragCoord.xy - 0.5 * uSize - uShift * uSize;
+  float s = sin(-uAngle);
+  float c = cos(-uAngle);
+  vec2 q = vec2(p.x * c - p.y * s, p.x * s + p.y * c) / uZoom;
+  o = vec4(at((q + 0.5 * uSize) / uSize), 1.0);
+}`;
+
+const TINT = `${EFFECT_HEADER}
+uniform vec3 uColor;
+uniform float uAmount;
+void main() {
+  o = vec4(mix(at(gl_FragCoord.xy / uSize), uColor, uAmount), 1.0);
+}`;
+
+/** uGrade: brightness, contrast, saturation, temperature; each -1..1, 0 changes nothing. */
+const GRADE = `${EFFECT_HEADER}
+uniform vec4 uGrade;
+void main() {
+  vec3 c = at(gl_FragCoord.xy / uSize);
+  float b = uGrade.x;
+  c = b > 0.0 ? c + (1.0 - c) * b * 0.6 : c * (1.0 + b * 0.6);
+  c = (c - 0.5) * (1.0 + uGrade.y) + 0.5;
+  c = mix(vec3(dot(c, K)), c, 1.0 + uGrade.z);
+  c += vec3(0.12, 0.02, -0.12) * uGrade.w;
+  o = vec4(clamp(c, 0.0, 1.0), 1.0);
+}`;
+
+/** The sharp picture and a blurred copy (uBlur, smaller), mixed by uAmount. */
+const BLUR_MIX = `${EFFECT_HEADER}
+uniform sampler2D uBlur;
+uniform float uAmount;
+void main() {
+  vec2 uv = gl_FragCoord.xy / uSize;
+  o = vec4(mix(at(uv), texture(uBlur, uv).rgb, uAmount), 1.0);
+}`;
+
+/** Darker towards the corners; uParams.x is how dark, .y how far in it reaches. */
+const VIGNETTE = `${EFFECT_HEADER}
+uniform vec2 uParams;
+void main() {
+  vec2 uv = gl_FragCoord.xy / uSize;
+  float r = length((uv - 0.5) * 2.0) / sqrt(2.0);
+  float inner = mix(0.85, 0.15, uParams.y);
+  o = vec4(at(uv) * (1.0 - uParams.x * smoothstep(inner, 1.0, r)), 1.0);
+}`;
+
+/** Colour channels pulled apart, and some horizontal bands shifted; uSeed picks which. */
+const GLITCH = `${EFFECT_HEADER}
+uniform float uAmount;
+uniform float uSeed;
+void main() {
+  vec2 uv = gl_FragCoord.xy / uSize;
+  float band = floor(uv.y * 28.0);
+  float shift = hash(vec2(band, uSeed)) > 1.0 - 0.35 * uAmount ? (hash(vec2(uSeed, band)) - 0.5) * 0.12 * uAmount : 0.0;
+  vec2 p = uv + vec2(shift, 0.0);
+  float split = 0.012 * uAmount;
+  o = vec4(at(p + vec2(split, 0.0)).r, at(p).g, at(p - vec2(split, 0.0)).b, 1.0);
+}`;
+
+/** Film grain: noise in cells uGrain pixels across, new for every uSeed. */
+const GRAIN = `${EFFECT_HEADER}
+uniform float uAmount;
+uniform float uGrain;
+uniform float uSeed;
+void main() {
+  vec3 c = at(gl_FragCoord.xy / uSize);
+  float n = hash(floor(gl_FragCoord.xy / uGrain) + uSeed * 17.31) - 0.5;
+  o = vec4(clamp(c + n * 0.35 * uAmount, 0.0, 1.0), 1.0);
+}`;
+
+const EFFECT_SOURCES = { camera: CAMERA, tint: TINT, grade: GRADE, blurMix: BLUR_MIX, vignette: VIGNETTE, glitch: GLITCH, grain: GRAIN };
+type EffectProgram = keyof typeof EFFECT_SOURCES;
 
 const DISPLAY = `${HEADER}
 uniform sampler2D uTex;
@@ -250,6 +348,14 @@ interface Prepped {
   made: string;
 }
 
+/** A Lottie layer's latest frame as rendered (straight alpha), before PREP. */
+interface LayerPixels {
+  tex: WebGLTexture;
+  w: number;
+  h: number;
+  version: number;
+}
+
 /** A video layer's latest frame as decoded, before PREP. */
 interface LayerFrame {
   tex: WebGLTexture;
@@ -267,6 +373,8 @@ export class Compositor {
   readonly gl: WebGL2RenderingContext;
   private src: { tex: WebGLTexture; w: number; h: number } | undefined;
   private comp: Target;
+  /** Where an effect pass writes; it then swaps with comp. Made with the first effect. */
+  private compB: Target | undefined;
   private bgA: Target;
   private bgB: Target;
   private programs: Record<'cover' | 'blur' | 'background' | 'draw' | 'overlay' | 'display' | 'prep', WebGLProgram>;
@@ -277,6 +385,10 @@ export class Compositor {
   private images = new Map<string, { tex: WebGLTexture; image: LayerImage }>();
   /** Video layers' latest frames, by layer id. */
   private frames = new Map<string, LayerFrame>();
+  /** Lottie layers' latest frames, by layer id. */
+  private pixels = new Map<string, LayerPixels>();
+  /** Made with the first effect that needs each. */
+  private effectPrograms = new Map<EffectProgram, WebGLProgram>();
   /** Pictures after PREP (video layers, keyed images), by layer id. */
   private prepped = new Map<string, Prepped>();
   private frameVersion = 0;
@@ -345,6 +457,29 @@ export class Compositor {
     }
   }
 
+  /** Copies a Lottie layer's frame in: `w`×`h` RGBA with straight alpha, top row first. */
+  uploadLayerPixels(layerId: string, pixels: Uint8Array, w: number, h: number): void {
+    const gl = this.gl;
+    let held = this.pixels.get(layerId);
+    if (!held || held.w !== w || held.h !== h) {
+      if (held) gl.deleteTexture(held.tex);
+      held = { tex: this.texture(w, h, 1), w, h, version: 0 };
+      this.pixels.set(layerId, held);
+    }
+    gl.bindTexture(gl.TEXTURE_2D, held.tex);
+    gl.texSubImage2D(gl.TEXTURE_2D, 0, 0, 0, w, h, gl.RGBA, gl.UNSIGNED_BYTE, pixels);
+    held.version = ++this.frameVersion;
+  }
+
+  /** Forgets the frames of Lottie layers not in `keep`. */
+  keepLayerPixels(keep: ReadonlySet<string>): void {
+    for (const [id, held] of this.pixels) {
+      if (keep.has(id)) continue;
+      this.gl.deleteTexture(held.tex);
+      this.pixels.delete(id);
+    }
+  }
+
   /**
    * The average colour (RGB 0..255) of a 5×5 patch of a layer's own
    * picture at (u, v), 0..1 from its top left: a video layer's latest frame
@@ -410,7 +545,7 @@ export class Compositor {
       this.gl.deleteTexture(held.tex);
       this.images.delete(id);
     }
-    const drawn = new Set(ops.flatMap((op) => (op.type === 'image' || op.type === 'overlay' ? [op.layerId] : [])));
+    const drawn = new Set(ops.flatMap((op) => (op.type === 'image' || op.type === 'overlay' || op.type === 'lottie' ? [op.layerId] : [])));
     for (const [id, p] of this.prepped) {
       if (drawn.has(id)) continue;
       this.dropTarget(p.target);
@@ -427,6 +562,12 @@ export class Compositor {
         if (!image || image.width === 0) continue;
         const tex = this.imageTexture(op.assetId, image);
         this.drawQuad(op.key ? this.prep(op.layerId, { image, tex }, op.key) : tex, op.quad, op.opacity);
+      } else if (op.type === 'lottie') {
+        // Not rendered yet (the animation is still loading, or it failed): left out.
+        const pixels = this.pixels.get(op.layerId);
+        if (pixels) this.drawQuad(this.prep(op.layerId, { pixels }, null), op.quad, op.opacity);
+      } else if (op.type === 'effect') {
+        this.applyEffect(op.pass);
       } else {
         // No frame yet (its working file is still being made, or it failed): left out.
         const frame = this.frames.get(op.layerId);
@@ -483,12 +624,13 @@ export class Compositor {
    * frame in it or the key changed: a premultiplied image, or a video
    * frame laid out as its layout says.
    */
-  private prep(layerId: string, picture: { image: Size; tex: WebGLTexture } | { frame: LayerFrame }, key: ChromaKey | null): WebGLTexture {
+  private prep(layerId: string, picture: { image: Size; tex: WebGLTexture } | { frame: LayerFrame } | { pixels: LayerPixels }, key: ChromaKey | null): WebGLTexture {
     const gl = this.gl;
     const layout = 'frame' in picture ? picture.frame.layout : null;
-    const tex = 'frame' in picture ? picture.frame.tex : picture.tex;
-    const { width: w, height: h } = 'frame' in picture ? picture.frame.layout : picture.image;
-    const made = `${'frame' in picture ? picture.frame.version : 0}|${keyText(key)}`;
+    const held = 'frame' in picture ? picture.frame : 'pixels' in picture ? picture.pixels : null;
+    const tex = 'tex' in picture ? picture.tex : held!.tex;
+    const { width: w, height: h } = 'frame' in picture ? picture.frame.layout : 'pixels' in picture ? { width: picture.pixels.w, height: picture.pixels.h } : picture.image;
+    const made = `${held?.version ?? 0}|${keyText(key)}`;
     let p = this.prepped.get(layerId);
     if (p && p.from === tex && p.made === made && p.target.w === w && p.target.h === h) return p.target.tex;
     if (!p || p.target.w !== w || p.target.h !== h) {
@@ -501,7 +643,7 @@ export class Compositor {
     this.pass(this.programs.prep, p.target, {
       uTex: tex,
       uSize: [w, h],
-      uMode: !layout ? 0 : layout.alphaAt === null ? 1 : 2,
+      uMode: 'pixels' in picture ? 3 : !layout ? 0 : layout.alphaAt === null ? 1 : 2,
       uContent: layout ? layout.height / coded : 1,
       uAlphaAt: layout?.alphaAt != null ? layout.alphaAt / coded : 0,
       uTexelY: 1 / coded,
@@ -515,6 +657,58 @@ export class Compositor {
     p.from = tex;
     p.made = made;
     return p.target.tex;
+  }
+
+  /** One effect pass over comp (see EFFECT_HEADER); the result becomes comp. */
+  private applyEffect(effect: EffectPass): void {
+    const gl = this.gl;
+    this.compB ??= this.target(OUTPUT.width, OUTPUT.height, mipLevels(OUTPUT.width, OUTPUT.height));
+    const into = this.compB;
+    const base = { uTex: this.comp.tex, uSize: [OUTPUT.width, OUTPUT.height] };
+    switch (effect.pass) {
+      case 'camera':
+        this.pass(this.effectProgram('camera'), into, { ...base, uZoom: effect.zoom, uShift: [effect.x, effect.y], uAngle: effect.rotation });
+        break;
+      case 'tint':
+        this.pass(this.effectProgram('tint'), into, { ...base, uColor: effect.color, uAmount: effect.amount });
+        break;
+      case 'grade':
+        this.pass(this.effectProgram('grade'), into, { ...base, uGrade: [effect.brightness, effect.contrast, effect.saturation, effect.temperature] });
+        break;
+      case 'blur': {
+        // A quarter size copy, blurred with wider steps the stronger it is, then mixed in.
+        gl.bindTexture(gl.TEXTURE_2D, this.comp.tex);
+        gl.generateMipmap(gl.TEXTURE_2D);
+        this.pass(this.programs.cover, this.bgA, { uSrc: this.comp.tex, uRect: [0, 0, 1, 1], uSize: [BG_W, BG_H] });
+        const step = 0.5 + 1.5 * effect.amount;
+        for (let i = 0; i < 2; i++) {
+          this.pass(this.programs.blur, this.bgB, { uTex: this.bgA.tex, uDir: [step, 0], uSize: [BG_W, BG_H] });
+          this.pass(this.programs.blur, this.bgA, { uTex: this.bgB.tex, uDir: [0, step], uSize: [BG_W, BG_H] });
+        }
+        this.pass(this.effectProgram('blurMix'), into, { ...base, uBlur: this.bgA.tex, uAmount: Math.min(1, effect.amount * 4) });
+        break;
+      }
+      case 'vignette':
+        this.pass(this.effectProgram('vignette'), into, { ...base, uParams: [effect.amount, effect.size] });
+        break;
+      case 'glitch':
+        this.pass(this.effectProgram('glitch'), into, { ...base, uAmount: effect.amount, uSeed: effect.seed });
+        break;
+      case 'grain':
+        this.pass(this.effectProgram('grain'), into, { ...base, uAmount: effect.amount, uGrain: effect.size, uSeed: effect.seed });
+        break;
+    }
+    this.compB = this.comp;
+    this.comp = into;
+  }
+
+  private effectProgram(name: EffectProgram): WebGLProgram {
+    let p = this.effectPrograms.get(name);
+    if (!p) {
+      p = this.program(EFFECT_SOURCES[name]);
+      this.effectPrograms.set(name, p);
+    }
+    return p;
   }
 
   private dropTarget(t: Target): void {
@@ -623,14 +817,15 @@ export class Compositor {
    */
   dispose(): void {
     const gl = this.gl;
-    for (const t of [this.comp, this.bgA, this.bgB]) {
-      gl.deleteFramebuffer(t.fbo);
-      gl.deleteTexture(t.tex);
+    for (const t of [this.comp, this.compB, this.bgA, this.bgB]) {
+      if (t) this.dropTarget(t);
     }
     if (this.src) gl.deleteTexture(this.src.tex);
     if (this.overlayTex) gl.deleteTexture(this.overlayTex.tex);
     for (const { tex } of this.images.values()) gl.deleteTexture(tex);
     for (const { tex } of this.frames.values()) gl.deleteTexture(tex);
+    for (const { tex } of this.pixels.values()) gl.deleteTexture(tex);
+    for (const p of this.effectPrograms.values()) gl.deleteProgram(p);
     for (const { target } of this.prepped.values()) this.dropTarget(target);
     for (const p of Object.values(this.programs)) gl.deleteProgram(p);
     gl.deleteProgram(this.quadProgram);
@@ -647,6 +842,9 @@ export class Compositor {
     this.overlayTex = undefined;
     this.images.clear();
     this.frames.clear();
+    this.pixels.clear();
+    this.effectPrograms.clear();
+    this.compB = undefined;
     this.prepped.clear();
     this.packer = undefined;
     this.pbos = [];
@@ -670,6 +868,7 @@ export class Compositor {
         gl.uniform1f(at, value);
       } else if (Array.isArray(value)) {
         if (value.length === 2) gl.uniform2f(at, value[0]!, value[1]!);
+        else if (value.length === 3) gl.uniform3f(at, value[0]!, value[1]!, value[2]!);
         else gl.uniform4f(at, value[0]!, value[1]!, value[2]!, value[3]!);
       } else {
         gl.activeTexture(gl.TEXTURE0 + unit);

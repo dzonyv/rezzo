@@ -107,6 +107,7 @@ export async function renderExport(job: ExportJob, port: MessagePort, clip: Clip
     const r = renderer;
     let layerError: unknown;
     r.layers.onError = (_layerId, e) => (layerError ??= e);
+    r.lotties.onError = (_layerId, e) => (layerError ??= e);
     frames = new FrameSource(media);
 
     const c = compositor;
@@ -132,7 +133,7 @@ export async function renderExport(job: ExportJob, port: MessagePort, clip: Clip
       frame.close();
       const time = workingFrameTime(job, index);
       await r.prepare(scene, time, true);
-      // A video layer that can't be decoded fails the export rather than going missing from it.
+      // A video layer that can't be decoded, or an animation that can't be loaded, fails the export rather than going missing from it.
       if (layerError) throw layerError;
       r.draw(scene, time);
       if (pending.length === SLOTS) await sendOne();
