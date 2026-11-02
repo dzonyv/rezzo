@@ -40,6 +40,18 @@ npm run ipc:lab -- --link=direct --run=export
 
 `--link=relay` (default) posts frames from a Web Worker, `--link=direct` from the page itself. Results land in `<media>/ipc/`.
 
+## Phase 3b check: video layers with alpha
+
+```
+npm run layers:formats       # which overlay formats keep alpha in our FFmpeg
+npm run layers:stacked       # quality of the stacked H.264 layout, plus the lab's overlay files
+npm run layers:convert       # how long the conversion takes, and where the time goes
+npm run layers:lab           # WebCodecs + WebGL: alpha check, playback and seeks with 0-8 overlays
+npm run layers:lab -- --accel=hw --run=play,seek
+```
+
+Everything is synthetic (made with FFmpeg from a generated test pattern) except the main video in the lab, which is real clip A's working file from `ipc:working`. Results land in `<media>/layers/`.
+
 ## 0a: transcription
 
 ```
