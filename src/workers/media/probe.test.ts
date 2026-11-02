@@ -1,5 +1,5 @@
 import { describe, expect, it } from 'vitest';
-import { alphaDecoder, hasAlphaChannel, parseProbe, parseVideoInfo, ProbeError, streamAlpha, type FfprobeJson } from './probe.ts';
+import { alphaDecoder, hasAlphaChannel, isPackedRgba, lowestAlpha, parseProbe, parseVideoInfo, ProbeError, streamAlpha, type FfprobeJson } from './probe.ts';
 
 const video = { index: 0, codec_type: 'video', codec_name: 'h264', width: 1920, height: 1080, r_frame_rate: '30/1', avg_frame_rate: '30/1' };
 const audio = { index: 1, codec_type: 'audio', codec_name: 'aac', sample_rate: '48000', channels: 2 };
@@ -89,5 +89,19 @@ describe('video layer files', () => {
     expect(alphaDecoder('vp9')).toBe('libvpx-vp9');
     expect(alphaDecoder('vp8')).toBe('libvpx');
     expect(alphaDecoder('hevc')).toBeNull();
+  });
+});
+
+describe('transparency in RGBA files', () => {
+  it('only questions packed RGB formats with alpha', () => {
+    for (const f of ['rgba', 'bgra', 'argb', 'abgr', 'rgba64le']) expect(isPackedRgba(f), f).toBe(true);
+    for (const f of ['yuva420p', 'yuva444p12le', 'gbrap', 'yuv420p', undefined]) expect(isPackedRgba(f), String(f)).toBe(false);
+  });
+
+  it('reads the lowest alpha from signalstats', () => {
+    const opaque = 'frame:0    pts:0       pts_time:0\nlavfi.signalstats.YMIN=255\nframe:1    pts:1\nlavfi.signalstats.YMIN=255\n';
+    expect(lowestAlpha(opaque)).toBe(255);
+    expect(lowestAlpha(`${opaque}frame:2\nlavfi.signalstats.YMIN=0\n`)).toBe(0);
+    expect(lowestAlpha('')).toBe(255);
   });
 });

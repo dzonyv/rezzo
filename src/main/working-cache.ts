@@ -31,14 +31,19 @@ export async function findCovering(dir: string, version: number, rate: FrameRate
   const found = (await cachedSpans(dir, version)).find(({ span }) => span.rate.join() === rate.join() && spanCovers(span, range));
   if (!found) return null;
   const now = new Date();
-  await utimes(found.file, now, now);
-  return found;
+  // Gone since the listing (a prune elsewhere): as good as not there.
+  return (await utimes(found.file, now, now).then(() => true, () => false)) ? found : null;
 }
 
-/** Keeps the `keep` most recently used files in `dir`. */
+/**
+ * Keeps the `keep` most recently used files in `dir`. Another prune of the
+ * same folder may delete files under it; those are simply skipped.
+ */
 export async function prune(dir: string, version: number, keep: number): Promise<void> {
   const files = await cachedSpans(dir, version);
-  const dated = await Promise.all(files.map(async ({ file }) => ({ file, at: (await stat(file)).mtimeMs })));
+  const dated = (await Promise.all(files.map(async ({ file }) => ({ file, at: (await stat(file).catch(() => null))?.mtimeMs })))).filter(
+    (d): d is { file: string; at: number } => d.at !== undefined,
+  );
   dated.sort((a, b) => b.at - a.at);
   await Promise.all(dated.slice(keep).map(({ file }) => rm(file, { force: true })));
 }

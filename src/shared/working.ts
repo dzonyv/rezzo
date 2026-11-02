@@ -74,3 +74,14 @@ export function clipFrames(file: WorkingPlacement, range: { start: number; end: 
   const first = workingFrameIndex(file, range.start);
   return { first, count: Math.max(0, workingFrameIndex(file, range.end) - first) };
 }
+
+/**
+ * `range` cut to the frames a file `duration` long has at `rate`. A working
+ * file ends on the last whole frame, so a range reaching the very end of a
+ * file whose length isn't a whole number of frames would never count as
+ * covered by it.
+ */
+export function withinFrames(range: { start: number; end: number }, duration: number, rate: FrameRate): { start: number; end: number } {
+  const last = timeOfFrame(Math.floor(duration * fps(rate)), rate);
+  return { start: Math.min(range.start, last), end: Math.min(range.end, last) };
+}

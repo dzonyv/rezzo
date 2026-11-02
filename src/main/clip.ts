@@ -8,7 +8,7 @@ import { z } from 'zod';
 import type { PrepareResult } from '../shared/api.ts';
 import { workingFrameRate } from '../shared/frames.ts';
 import { MAX_CLIP_SECONDS, sourceSchema, type Source } from '../shared/project.ts';
-import { spanEnd, spanStart, WORKING_VERSION, workingFileName, workingSpan, type WorkingSpan } from '../shared/working.ts';
+import { spanEnd, spanStart, withinFrames, WORKING_VERSION, workingFileName, workingSpan, type WorkingSpan } from '../shared/working.ts';
 import { allowMedia, sourceUrl } from './media-protocol.ts';
 import { cacheDir } from './paths.ts';
 import { callWorker } from './worker-host.ts';
@@ -38,7 +38,7 @@ export async function ensureWorkingFile(
   const dir = path.join(cacheDir(), source.fingerprint, 'work');
 
   // A file made for this clip before it was trimmed, or for an overlapping clip.
-  const cached = await findCovering(dir, WORKING_VERSION, rate, range);
+  const cached = await findCovering(dir, WORKING_VERSION, rate, withinFrames(range, source.duration, rate));
   if (cached) return cached;
 
   const span = workingSpan(range, source, rate);

@@ -426,11 +426,11 @@ export class Compositor {
         // A closed ImageBitmap (let go of after its layer went) is 0×0 and can't be uploaded.
         if (!image || image.width === 0) continue;
         const tex = this.imageTexture(op.assetId, image);
-        this.drawQuad(op.key ? this.prep(op.layerId, tex, 'image', image, null, op.key) : tex, op.quad, op.opacity);
+        this.drawQuad(op.key ? this.prep(op.layerId, { image, tex }, op.key) : tex, op.quad, op.opacity);
       } else {
         // No frame yet (its working file is still being made, or it failed): left out.
         const frame = this.frames.get(op.layerId);
-        if (frame) this.drawQuad(this.prep(op.layerId, frame.tex, `frame ${frame.version}`, frame.layout, frame.layout, op.key), op.quad, op.opacity);
+        if (frame) this.drawQuad(this.prep(op.layerId, { frame }, op.key), op.quad, op.opacity);
       }
     }
   }
@@ -479,14 +479,16 @@ export class Compositor {
   }
 
   /**
-   * The layer's picture through PREP, redone only when its source texture,
-   * `version` or the key changed. `layout` null: `tex` is a premultiplied
-   * image of `size`; else a video frame laid out as `layout` says.
+   * The layer's picture through PREP, redone only when its texture, the
+   * frame in it or the key changed: a premultiplied image, or a video
+   * frame laid out as its layout says.
    */
-  private prep(layerId: string, tex: WebGLTexture, version: string, size: Size, layout: OverlayLayout | null, key: ChromaKey | null): WebGLTexture {
+  private prep(layerId: string, picture: { image: Size; tex: WebGLTexture } | { frame: LayerFrame }, key: ChromaKey | null): WebGLTexture {
     const gl = this.gl;
-    const { width: w, height: h } = size;
-    const made = `${version}|${keyText(key)}`;
+    const layout = 'frame' in picture ? picture.frame.layout : null;
+    const tex = 'frame' in picture ? picture.frame.tex : picture.tex;
+    const { width: w, height: h } = 'frame' in picture ? picture.frame.layout : picture.image;
+    const made = `${'frame' in picture ? picture.frame.version : 0}|${keyText(key)}`;
     let p = this.prepped.get(layerId);
     if (p && p.from === tex && p.made === made && p.target.w === w && p.target.h === h) return p.target.tex;
     if (!p || p.target.w !== w || p.target.h !== h) {

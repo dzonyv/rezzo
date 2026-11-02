@@ -45,7 +45,7 @@ export type PrepareResult =
 /** A video layer's working file: where to load it from, the seconds of the layer's file it holds, and its layout. */
 export type OverlayPrepareResult =
   | { ok: true; url: string; start: number; end: number; frameRate: FrameRate; layout: OverlayLayout }
-  | { ok: false; error: 'missing' }
+  | { ok: false; error: 'missing' | 'cancelled' }
   | { ok: false; error: 'failed'; detail: string };
 
 export type ExportResult =
@@ -145,6 +145,8 @@ export interface InvokeApi {
    * frame rate; progress as overlay:prepare-progress with the same requestId.
    */
   'overlay:prepare': (asset: VideoAsset, range: { start: number; end: number }, frameRate: FrameRate, requestId: string) => OverlayPrepareResult;
+  /** The page no longer needs that overlay:prepare; it resolves as "cancelled". */
+  'overlay:cancel': (requestId: string) => void;
 
   /**
    * Asks where to save, then exports the clip; resolves when the file is
@@ -214,6 +216,7 @@ export const INVOKE_CHANNELS = {
   'transcribe:cancel': true,
   'clip:prepare': true,
   'overlay:prepare': true,
+  'overlay:cancel': true,
   'export:start': true,
   'export:cancel': true,
   'export:reveal': true,

@@ -1,7 +1,7 @@
 import { describe, expect, it } from 'vitest';
 import { timeOfFrame, type FrameRate } from './frames.ts';
 import {
-  clipFrames, parseWorkingFileName, spanCovers, spanEnd, spanStart, workingFileName, workingFrameIndex, workingFrameTime, workingSpan,
+  clipFrames, parseWorkingFileName, spanCovers, spanEnd, spanStart, withinFrames, workingFileName, workingFrameIndex, workingFrameTime, workingSpan,
 } from './working.ts';
 
 describe('working file spans', () => {
@@ -62,5 +62,15 @@ describe('frames of a clip in its working file', () => {
     const file = { start: 10, frameRate: [25, 1] as FrameRate };
     expect(workingFrameIndex(file, 10.079)).toBe(1);
     expect(workingFrameIndex(file, 10.08)).toBe(2);
+  });
+});
+
+describe('ranges within a file', () => {
+  it('stops a range at the last whole frame, so a file ending mid-frame still covers it', () => {
+    const range = withinFrames({ start: 0, end: 2.016 }, 2.016, [30, 1]);
+    expect(range).toEqual({ start: 0, end: 2 });
+    const span = workingSpan(range, { duration: 2.016 }, [30, 1]);
+    expect(spanCovers(span, range)).toBe(true);
+    expect(withinFrames({ start: 3, end: 4 }, 2.016, [30, 1])).toEqual({ start: 2, end: 2 });
   });
 });

@@ -10,7 +10,7 @@ import { z } from 'zod';
 import { EXPORT_PORT_MESSAGE, type ExportJob, type ExportResult } from '../shared/api.ts';
 import { assetSchema, type Asset } from '../shared/assets.ts';
 import { fps, type FrameRate } from '../shared/frames.ts';
-import { overlayRange, overlaySoundPieces } from '../shared/overlay-files.ts';
+import { overlayRange, overlaySoundPieces, videoLayersOf } from '../shared/overlay-files.ts';
 import { clipSchema, sourceSchema, type Clip } from '../shared/project.ts';
 import type { ExportSound } from '../shared/worker-api.ts';
 import { translate } from '../shared/translate.ts';
@@ -39,17 +39,29 @@ async function chooseExportFile(win: BrowserWindow, clipName: string): Promise<s
 
 /**
  * The video layers' sound in the clip, from their working files at `rate`
- * (made now if they aren't in the cache). Times are from the clip's start.
+ * (made now if they aren't in the cache, reporting 0..1 as they are).
+ * Times are from the clip's start.
  */
-async function layerSounds(clip: Clip, assets: readonly Asset[], range: { start: number; end: number }, rate: FrameRate): Promise<ExportSound[]> {
+async function layerSounds(
+  clip: Clip,
+  assets: readonly Asset[],
+  range: { start: number; end: number },
+  rate: FrameRate,
+  { signal, onProgress }: { signal: AbortSignal; onProgress: (fraction: number) => void },
+): Promise<ExportSound[]> {
+  const heard = videoLayersOf(clip, assets).filter(({ layer, asset }) => layer.volume > 0 && asset.hasAudio);
+  const done = heard.map(() => 0);
   const sounds = await Promise.all(
-    clip.layers.map(async (layer) => {
-      if (layer.kind !== 'overlay' || layer.volume <= 0) return [];
-      const asset = assets.find((a) => a.id === layer.assetId);
-      if (asset?.kind !== 'video' || !asset.hasAudio) return [];
+    heard.map(async ({ layer, asset }, i) => {
       const pieces = overlaySoundPieces(layer, asset.duration, range);
       if (pieces.length === 0) return [];
-      const { file, span } = await ensureOverlayFile(asset, overlayRange(layer, asset), rate);
+      const { file, span } = await ensureOverlayFile(asset, overlayRange(layer, asset), rate, {
+        signal,
+        onProgress: (fraction) => {
+          done[i] = fraction;
+          onProgress(done.reduce((a, b) => a + b, 0) / done.length);
+        },
+      });
       const fileStart = spanStart(span);
       return pieces.map((p) => ({ file, start: Math.max(0, p.from - fileStart), duration: p.duration, at: p.at - range.start, volume: layer.volume }));
     }),
@@ -89,7 +101,7 @@ export async function startExport(win: BrowserWindow, sourceArg: unknown, clipAr
     const encoder = await callWorker('pickEncoder', []);
     const placement = { start: spanStart(span), frameRate: span.rate };
     const { first, count } = clipFrames(placement, range);
-    const sounds = await layerSounds(clip, assets, range, span.rate);
+    const sounds = await layerSounds(clip, assets, range, span.rate, { signal: abort.signal, onProgress: progress });
     abort.signal.throwIfAborted();
 
     const { port1, port2 } = new MessageChannelMain();

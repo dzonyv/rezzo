@@ -5,7 +5,7 @@
  * frame. A file with alpha is "stacked": colour in the top half, alpha as
  * brightness in the bottom half (spikes/REPORT.md, Phase 3 checks).
  */
-import type { VideoAsset } from './assets.ts';
+import type { Asset, VideoAsset } from './assets.ts';
 import { OUTPUT, type Size } from './framing.ts';
 import { MAX_CLIP_SECONDS, type Clip, type OverlayLayer } from './project.ts';
 import { showsAt } from './scene.ts';
@@ -130,4 +130,13 @@ export function videoLayersOverLimit(clip: Pick<Clip, 'layers'>): Set<string> {
     }
   }
   return over;
+}
+
+/** The clip's video layers with their files, bottom first; a layer whose file isn't a video in `assets` is left out. */
+export function videoLayersOf(clip: Pick<Clip, 'layers'>, assets: readonly Asset[]): { layer: OverlayLayer; asset: VideoAsset }[] {
+  return clip.layers.flatMap((layer) => {
+    if (layer.kind !== 'overlay') return [];
+    const asset = assets.find((a) => a.id === layer.assetId);
+    return asset?.kind === 'video' ? [{ layer, asset }] : [];
+  });
 }

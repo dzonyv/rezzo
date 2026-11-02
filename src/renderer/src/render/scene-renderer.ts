@@ -8,6 +8,7 @@ import type { Asset, ImageAsset } from '../../../shared/assets.ts';
 import { OUTPUT } from '../../../shared/framing.ts';
 import type { FrameRate } from '../../../shared/frames.ts';
 import { captionLayerOf, timedLayers, type Clip, type Word } from '../../../shared/project.ts';
+import { videoLayersOf } from '../../../shared/overlay-files.ts';
 import { sceneAt } from '../../../shared/scene.ts';
 import { CaptionPainter, loadCaptionScene, type CaptionScene } from './captions.ts';
 import type { Compositor, LayerImage } from './compositor.ts';
@@ -72,14 +73,11 @@ export async function loadOverlayFiles(clip: Clip, assets: readonly Asset[], rat
   const files = new Map<string, OverlayFile>();
   const missing = new Set<string>();
   await Promise.all(
-    clip.layers.map(async (layer) => {
-      if (layer.kind !== 'overlay') return;
-      const asset = assets.find((a) => a.id === layer.assetId);
-      if (asset?.kind !== 'video') return;
+    videoLayersOf(clip, assets).map(async ({ layer, asset }) => {
       const state = await requestOverlayFile(layer, asset, rate);
-      if (state.status === 'ready') files.set(layer.id, state.file);
-      else if (state.status === 'missing') missing.add(asset.name);
-      else if (state.status === 'failed') throw new Error(state.detail);
+      if (state?.status === 'ready') files.set(layer.id, state.file);
+      else if (state?.status === 'missing') missing.add(asset.name);
+      else if (state?.status === 'failed') throw new Error(state.detail);
     }),
   );
   if (missing.size > 0) throw new MissingFilesError([...missing].sort());

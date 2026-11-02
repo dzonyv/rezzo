@@ -15,7 +15,7 @@ import { workingFrameIndex } from '../../../shared/working.ts';
 import type { Compositor } from './compositor.ts';
 import { demux } from './demux.ts';
 import { FrameSource } from './frame-source.ts';
-import type { OverlayFile } from './overlay-files.ts';
+import { workingFileBytes, WorkingFileGoneError, type OverlayFile } from './overlay-files.ts';
 
 /** Further ahead than this, playback restarts the decoder rather than decoding its way there. */
 const MAX_FORWARD = 30;
@@ -35,13 +35,15 @@ interface Entry {
 }
 
 async function open(file: OverlayFile): Promise<FrameSource> {
-  const response = await fetch(file.url);
-  if (!response.ok) throw new Error(`loading a video layer's working file failed: ${response.status}`);
-  return new FrameSource(await demux(await response.arrayBuffer()));
+  return new FrameSource(await demux(await workingFileBytes(file.url)));
 }
 
 export class LayerFrames {
-  /** Called once per layer whose file can't be decoded; that layer is then left out. */
+  /**
+   * Called once per layer whose file can't be decoded; that layer is then
+   * left out. A WorkingFileGoneError leaves it out only until its file comes
+   * back under the same URL.
+   */
   onError: ((layerId: string, error: unknown) => void) | undefined;
 
   private readonly compositor: Compositor;
@@ -79,7 +81,9 @@ export class LayerFrames {
           entry.shown = index;
           return true;
         } catch (e) {
-          entry.failed = true;
+          // A file that's gone can come back (made again) under the same URL; anything else won't get better.
+          if (e instanceof WorkingFileGoneError) this.forget(op.layerId);
+          else entry.failed = true;
           this.onError?.(op.layerId, e);
           return false;
         }

@@ -1,6 +1,6 @@
 import type { VideoInfo } from '../../shared/assets.ts';
 import type { ProbeResult } from '../../shared/worker-api.ts';
-import { exec, ffprobeExe } from './exec.ts';
+import { exec, ffmpegExe, ffprobeExe } from './exec.ts';
 
 interface FfprobeStream {
   index: number;
@@ -112,6 +112,32 @@ export function streamAlpha(stream: Pick<FfprobeStream, 'pix_fmt' | 'tags'>): bo
 }
 
 /** The first real video stream; cover images show up as a video stream marked "attached_pic". */
+/**
+ * Packed RGB formats with an alpha channel. GIF always decodes to one of
+ * these and screen recordings in QuickTime Animation often do, transparent
+ * or not, so for them the channel alone doesn't mean a transparent background.
+ */
+export const isPackedRgba = (pixFmt: string | undefined): boolean => /^(rgba|bgra|argb|abgr)/.test(pixFmt ?? '');
+
+/** Frames looked at for transparent pixels; a GIF that turns transparent later than this is taken as opaque. */
+const ALPHA_CHECK_FRAMES = 60;
+
+/** The lowest alpha in signalstats output for the alpha plane (lavfi.signalstats.YMIN per frame); 255 when there's none. */
+export function lowestAlpha(metadata: string): number {
+  let lowest = 255;
+  for (const m of metadata.matchAll(/lavfi\.signalstats\.YMIN=(\d+)/g)) lowest = Math.min(lowest, Number(m[1]));
+  return lowest;
+}
+
+/** Whether any of the first frames of stream `index` has a pixel that isn't fully opaque. */
+async function hasTransparentPixels(file: string, index: number): Promise<boolean> {
+  const { stdout } = await exec(ffmpegExe(), [
+    '-v', 'error', '-i', file, '-map', `0:${index}`, '-frames:v', String(ALPHA_CHECK_FRAMES),
+    '-vf', 'alphaextract,signalstats,metadata=print:key=lavfi.signalstats.YMIN:file=-', '-f', 'null', '-',
+  ]);
+  return lowestAlpha(stdout) < 255;
+}
+
 function videoStreamOf(json: FfprobeJson): FfprobeStream & { width: number; height: number } {
   const video = (json.streams ?? []).find((s) => s.codec_type === 'video' && !s.disposition?.attached_pic);
   if (!video || !video.width || !video.height) throw new ProbeError('no-video', 'no video stream');
@@ -155,7 +181,13 @@ export async function probeVideo(file: string): Promise<VideoInfo> {
   }
   const video = videoStreamOf(json);
   let alpha = streamAlpha(video);
-  if (alpha === null) {
+  if (alpha && isPackedRgba(video.pix_fmt)) {
+    try {
+      alpha = await hasTransparentPixels(file, video.index);
+    } catch (e) {
+      throw new ProbeError('unreadable', String(e));
+    }
+  } else if (alpha === null) {
     try {
       const decoder = alphaDecoder(video.codec_name ?? '');
       const { stdout } = await exec(ffprobeExe(), [

@@ -2,9 +2,10 @@
  * Plays a clip from its working file through the compositor.
  *
  * The working file is fetched once; its video goes to WebCodecs and its
- * audio to Web Audio, where the video layers' sound joins it (setSounds). While playing, the audio clock decides which frame is
- * due: frames that come too late are skipped, never the sound. While paused,
- * seeks are merged so only the latest one is decoded.
+ * audio to Web Audio, where the video layers' sound joins it (setSounds).
+ * While playing, the audio clock decides which frame is due: frames that
+ * come too late are skipped, never the sound. While paused, seeks are
+ * merged so only the latest one is decoded.
  *
  * Times are source seconds, like everywhere in the project. Each frame is
  * drawn with everything in the clip at that frame's own time, as the

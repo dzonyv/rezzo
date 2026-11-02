@@ -11,7 +11,7 @@ import type { OverlayPrepareResult } from '../shared/api.ts';
 import { videoAssetSchema, type VideoAsset } from '../shared/assets.ts';
 import type { FrameRate } from '../shared/frames.ts';
 import { OVERLAY_VERSION, overlayLayout } from '../shared/overlay-files.ts';
-import { spanEnd, spanStart, workingFileName, workingSpan, type WorkingSpan } from '../shared/working.ts';
+import { spanEnd, spanStart, withinFrames, workingFileName, workingSpan, type WorkingSpan } from '../shared/working.ts';
 import { allowMedia, assetUrl } from './media-protocol.ts';
 import { cacheDir } from './paths.ts';
 import { callWorker } from './worker-host.ts';
@@ -27,30 +27,38 @@ const rateSchema = z.tuple([z.number().int().positive(), z.number().int().positi
 
 /**
  * Conversions under way, by output file. Two layers showing the same part
- * of the same file (or the preview and an export) wait for one conversion.
+ * of the same file (or the preview and an export) wait for one conversion;
+ * it's cancelled once nobody waits for it any more.
  */
-const running = new Map<string, { done: Promise<void>; listeners: Set<(fraction: number) => void> }>();
+const running = new Map<string, { done: Promise<void>; listeners: Set<(fraction: number) => void>; waiting: number; abort: AbortController }>();
+
+/** Preview requests by the id the page gave them, so the page can cancel one it no longer needs. */
+const requests = new Map<string, AbortController>();
 
 /**
  * A working file holding `range` (seconds of the layer's file) at `rate`:
  * one from the cache if it covers the range, else a new one. Rejects when
- * the conversion fails.
+ * the conversion fails, or when `signal` aborts this caller's wait.
  */
 export async function ensureOverlayFile(
   asset: VideoAsset,
-  range: { start: number; end: number },
+  rangeArg: { start: number; end: number },
   rate: FrameRate,
-  onProgress?: (fraction: number) => void,
+  { onProgress, signal }: { onProgress?: (fraction: number) => void; signal?: AbortSignal } = {},
 ): Promise<{ file: string; span: WorkingSpan }> {
+  signal?.throwIfAborted();
+  const range = withinFrames(rangeArg, asset.duration, rate);
   const dir = path.join(cacheDir(), asset.fingerprint, 'overlay');
   const cached = await findCovering(dir, OVERLAY_VERSION, rate, range);
   if (cached) return cached;
+  signal?.throwIfAborted();
 
   const span = workingSpan(range, asset, rate);
   const file = path.join(dir, workingFileName(span, OVERLAY_VERSION));
   let job = running.get(file);
   if (!job) {
     const listeners = new Set<(fraction: number) => void>();
+    const abort = new AbortController();
     const { width, height } = overlayLayout(asset);
     const done = callWorker(
       'makeOverlayFile',
@@ -67,18 +75,27 @@ export async function ensureOverlayFile(
         height,
         out: file,
       }],
-      { onProgress: (fraction) => listeners.forEach((l) => l(fraction as number)) },
+      { signal: abort.signal, onProgress: (fraction) => listeners.forEach((l) => l(fraction as number)) },
     )
-      .then(() => prune(dir, OVERLAY_VERSION, KEEP))
+      // Tidying the cache is a courtesy; failing at it doesn't fail the file.
+      .then(() => prune(dir, OVERLAY_VERSION, KEEP).catch(() => {}))
       .finally(() => running.delete(file));
-    job = { done, listeners };
+    // Seen by whoever waits; this only keeps an abandoned one from counting as unhandled.
+    done.catch(() => {});
+    job = { done, listeners, waiting: 0, abort };
     running.set(file, job);
   }
-  if (onProgress) job.listeners.add(onProgress);
+  const j = job;
+  if (onProgress) j.listeners.add(onProgress);
+  j.waiting++;
   try {
-    await job.done;
+    await new Promise<void>((resolve, reject) => {
+      j.done.then(resolve, reject);
+      signal?.addEventListener('abort', () => reject(signal.reason), { once: true });
+    });
   } finally {
-    if (onProgress) job.listeners.delete(onProgress);
+    if (onProgress) j.listeners.delete(onProgress);
+    if (--j.waiting === 0 && running.get(file) === j) j.abort.abort();
   }
   return { file, span };
 }
@@ -95,12 +112,25 @@ export async function prepareOverlay(sender: WebContents, assetArg: unknown, ran
   } catch {
     return { ok: false, error: 'missing' };
   }
+  const abort = new AbortController();
+  requests.set(id, abort);
   try {
-    const { file, span } = await ensureOverlayFile(asset, range, rate, (fraction) => {
-      if (!sender.isDestroyed()) sender.send('overlay:prepare-progress', { requestId: id, fraction });
+    const { file, span } = await ensureOverlayFile(asset, range, rate, {
+      signal: abort.signal,
+      onProgress: (fraction) => {
+        if (!sender.isDestroyed()) sender.send('overlay:prepare-progress', { requestId: id, fraction });
+      },
     });
     return { ok: true, url: allowMedia(file), start: spanStart(span), end: spanEnd(span), frameRate: span.rate, layout: overlayLayout(asset) };
   } catch (e) {
+    if (abort.signal.aborted) return { ok: false, error: 'cancelled' };
     return { ok: false, error: 'failed', detail: e instanceof Error ? e.message : String(e) };
+  } finally {
+    requests.delete(id);
   }
+}
+
+/** The page no longer needs this request (the layer changed or went); its conversion stops if nobody else waits for it. */
+export function cancelOverlay(requestId: unknown): void {
+  requests.get(z.string().parse(requestId))?.abort();
 }

@@ -1,5 +1,5 @@
 import { describe, expect, it } from 'vitest';
-import { overlayLayout, overlayRange, overlaySize, overlaySoundPieces, stackedHalf, videoLayersOverLimit } from './overlay-files.ts';
+import { overlayLayout, overlayRange, overlaySize, overlaySoundPieces, stackedHalf, videoLayersOf, videoLayersOverLimit } from './overlay-files.ts';
 
 describe('video layer files', () => {
   it('shrinks a file to fit the output frame, never enlarging it', () => {
@@ -70,5 +70,19 @@ describe('the limit on video layers', () => {
     expect(videoLayersOverLimit(clip(...four, video(3, 8)))).toEqual(new Set(['v3-8']));
     // The topmost one goes, whichever started first.
     expect(videoLayersOverLimit(clip(video(3, 8), ...four))).toEqual(new Set(['v0-4#3']));
+  });
+});
+
+describe('video layers with their files', () => {
+  it('pairs each video layer with its video asset, leaving out the rest', () => {
+    const asset = { id: 'a', kind: 'video' } as never;
+    const image = { id: 'i', kind: 'image' } as never;
+    const layers = [
+      { id: 'v', kind: 'video' },
+      { id: 'o1', kind: 'overlay', assetId: 'a' },
+      { id: 'o2', kind: 'overlay', assetId: 'i' },
+      { id: 'o3', kind: 'overlay', assetId: 'gone' },
+    ];
+    expect(videoLayersOf({ layers } as never, [asset, image]).map((x) => x.layer.id)).toEqual(['o1']);
   });
 });

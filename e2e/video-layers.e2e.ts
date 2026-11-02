@@ -12,7 +12,7 @@
  * editor.
  */
 import { execFile } from 'node:child_process';
-import { mkdtemp, readFile, rm, stat, writeFile } from 'node:fs/promises';
+import { mkdtemp, readdir, readFile, rm, stat, writeFile } from 'node:fs/promises';
 import { tmpdir } from 'node:os';
 import path from 'node:path';
 import { promisify } from 'node:util';
@@ -326,5 +326,32 @@ describe('editing video layers', () => {
     expect(b).toBeLessThan(60);
     // Picking from the layer's own picture: the keyed layer above it doesn't change the answer.
     expect(await page.getByText('Click the colour to remove').count()).toBe(0);
+  });
+
+  it('converts a long video only for the part it plays, and only once a change of it settles', async () => {
+    // Make room under the limit: the green video added above goes.
+    await page.keyboard.press('Delete');
+    const long = path.join(dir, 'long.mp4');
+    await run(ffmpegExe(), ['-y', '-v', 'error', '-f', 'lavfi', '-i', 'testsrc2=s=320x180:r=30:d=200', '-c:v', 'libx264', '-preset', 'ultrafast', '-pix_fmt', 'yuv420p', long]);
+    await goTo(START);
+    await answerOpenDialog(app!, long);
+    await page.locator('.add-menu summary').click();
+    await page.locator('.add-menu').getByRole('button', { name: 'Video' }).click();
+    await page.getByRole('heading', { name: 'Video: long.mp4' }).waitFor();
+
+    // Quick changes of where it starts: only the last one is converted.
+    const slider = page.getByRole('slider', { name: 'Start in the video' });
+    for (const offset of ['20', '60', '100', '140']) await slider.fill(offset);
+    // Saved, to read the file's fingerprint: its cache folder is named after it.
+    await layers();
+    const longAsset = (JSON.parse(await readFile(file, 'utf8')) as Project).assets.find((a) => a.name === 'long.mp4')!;
+    const overlayDir = path.join(dir, 'local', 'cache', longAsset.fingerprint, 'overlay');
+    const made = async () => (await readdir(overlayDir).catch(() => [] as string[])).filter((n) => !n.includes('.part'));
+    // 140 s in, less the 2 s margin, at 30 fps: the file starts at frame 4140.
+    await expect.poll(async () => (await made()).some((n) => n.startsWith('4140-')), { timeout: 30_000 }).toBe(true);
+    const names = await made();
+    for (const skipped of [540, 1740, 2940]) expect(names.some((n) => n.startsWith(`${skipped}-`)), `a file from frame ${skipped}`).toBe(false);
+    // The one for its first place (from 0 s) may have finished before the changes came; nothing else.
+    expect(names.length).toBeLessThanOrEqual(2);
   });
 });

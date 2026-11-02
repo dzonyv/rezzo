@@ -4,10 +4,10 @@
  * overlaySoundPieces, as the export places it.
  */
 import type { Asset } from '../../../shared/assets.ts';
-import { overlaySoundPieces } from '../../../shared/overlay-files.ts';
+import { overlaySoundPieces, videoLayersOf } from '../../../shared/overlay-files.ts';
 import type { Clip } from '../../../shared/project.ts';
 import type { LayerSound } from './clip-player.ts';
-import type { OverlayFile } from './overlay-files.ts';
+import { workingFileBytes, type OverlayFile } from './overlay-files.ts';
 
 /** Decoded sound by working file URL; null for a file without sound. */
 const decoded = new Map<string, Promise<AudioBuffer | null>>();
@@ -15,9 +15,9 @@ const decoded = new Map<string, Promise<AudioBuffer | null>>();
 function soundOf(url: string): Promise<AudioBuffer | null> {
   let held = decoded.get(url);
   if (!held) {
-    held = fetch(url)
-      .then((r) => (r.ok ? r.arrayBuffer() : Promise.reject(new Error(`loading a video layer's sound failed: ${r.status}`))))
-      .then((bytes) => new OfflineAudioContext(2, 1, 48_000).decodeAudioData(bytes))
+    held = workingFileBytes(url)
+      // decodeAudioData takes the buffer over, and the picture's decoder still reads it: a copy.
+      .then((bytes) => new OfflineAudioContext(2, 1, 48_000).decodeAudioData(bytes.slice(0)))
       .catch(() => null);
     decoded.set(url, held);
   }
@@ -32,11 +32,9 @@ function soundOf(url: string): Promise<AudioBuffer | null> {
 export async function layerSounds(clip: Clip, assets: readonly Asset[], files: ReadonlyMap<string, OverlayFile>): Promise<LayerSound[]> {
   const used = new Set<string>();
   const sounds = await Promise.all(
-    clip.layers.map(async (layer): Promise<LayerSound | null> => {
-      if (layer.kind !== 'overlay') return null;
-      const asset = assets.find((a) => a.id === layer.assetId);
+    videoLayersOf(clip, assets).map(async ({ layer, asset }): Promise<LayerSound | null> => {
       const file = files.get(layer.id);
-      if (asset?.kind !== 'video' || !asset.hasAudio || !file) return null;
+      if (!asset.hasAudio || !file) return null;
       used.add(file.url);
       const pieces = overlaySoundPieces(layer, asset.duration, clip);
       const buffer = pieces.length > 0 ? await soundOf(file.url) : null;
