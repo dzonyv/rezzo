@@ -1,5 +1,5 @@
 import { describe, expect, it } from 'vitest';
-import { overlayLayout, overlayRange, overlaySize, stackedHalf } from './overlay-files.ts';
+import { overlayLayout, overlayRange, overlaySize, overlaySoundPieces, stackedHalf } from './overlay-files.ts';
 
 describe('video layer files', () => {
   it('shrinks a file to fit the output frame, never enlarging it', () => {
@@ -34,5 +34,28 @@ describe('video layer files', () => {
     // Looping past the end of a long file needs all of it.
     expect(overlayRange({ ...layer, offset: 598, loop: true }, { duration: 600 })).toEqual({ start: 0, end: 600 });
     expect(overlayRange({ ...layer, loop: true }, { duration: 600 })).toEqual({ start: 3, end: 7 });
+  });
+});
+
+describe('video layer sound', () => {
+  const clip = { start: 10, end: 20 };
+
+  it('plays once from the offset, stopping at the end of the file', () => {
+    expect(overlaySoundPieces({ start: 12, end: 18, offset: 1, loop: false }, 3, clip)).toEqual([{ at: 12, from: 1, duration: 2 }]);
+    expect(overlaySoundPieces({ start: 12, end: 18, offset: 5, loop: false }, 3, clip)).toEqual([]);
+  });
+
+  it('starts over at the end of the file when it loops', () => {
+    const pieces = overlaySoundPieces({ start: 12, end: 18, offset: 1, loop: true }, 2.5, clip);
+    expect(pieces.map((p) => [p.at, p.from, p.duration].map((v) => +v.toFixed(6)))).toEqual([
+      [12, 1, 1.5],
+      [13.5, 0, 2.5],
+      [16, 0, 2],
+    ]);
+  });
+
+  it('keeps to the clip', () => {
+    // The layer starts before the clip: its sound is already 3 s in at the clip's start.
+    expect(overlaySoundPieces({ start: 7, end: 25, offset: 0, loop: false }, 60, clip)).toEqual([{ at: 10, from: 3, duration: 10 }]);
   });
 });

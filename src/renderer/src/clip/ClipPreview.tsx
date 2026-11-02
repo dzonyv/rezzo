@@ -8,9 +8,10 @@ import { captionLayerOf, type Clip, type Source } from '../../../shared/project.
 import { markMissing } from '../project/assets.ts';
 import { useProject } from '../project/store.ts';
 import { loadCaptionScene, type CaptionScene } from '../render/captions.ts';
-import { ClipPlayer, type DrawAt, type PrepareAt } from '../render/clip-player.ts';
+import { ClipPlayer, type DrawAt, type LayerSound, type PrepareAt } from '../render/clip-player.ts';
 import { Compositor, type LayerImage } from '../render/compositor.ts';
 import { overlayFilesStore, prepareOverlayFiles, readyFiles } from '../render/overlay-files.ts';
+import { layerSounds } from '../render/overlay-sound.ts';
 import { assetsOf, loadImages, SceneRenderer } from '../render/scene-renderer.ts';
 import { useSettings } from '../settings.ts';
 import { flatOf } from '../transcript/words.ts';
@@ -49,6 +50,8 @@ export function ClipPreview({ clip, source, children }: { clip: Clip; source: So
   const prepareAt = useRef<PrepareAt>(() => Promise.resolve(false));
   const overlayStates = useStore(overlayFilesStore, (s) => s.files);
   const overlays = useMemo(() => readyFiles(overlayStates), [overlayStates]);
+  /** The video layers' sound, for a player that loads later too. */
+  const sounds = useRef<LayerSound[]>([]);
 
   // The files the layers show, as a value that changes only when they do (not when a layer moves).
   const usedJson = JSON.stringify(assetsOf(clip, allAssets ?? []));
@@ -126,6 +129,7 @@ export function ClipPreview({ clip, source, children }: { clip: Clip; source: So
           }
           player.onError = (e) => clipPlaybackStore.setState({ status: 'failed', error: String(e) });
           player.setScene(drawAt.current, prepareAt.current);
+          player.setSounds(sounds.current);
           setPlayer(player);
           clipPlaybackStore.setState({ status: 'ready' });
         } catch (e) {
@@ -173,6 +177,19 @@ export function ClipPreview({ clip, source, children }: { clip: Clip; source: So
   useEffect(() => {
     prepareOverlayFiles(clip, allAssets ?? [], workingFrameRate(source));
   }, [clip, allAssets, source]);
+
+  // The video layers' sound, once their working files are there.
+  useEffect(() => {
+    let current = true;
+    void layerSounds(clip, allAssets ?? [], overlays).then((s) => {
+      if (!current) return;
+      sounds.current = s;
+      currentPlayer()?.setSounds(s);
+    });
+    return () => {
+      current = false;
+    };
+  }, [clip, allAssets, overlays]);
 
   // Anything in the clip changed: redraw the frame on screen.
   useEffect(() => {

@@ -69,7 +69,7 @@ function registerHandlers(): void {
   handle('clip:prepare', ({ window }, source, range) => prepareClip(window.webContents, source, range));
   handle('overlay:prepare', ({ window }, asset, range, rate, requestId) => prepareOverlay(window.webContents, asset, range, rate, requestId));
 
-  handle('export:start', ({ window }, source, clip) => startExport(window, source, clip));
+  handle('export:start', ({ window }, source, clip, assets) => startExport(window, source, clip, assets));
   handle('export:cancel', () => cancelExport());
   handle('export:reveal', () => revealExport());
   handle('export:open', () => openExport());

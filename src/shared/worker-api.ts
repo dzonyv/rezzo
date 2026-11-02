@@ -58,6 +58,16 @@ export interface OverlayFileRequest {
 /** h264_nvenc on an NVIDIA card, libx264 everywhere else. */
 export type Encoder = 'nvenc' | 'x264';
 
+/** A stretch of a video layer's sound in an export: `duration` seconds from `start` in its working file, heard `at` seconds into the clip. */
+export interface ExportSound {
+  file: string;
+  start: number;
+  duration: number;
+  at: number;
+  /** 0..1 */
+  volume: number;
+}
+
 /** One clip to encode. The frames come over the MessagePort sent with the call. */
 export interface ExportRequest {
   /** The file the user chose; it's only replaced once the export has succeeded. */
@@ -67,6 +77,10 @@ export interface ExportRequest {
   /** The clip's stretch of the working file, in seconds from its start. */
   audioStart: number;
   duration: number;
+  /** Whether the working file has sound (the source does). */
+  hasAudio: boolean;
+  /** Video layers' sound, mixed in over the clip's. */
+  sounds: ExportSound[];
   frameRate: FrameRate;
   /** Frames the renderer will send. */
   frames: number;

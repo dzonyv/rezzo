@@ -5,7 +5,8 @@
  * here by FFmpeg:
  * - "alpha": 640×360, 2 s; the left half is blue for the first second and
  *   yellow for the second, the right half is transparent;
- * - "green": 640×360, 2 s, green with a red 200×200 square in the middle.
+ * - "green": 640×360, 2 s, green with a red 200×200 square in the middle;
+ * - "beep": 640×360, 1 s, black, with a 3 kHz beep from 0.5 s to 0.7 s.
  * The project is written by the test, since the Add menu doesn't offer
  * video yet.
  */
@@ -95,7 +96,7 @@ function overlay(asset: VideoAsset, patch: Partial<OverlayLayer>): OverlayLayer 
   };
 }
 
-async function videoAsset(file: string, alpha: boolean, codec: string): Promise<VideoAsset> {
+async function videoAsset(file: string, alpha: boolean, codec: string, { duration = 2, hasAudio = false } = {}): Promise<VideoAsset> {
   return {
     id: crypto.randomUUID(),
     kind: 'video',
@@ -106,11 +107,11 @@ async function videoAsset(file: string, alpha: boolean, codec: string): Promise<
     codec,
     width: 640,
     height: 360,
-    duration: 2,
+    duration,
     frameRate: [30, 1],
     colorSpace: null,
     alpha,
-    hasAudio: false,
+    hasAudio,
   };
 }
 
@@ -129,6 +130,12 @@ beforeAll(async () => {
   await run(ffmpegExe(), [
     '-y', '-v', 'error', '-f', 'lavfi', '-i', 'color=c=0x00ff00:s=640x360:r=30:d=2',
     '-vf', 'drawbox=x=220:y=80:w=200:h=200:color=red:t=fill', '-c:v', 'libx264', '-pix_fmt', 'yuv420p', '-crf', '12', greenFile,
+  ]);
+  const beepFile = path.join(dir, 'beep.mp4');
+  await run(ffmpegExe(), [
+    '-y', '-v', 'error', '-f', 'lavfi', '-i', 'color=c=black:s=640x360:r=30:d=1',
+    '-f', 'lavfi', '-i', 'sine=frequency=3000:sample_rate=48000:duration=0.2',
+    '-af', 'adelay=500:all=1,apad=whole_dur=1', '-c:v', 'libx264', '-pix_fmt', 'yuv420p', '-c:a', 'aac', '-t', '1', beepFile,
   ]);
 
   ({ app, page } = await launchApp(dir));
@@ -151,7 +158,8 @@ beforeAll(async () => {
   };
   const alpha = await videoAsset(alphaFile, true, 'vp9');
   const green = await videoAsset(greenFile, false, 'h264');
-  project.assets = [alpha, green];
+  const beep = await videoAsset(beepFile, false, 'h264', { duration: 1, hasAudio: true });
+  project.assets = [alpha, green, beep];
   project.clips = [{
     id: crypto.randomUUID(),
     name: 'Video',
@@ -161,6 +169,8 @@ beforeAll(async () => {
       defaultVideoLayer(START),
       overlay(alpha, { start: 3, end: 5, offset: 0.5, loop: true }),
       overlay(green, { key: { ...DEFAULT_CHROMA_KEY }, transform: [{ t: START, value: { x: 0.5, y: 0.25, scale: 0.5, rotation: 0, opacity: 1 }, ease: 'cut' }] }),
+      // Its beep plays at 4.5 s, 2.5 s into the clip. Small, in a corner the other checks don't look at.
+      overlay(beep, { start: 4, end: 5, transform: [{ t: 4, value: { x: 0.9, y: 0.95, scale: 0.1, rotation: 0, opacity: 1 }, ease: 'cut' }] }),
     ],
   }];
   await writeFile(file, JSON.stringify(project));
@@ -236,5 +246,14 @@ describe('video layers', () => {
     // The keyed layer: red square kept, green gone.
     expect(cr(frame(2.5), SQUARE_X, GREEN_ROW)).toBeGreaterThan(200);
     expect(grey(frame(2.5), KEYED_X, GREEN_ROW)).toBe(true);
+
+    // The beep, kept apart from the source's 440 Hz tone by a high-pass filter: heard once, 2.5 s in.
+    const { stderr } = await run(ffmpegExe(), ['-v', 'info', '-nostats', '-i', out, '-af', 'highpass=f=2000,highpass=f=2000,silencedetect=n=-40dB:d=0.05', '-f', 'null', '-']);
+    // silencedetect also ends the last silence where the file ends.
+    const ends = [...stderr.matchAll(/silence_end: ([\d.]+)/g)].map((m) => Number(m[1])).filter((t) => t < END - START - 0.1);
+    const starts = [...stderr.matchAll(/silence_start: ([\d.]+)/g)].map((m) => Number(m[1]));
+    expect(ends).toHaveLength(1);
+    expect(ends[0]).toBeCloseTo(2.5, 1);
+    expect(starts[1]).toBeCloseTo(2.7, 1);
   });
 });

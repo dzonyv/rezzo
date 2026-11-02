@@ -6,13 +6,18 @@
  */
 import { app, dialog, MessageChannelMain, shell, type BrowserWindow } from 'electron';
 import path from 'node:path';
+import { z } from 'zod';
 import { EXPORT_PORT_MESSAGE, type ExportJob, type ExportResult } from '../shared/api.ts';
-import { fps } from '../shared/frames.ts';
-import { clipSchema, sourceSchema } from '../shared/project.ts';
+import { assetSchema, type Asset } from '../shared/assets.ts';
+import { fps, type FrameRate } from '../shared/frames.ts';
+import { overlayRange, overlaySoundPieces } from '../shared/overlay-files.ts';
+import { clipSchema, sourceSchema, type Clip } from '../shared/project.ts';
+import type { ExportSound } from '../shared/worker-api.ts';
 import { translate } from '../shared/translate.ts';
 import { clipFrames, spanStart } from '../shared/working.ts';
-import { allowMedia, sourceUrl } from './media-protocol.ts';
+import { allowMedia, assetUrl, sourceUrl } from './media-protocol.ts';
 import { ensureWorkingFile, parseRange } from './clip.ts';
+import { ensureOverlayFile } from './overlay.ts';
 import { getSettings, rememberExportDir } from './settings.ts';
 import { callWorker } from './worker-host.ts';
 import { safeFileName } from '../node/files.ts';
@@ -32,15 +37,37 @@ async function chooseExportFile(win: BrowserWindow, clipName: string): Promise<s
   return canceled || !filePath ? null : filePath;
 }
 
+/**
+ * The video layers' sound in the clip, from their working files at `rate`
+ * (made now if they aren't in the cache). Times are from the clip's start.
+ */
+async function layerSounds(clip: Clip, assets: readonly Asset[], range: { start: number; end: number }, rate: FrameRate): Promise<ExportSound[]> {
+  const sounds = await Promise.all(
+    clip.layers.map(async (layer) => {
+      if (layer.kind !== 'overlay' || layer.volume <= 0) return [];
+      const asset = assets.find((a) => a.id === layer.assetId);
+      if (asset?.kind !== 'video' || !asset.hasAudio) return [];
+      const pieces = overlaySoundPieces(layer, asset.duration, range);
+      if (pieces.length === 0) return [];
+      const { file, span } = await ensureOverlayFile(asset, overlayRange(layer, asset), rate);
+      const fileStart = spanStart(span);
+      return pieces.map((p) => ({ file, start: Math.max(0, p.from - fileStart), duration: p.duration, at: p.at - range.start, volume: layer.volume }));
+    }),
+  );
+  return sounds.flat();
+}
+
 export function cancelExport(): void {
   running?.abort();
 }
 
-export async function startExport(win: BrowserWindow, sourceArg: unknown, clipArg: unknown): Promise<ExportResult | null> {
+export async function startExport(win: BrowserWindow, sourceArg: unknown, clipArg: unknown, assetsArg: unknown): Promise<ExportResult | null> {
   const source = sourceSchema.parse(sourceArg);
   const clip = clipSchema.parse(clipArg);
+  const assets = z.array(assetSchema).parse(assetsArg);
   const range = parseRange({ start: clip.start, end: clip.end });
   sourceUrl(source.path); // only a source the app knows
+  for (const a of assets) assetUrl(a.path); // and only layer files it knows
   if (running) return { ok: false, error: 'busy' };
 
   const abort = new AbortController();
@@ -62,6 +89,7 @@ export async function startExport(win: BrowserWindow, sourceArg: unknown, clipAr
     const encoder = await callWorker('pickEncoder', []);
     const placement = { start: spanStart(span), frameRate: span.rate };
     const { first, count } = clipFrames(placement, range);
+    const sounds = await layerSounds(clip, assets, range, span.rate);
     abort.signal.throwIfAborted();
 
     const { port1, port2 } = new MessageChannelMain();
@@ -73,6 +101,8 @@ export async function startExport(win: BrowserWindow, sourceArg: unknown, clipAr
         workingFile: file,
         audioStart: range.start - placement.start,
         duration: count / fps(span.rate),
+        hasAudio: source.audio !== null,
+        sounds,
         frameRate: span.rate,
         frames: count,
         encoder,

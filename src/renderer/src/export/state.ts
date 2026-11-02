@@ -109,7 +109,7 @@ export async function exportClip(clip: Clip, source: Source): Promise<void> {
   });
 
   try {
-    const result = await window.rezzo.invoke('export:start', source, clip);
+    const result = await window.rezzo.invoke('export:start', source, clip, assets);
     // A cancel can reach the encoder from this page before main hears of it,
     // and then come back as a failure; it's still a cancel.
     const cancelled = controller.signal.aborted;

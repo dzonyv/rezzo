@@ -3,7 +3,7 @@
  * sandboxed and reaches the rest of the app only through `window.rezzo`,
  * which the preload script builds from these channel lists.
  */
-import type { AssetFile, AssetKind, AssetStatus, VideoAsset, VideoInfo } from './assets.ts';
+import type { Asset, AssetFile, AssetKind, AssetStatus, VideoAsset, VideoInfo } from './assets.ts';
 import type { OverlayLayout } from './overlay-files.ts';
 import type { CustomFont } from './fonts.ts';
 import type { FrameRate } from './frames.ts';
@@ -151,7 +151,7 @@ export interface InvokeApi {
    * written. Progress of the working file comes as export:prepare-progress,
    * then the page gets an ExportJob to render. Null: the user cancelled the dialog.
    */
-  'export:start': (source: Source, clip: Clip) => ExportResult | null;
+  'export:start': (source: Source, clip: Clip, assets: Asset[]) => ExportResult | null;
   'export:cancel': () => void;
   /** Shows the last exported file in Explorer. */
   'export:reveal': () => void;

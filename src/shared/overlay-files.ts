@@ -71,3 +71,40 @@ export function overlayRange(
   if (asset.duration <= MAX_CLIP_SECONDS || (layer.loop && end > asset.duration)) return whole;
   return { start: Math.min(layer.offset, asset.duration), end: Math.min(end, asset.duration) };
 }
+
+/** A stretch of a video layer's sound: `duration` seconds from `from` seconds into its file, heard from source time `at`. */
+export interface SoundPiece {
+  at: number;
+  from: number;
+  duration: number;
+}
+
+/**
+ * When a video layer's sound plays inside `range` (the clip): from where
+ * the layer starts in its file, starting over at the end when it loops,
+ * stopping at the end otherwise (the picture holds its last frame, the
+ * sound doesn't go on).
+ */
+export function overlaySoundPieces(
+  layer: Pick<OverlayLayer, 'start' | 'end' | 'offset' | 'loop'>,
+  duration: number,
+  range: { start: number; end: number },
+): SoundPiece[] {
+  const pieces: SoundPiece[] = [];
+  const end = Math.min(layer.end, range.end);
+  let t = Math.max(layer.start, range.start);
+  // Sounds shorter than this are rounding, not sound.
+  const tiny = 1e-4;
+  while (end - t > tiny && duration > tiny) {
+    let from = layer.offset + (t - layer.start);
+    if (layer.loop) from %= duration;
+    if (duration - from <= tiny) {
+      if (!layer.loop) break;
+      from = 0;
+    }
+    const length = Math.min(end - t, duration - from);
+    pieces.push({ at: t, from, duration: length });
+    t += length;
+  }
+  return pieces;
+}
