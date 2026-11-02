@@ -1,7 +1,7 @@
 /**
  * The files the open project's layers show, from the page's side: adding
- * an image or a video to a clip, finding a file that moved, and which
- * files couldn't be read.
+ * an image, a video or an animation to a clip, finding a file that moved,
+ * and which files couldn't be read.
  */
 import i18n from 'i18next';
 import { useStore } from 'zustand';
@@ -9,9 +9,11 @@ import { createStore } from 'zustand/vanilla';
 import type { AddAssetResult, LocateAssetResult } from '../../../shared/api.ts';
 import type { Asset, AssetFile, AssetKind, VideoInfo } from '../../../shared/assets.ts';
 import type { Size } from '../../../shared/framing.ts';
+import type { LottieInfo } from '../../../shared/lottie.ts';
 import { decodeImage, keepImage, keepOnlyImages } from '../render/images.ts';
+import { keepOnlyLotties } from '../render/lottie.ts';
 import { notify } from '../ui/prompts.ts';
-import { addImageLayer, addVideoLayer, replaceImage, replaceVideo } from './layers.ts';
+import { addImageLayer, addLottieLayer, addVideoLayer, replaceImage, replaceLottie, replaceVideo } from './layers.ts';
 import { projectStore } from './store.ts';
 import { MAX_VIDEO_LAYERS } from '../../../shared/overlay-files.ts';
 
@@ -34,23 +36,34 @@ export function useAssetMissing(id: string | undefined): boolean {
 projectStore.subscribe((s, prev) => {
   // A different project starts with nothing known to be missing.
   if (s.project?.id !== prev.project?.id) missingAssetsStore.setState({ missing: new Set() });
-  // Images no layer uses any more (deleted, replaced, another project) don't stay in memory.
-  if (s.project?.assets !== prev.project?.assets) keepOnlyImages(s.project?.assets ?? []);
+  // Images and animations no layer uses any more (deleted, replaced, another project) don't stay in memory.
+  if (s.project?.assets !== prev.project?.assets) {
+    keepOnlyImages(s.project?.assets ?? []);
+    keepOnlyLotties(s.project?.assets ?? []);
+  }
 });
 
-type Picked = { kind: 'image'; file: AssetFile; size: Size } | { kind: 'video'; file: AssetFile; video: VideoInfo };
+type Picked =
+  | { kind: 'image'; file: AssetFile; size: Size }
+  | { kind: 'video'; file: AssetFile; video: VideoInfo }
+  | { kind: 'lottie'; file: AssetFile; lottie: LottieInfo };
 
 /** Why a picked file can't be used, in words for its kind. */
-function refuse(kind: AssetKind, error: 'unreadable' | 'too-large' | 'different-file'): null {
-  notify('error', i18n.t(kind === 'video' && error !== 'different-file' ? `layers.errors.video.${error}` : `layers.errors.${error}`));
+function refuse(kind: AssetKind, error: 'unreadable' | 'too-large' | 'different-file' | 'external-images'): null {
+  // Only an animation can need files beside it.
+  const reason = kind !== 'lottie' && error === 'external-images' ? 'unreadable' : error;
+  if (reason === 'different-file') notify('error', i18n.t('layers.errors.different-file'));
+  else if (kind === 'lottie') notify('error', i18n.t(`layers.errors.lottie.${reason}`));
+  else if (reason !== 'external-images') notify('error', i18n.t(kind === 'video' ? `layers.errors.video.${reason}` : `layers.errors.${reason}`));
   return null;
 }
 
-/** A picked file of `kind`: an image decoded, a video as the main process read it; null (after saying why) when it can't be used. */
+/** A picked file of `kind`: an image decoded, a video or an animation as the main process read it; null (after saying why) when it can't be used. */
 async function readPicked(kind: AssetKind, result: AddAssetResult | LocateAssetResult | null): Promise<Picked | null> {
   if (!result) return null;
   if (!result.ok) return refuse(kind, result.error);
   if (kind === 'video') return result.video ? { kind, file: result.file, video: result.video } : refuse(kind, 'unreadable');
+  if (kind === 'lottie') return result.lottie ? { kind, file: result.file, lottie: result.lottie } : refuse(kind, 'unreadable');
   try {
     const image = await decodeImage(result.url);
     keepImage(result.file, image);
@@ -61,11 +74,12 @@ async function readPicked(kind: AssetKind, result: AddAssetResult | LocateAssetR
   }
 }
 
-/** Asks for an image or a video and puts it in the clip from `time` on. Returns the new layer's id. */
+/** Asks for an image, a video or an animation and puts it in the clip from `time` on. Returns the new layer's id. */
 export async function addLayerFile(kind: AssetKind, clipId: string, time: number): Promise<string | null> {
   const picked = await readPicked(kind, await window.rezzo.invoke('asset:add', kind));
   if (!picked) return null;
   if (picked.kind === 'image') return addImageLayer(clipId, picked.file, picked.size, time);
+  if (picked.kind === 'lottie') return addLottieLayer(clipId, picked.file, picked.lottie, time);
   const added = addVideoLayer(clipId, picked.file, picked.video, time);
   if (added !== 'too-many') return added;
   notify('error', i18n.t('layers.errors.tooManyVideos', { count: MAX_VIDEO_LAYERS }));
@@ -77,6 +91,7 @@ export async function changeLayerFile(clipId: string, layerId: string, kind: Ass
   const picked = await readPicked(kind, await window.rezzo.invoke('asset:add', kind));
   if (picked?.kind === 'image') replaceImage(clipId, layerId, picked.file, picked.size);
   else if (picked?.kind === 'video') replaceVideo(clipId, layerId, picked.file, picked.video);
+  else if (picked?.kind === 'lottie') replaceLottie(clipId, layerId, picked.file, picked.lottie);
 }
 
 /** Asks where a file went; the project then uses it from there. */

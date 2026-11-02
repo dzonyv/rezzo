@@ -1,17 +1,23 @@
 /**
- * Edits to the layers over a clip's picture: adding images and videos, moving and
- * trimming them in time, stacking them, placing them and animating them.
- * Placement works like framing (see project/framing.ts): while the
- * transform has one keyframe an edit changes it for the layer's whole time.
+ * Edits to the layers over a clip's picture: adding images, videos,
+ * animations and effects, moving and trimming them in time, stacking them,
+ * placing them and animating them. Placement and an effect's intensity
+ * work like framing (see project/framing.ts): while they have one keyframe
+ * an edit changes them for the layer's whole time.
  */
 import { current, type Draft } from 'immer';
 import type { AssetFile, VideoInfo } from '../../../shared/assets.ts';
 import { DEFAULT_CHROMA_KEY, type ChromaKey } from '../../../shared/chroma-key.ts';
+import { defaultParams, EFFECTS, type EffectName, type ParamDef } from '../../../shared/effects.ts';
 import { editAt, OUTPUT, removeKey, setKey, valueAt, type Size } from '../../../shared/framing.ts';
 import { fps, frameAt, timeOfFrame } from '../../../shared/frames.ts';
+import { lottieSeconds, type LottieInfo } from '../../../shared/lottie.ts';
 import { clampTransform, DEFAULT_MOTION, type Motion, type Transform } from '../../../shared/motion.ts';
 import { videoLayersOverLimit } from '../../../shared/overlay-files.ts';
-import { isTimed, type Clip, type OverlayLayer, type Project, type TimedLayer } from '../../../shared/project.ts';
+import {
+  isPlaced, isTimed, MAX_LOTTIE_SPEED, MIN_LOTTIE_SPEED, type Animated, type Clip, type EffectLayer, type Layer, type LottieLayer, type OverlayLayer,
+  type PlacedLayer, type Project, type TimedLayer,
+} from '../../../shared/project.ts';
 import { sourceRate } from './framing.ts';
 import { projectStore, type EditLabel } from './store.ts';
 
@@ -37,16 +43,36 @@ function editLayer(clipId: string, layerId: string, label: EditLabel, recipe: (l
   });
 }
 
+function editPlaced(clipId: string, layerId: string, label: EditLabel, recipe: (layer: Draft<PlacedLayer>, clip: Draft<Clip>) => void): void {
+  editLayer(clipId, layerId, label, (layer, clip) => {
+    if (isPlaced(layer)) recipe(layer, clip);
+  });
+}
+
 /** Drops assets no layer uses any more, in the same edit that stopped using them. */
 function pruneAssets(d: Draft<Project>): void {
-  const used = new Set(d.clips.flatMap((c) => c.layers.filter(isTimed).map((l) => l.assetId)));
+  const used = new Set(d.clips.flatMap((c) => c.layers.filter(isPlaced).map((l) => l.assetId)));
   d.assets = d.assets.filter((a) => used.has(a.id));
+}
+
+/** Puts a new layer over the others but under the captions. */
+function insertLayer(clip: Draft<Clip>, layer: Layer): void {
+  const captions = clip.layers.findIndex((l) => l.kind === 'caption');
+  clip.layers.splice(captions >= 0 ? captions : clip.layers.length, 0, layer);
 }
 
 /** Frame times inside the clip: [first, last frame start]. */
 function clipFrames(clip: Pick<Clip, 'start' | 'end'>) {
   const rate = sourceRate();
   return { rate, first: frameAt(clip.start, rate), end: frameAt(clip.end, rate) };
+}
+
+/** Where a new layer goes in time: `seconds` long from `time` on, at least a frame, kept inside the clip. */
+function newLayerTime(clip: Pick<Clip, 'start' | 'end'>, time: number, seconds: number): { start: number; end: number } {
+  const { rate, first, end } = clipFrames(clip);
+  const length = Math.max(1, Math.min(end - first, Math.round(seconds * fps(rate))));
+  const from = Math.min(Math.max(frameAt(time, rate), first), end - length);
+  return { start: timeOfFrame(from, rate), end: timeOfFrame(from + length, rate) };
 }
 
 /** The scale that makes a picture of `size` NEW_LAYER_WIDTH wide, or NEW_LAYER_MAX_HEIGHT tall if it's tall. */
@@ -83,8 +109,7 @@ export function addImageLayer(clipId: string, file: AssetFile, size: Size, time:
   editClip(clipId, 'history.addImage', (c, d) => {
     if (existing) Object.assign(d.assets.find((a) => a.id === existing.id)!, { path: file.path, name: file.name });
     else d.assets.push({ id: assetId, kind: 'image', ...file, ...size });
-    const captions = c.layers.findIndex((l) => l.kind === 'caption');
-    c.layers.splice(captions >= 0 ? captions : c.layers.length, 0, layer);
+    insertLayer(c, layer);
   });
   return layer.id;
 }
@@ -95,11 +120,21 @@ export function replaceImage(clipId: string, layerId: string, file: AssetFile, s
   const assetId = existing?.id ?? crypto.randomUUID();
   editClip(clipId, 'history.replaceImage', (c, d) => {
     const layer = c.layers.find((l) => l.id === layerId);
-    if (!layer || !isTimed(layer)) return;
+    if (layer?.kind !== 'image') return;
     if (!existing) d.assets.push({ id: assetId, kind: 'image', ...file, ...size });
     layer.assetId = assetId;
     pruneAssets(d);
   });
+}
+
+/** The keyframes a layer's keyframe buttons work on: a placed layer's transform, an effect's intensity. */
+function keysOf(layer: Draft<TimedLayer>): Draft<Animated<unknown>> {
+  return layer.kind === 'effect' ? layer.intensity : layer.transform;
+}
+
+function setKeysOf(layer: Draft<TimedLayer>, keys: Animated<unknown>): void {
+  if (layer.kind === 'effect') layer.intensity = keys as Animated<number>;
+  else layer.transform = keys as typeof layer.transform;
 }
 
 /**
@@ -116,9 +151,9 @@ export function moveLayer(clipId: string, layerId: string, start: number): void 
     if (shift === 0 && length === frameAt(layer.end, rate) - from) return;
     layer.start = timeOfFrame(to, rate);
     layer.end = timeOfFrame(to + length, rate);
-    for (const key of layer.transform) key.t = Math.max(0, key.t + shift);
+    for (const key of keysOf(layer)) key.t = Math.max(0, key.t + shift);
     // Keyframes left before a trimmed start can be pushed together at 0; the last of them wins.
-    layer.transform = layer.transform.filter((k, i, keys) => i === keys.length - 1 || keys[i + 1]!.t > k.t);
+    setKeysOf(layer, keysOf(layer).filter((k, i, keys) => i === keys.length - 1 || keys[i + 1]!.t > k.t));
   });
 }
 
@@ -172,33 +207,35 @@ export function duplicateLayer(clipId: string, layerId: string): string {
 
 /** Changes some of the layer's placement at `time`; dragging and sliders call it inside a gesture. */
 export function setTransform(clipId: string, layerId: string, time: number, patch: Partial<Transform>): void {
-  editLayer(clipId, layerId, 'history.placeLayer', (layer) => {
+  editPlaced(clipId, layerId, 'history.placeLayer', (layer) => {
     const t = insideLayer(layer, time);
     layer.transform = editAt(layer.transform, t, clampTransform({ ...valueAt(layer.transform, t), ...patch }), sourceRate());
   });
 }
 
+/** A keyframe of the layer's placement (or an effect's intensity) at `time`, with the value it has there. */
 export function addLayerKey(clipId: string, layerId: string, time: number): void {
   editLayer(clipId, layerId, 'history.addKeyframe', (layer) => {
     const t = insideLayer(layer, time);
-    layer.transform = setKey(layer.transform, t, valueAt(layer.transform, t), sourceRate());
+    const keys = keysOf(layer);
+    setKeysOf(layer, setKey(keys, t, valueAt(keys, t), sourceRate()));
   });
 }
 
 export function deleteLayerKey(clipId: string, layerId: string, index: number): void {
-  editLayer(clipId, layerId, 'history.deleteKeyframe', (layer) => void (layer.transform = removeKey(layer.transform, index)));
+  editLayer(clipId, layerId, 'history.deleteKeyframe', (layer) => setKeysOf(layer, removeKey(keysOf(layer), index)));
 }
 
 export function setLayerKeySmooth(clipId: string, layerId: string, index: number, smooth: boolean): void {
   editLayer(clipId, layerId, 'history.smoothKeyframe', (layer) => {
-    const key = layer.transform[index];
+    const key = keysOf(layer)[index];
     if (key) key.ease = smooth ? 'smooth' : 'cut';
   });
 }
 
 /** Changes part of how the layer comes in, goes out or moves while it's up. */
 export function setMotion(clipId: string, layerId: string, part: keyof Motion, patch: Partial<Motion[keyof Motion]>): void {
-  editLayer(clipId, layerId, 'history.layerAnimation', (layer) => void Object.assign(layer.motion[part], patch));
+  editPlaced(clipId, layerId, 'history.layerAnimation', (layer) => void Object.assign(layer.motion[part], patch));
 }
 
 /**
@@ -235,8 +272,7 @@ export function addVideoLayer(clipId: string, file: AssetFile, info: VideoInfo, 
   editClip(clipId, 'history.addVideo', (c, d) => {
     if (existing) Object.assign(d.assets.find((a) => a.id === existing.id)!, { path: file.path, name: file.name });
     else d.assets.push({ id: assetId, kind: 'video', ...file, ...info });
-    const captions = c.layers.findIndex((l) => l.kind === 'caption');
-    c.layers.splice(captions >= 0 ? captions : c.layers.length, 0, layer);
+    insertLayer(c, layer);
   });
   return layer.id;
 }
@@ -281,6 +317,93 @@ export function setVideoStart(clipId: string, layerId: string, offset: number, d
  */
 export function setChromaKey(clipId: string, layerId: string, patch: Partial<ChromaKey> | null): void {
   editLayer(clipId, layerId, 'history.greenScreen', (layer) => {
+    if (layer.kind !== 'image' && layer.kind !== 'overlay') return;
     layer.key = patch === null ? null : { ...(layer.key ?? DEFAULT_CHROMA_KEY), ...patch };
+  });
+}
+
+/**
+ * Adds a Lottie animation from `time` on, as long as it runs or to the
+ * clip's end, over the other layers but under the captions. Like an image,
+ * the file becomes one of the project's assets unless it already is.
+ * Returns the new layer's id.
+ */
+export function addLottieLayer(clipId: string, file: AssetFile, info: LottieInfo, time: number): string | null {
+  const project = store().project;
+  const clip = project?.clips.find((c) => c.id === clipId);
+  if (!project || !clip) return null;
+  const { start, end } = newLayerTime(clip, time, lottieSeconds(info));
+  const existing = project.assets.find((a) => a.kind === 'lottie' && a.fingerprint === file.fingerprint);
+  const assetId = existing?.id ?? crypto.randomUUID();
+  const layer: LottieLayer = {
+    id: crypto.randomUUID(),
+    kind: 'lottie',
+    assetId,
+    start,
+    end,
+    transform: [{ t: start, value: { x: 0.5, y: 0.5, scale: startingScale(info), rotation: 0, opacity: 1 }, ease: 'cut' }],
+    // An animation usually comes in on its own.
+    motion: { ...DEFAULT_MOTION, in: { ...DEFAULT_MOTION.in, kind: 'none' } },
+    speed: 1,
+    loop: false,
+  };
+  editClip(clipId, 'history.addLottie', (c, d) => {
+    if (existing) Object.assign(d.assets.find((a) => a.id === existing.id)!, { path: file.path, name: file.name });
+    else d.assets.push({ id: assetId, kind: 'lottie', ...file, ...info });
+    insertLayer(c, layer);
+  });
+  return layer.id;
+}
+
+/** Puts a different animation in the layer, keeping where it is, how it moves and how it plays. */
+export function replaceLottie(clipId: string, layerId: string, file: AssetFile, info: LottieInfo): void {
+  const existing = store().project?.assets.find((a) => a.kind === 'lottie' && a.fingerprint === file.fingerprint);
+  const assetId = existing?.id ?? crypto.randomUUID();
+  editClip(clipId, 'history.replaceLottie', (c, d) => {
+    const layer = c.layers.find((l) => l.id === layerId);
+    if (layer?.kind !== 'lottie') return;
+    if (!existing) d.assets.push({ id: assetId, kind: 'lottie', ...file, ...info });
+    layer.assetId = assetId;
+    pruneAssets(d);
+  });
+}
+
+/** How fast a Lottie layer plays and whether it starts over; the speed slider calls it inside a gesture. */
+export function setLottiePlayback(clipId: string, layerId: string, patch: Partial<Pick<LottieLayer, 'speed' | 'loop'>>): void {
+  editLayer(clipId, layerId, 'history.lottiePlayback', (layer) => {
+    if (layer.kind !== 'lottie') return;
+    if (patch.speed !== undefined) layer.speed = Math.min(MAX_LOTTIE_SPEED, Math.max(MIN_LOTTIE_SPEED, patch.speed));
+    if (patch.loop !== undefined) layer.loop = patch.loop;
+  });
+}
+
+/**
+ * Adds an effect from `time` on, as long as effects of its kind usually
+ * last or to the clip's end, over the other layers but under the captions,
+ * so the captions stay clean. Returns the new layer's id.
+ */
+export function addEffectLayer(clipId: string, effect: EffectName, time: number): string | null {
+  const clip = store().project?.clips.find((c) => c.id === clipId);
+  if (!clip) return null;
+  const { start, end } = newLayerTime(clip, time, EFFECTS[effect].seconds);
+  const layer: EffectLayer = { id: crypto.randomUUID(), kind: 'effect', effect, start, end, intensity: [{ t: start, value: 1, ease: 'cut' }], params: defaultParams(effect) };
+  editClip(clipId, 'history.addEffect', (c) => insertLayer(c, layer));
+  return layer.id;
+}
+
+/** Changes an effect's intensity (0..1) at `time`; the slider calls it inside a gesture. */
+export function setIntensity(clipId: string, layerId: string, time: number, value: number): void {
+  editLayer(clipId, layerId, 'history.effectIntensity', (layer) => {
+    if (layer.kind !== 'effect') return;
+    layer.intensity = editAt(layer.intensity, insideLayer(layer, time), Math.min(1, Math.max(0, value)), sourceRate());
+  });
+}
+
+/** Changes one of an effect's own settings, kept in its range; the sliders call it inside a gesture. */
+export function setEffectParam(clipId: string, layerId: string, param: string, value: number): void {
+  editLayer(clipId, layerId, 'history.effectSettings', (layer) => {
+    if (layer.kind !== 'effect') return;
+    const def: ParamDef | undefined = (EFFECTS[layer.effect].params as Record<string, ParamDef>)[param];
+    if (def) layer.params[param] = Math.min(def.max, Math.max(def.min, value));
   });
 }

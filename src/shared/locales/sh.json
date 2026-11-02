@@ -58,7 +58,13 @@
     "replaceVideo": "promena videa",
     "layerSound": "zvuk videa",
     "videoStart": "početak videa",
-    "greenScreen": "green screen"
+    "greenScreen": "green screen",
+    "addLottie": "dodavanje animacije",
+    "replaceLottie": "promena animacije",
+    "lottiePlayback": "puštanje animacije",
+    "addEffect": "dodavanje efekta",
+    "effectIntensity": "jačina efekta",
+    "effectSettings": "podešavanja efekta"
   },
   "files": {
     "project": "Rezzo projekat",
@@ -66,7 +72,8 @@
     "all": "Svi fajlovi",
     "mp4": "MP4 video",
     "font": "Fajl fonta",
-    "image": "Slika"
+    "image": "Slika",
+    "lottie": "Lottie animacija"
   },
   "unsaved": {
     "title": "Sačuvati izmene u „{{name}}”?",
@@ -339,7 +346,9 @@
     "addHelp": "Dodaj sloj preko slike, od playheada nadalje",
     "kinds": {
       "image": "Slika",
-      "video": "Video"
+      "video": "Video",
+      "lottie": "Animacija",
+      "effect": "Efekat"
     },
     "video": "Video",
     "captions": "Titlovi",
@@ -409,12 +418,19 @@
         "unreadable": "Taj fajl nije video koji Rezzo može da pročita.",
         "too-large": "Taj video je prevelik."
       },
-      "tooManyVideos": "Najviše {{count}} videa može da se vidi u istom trenutku. Prvo napravi mesta na timeline-u."
+      "tooManyVideos": "Najviše {{count}} videa može da se vidi u istom trenutku. Prvo napravi mesta na timeline-u.",
+      "lottie": {
+        "unreadable": "Taj fajl nije Lottie animacija koju Rezzo može da pročita.",
+        "too-large": "Ta animacija je prevelika (preko 50 MB).",
+        "external-images": "Ta animacija prikazuje slike koje stoje pored nje. Izvezi je sa slikama unutra, ili kao .lottie fajl, pa probaj ponovo.",
+        "play": "Animacija nije mogla da se učita: {{detail}}"
+      }
     },
     "units": {
       "percent": "{{value}} %",
       "degrees": "{{value}}°",
-      "seconds": "{{value}} s"
+      "seconds": "{{value}} s",
+      "times": "{{value}}×"
     },
     "preparing": "Pripremam video",
     "changeVideo": "Promeni video…",
@@ -432,6 +448,56 @@
     "similarity": "Sličnost",
     "smoothness": "Mekoća",
     "spill": "Uklanjanje odsjaja",
-    "titleVideo": "Video: {{name}}"
+    "titleVideo": "Video: {{name}}",
+    "titleLottie": "Animacija: {{name}}",
+    "changeLottie": "Promeni animaciju…",
+    "playback": "Puštanje",
+    "speed": "Brzina",
+    "loopLottie": "Kreni ispočetka na kraju",
+    "lottieHelp": "Ako ne kreće ispočetka, kad se animacija završi ostaje poslednji kadar."
+  },
+  "effects": {
+    "title": "Efekat: {{name}}",
+    "intensity": "Jačina",
+    "help": "Efekat menja sve što je ispod njega na timeline-u, i titlove ako je iznad njih. Keyframe-ovi na jačini ga uvode i izvode.",
+    "hold": "Drži do kraja",
+    "groups": {
+      "camera": "Kamera",
+      "flash": "Blic i zatamnjenja",
+      "color": "Boja",
+      "stylized": "Stilizovano"
+    },
+    "names": {
+      "zoomPunch": "Zum udarac",
+      "shake": "Drmanje",
+      "slowZoom": "Spori zum",
+      "flash": "Beli blic",
+      "fadeOut": "Zatamnjenje u crno",
+      "fadeIn": "Iz crnog",
+      "brightness": "Svetlina",
+      "contrast": "Kontrast",
+      "saturation": "Zasićenost",
+      "temperature": "Temperatura",
+      "blackWhite": "Crno-belo",
+      "blur": "Zamućenje",
+      "vignette": "Vinjeta",
+      "glitch": "Glič",
+      "grain": "Filmsko zrno"
+    },
+    "params": {
+      "zoom": "Zum",
+      "punch": "Ulazak",
+      "release": "Povratak na kraju",
+      "amount": "Količina",
+      "speed": "Brzina",
+      "size": "Veličina"
+    },
+    "units": {
+      "percent": "{{value}} %",
+      "times": "{{value}}×",
+      "seconds": "{{value}} s",
+      "perSecond": "{{value}}/s",
+      "pixels": "{{value}} px"
+    }
   }
 }
