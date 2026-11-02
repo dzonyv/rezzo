@@ -4,6 +4,7 @@ import { OUTPUT, panCrop, panFull, regions, valueAt, zoomCrop, type Rect, type S
 import { setFraming, type FramingProperty } from '../project/framing.ts';
 import { projectStore } from '../project/store.ts';
 import { pauseClip } from './playback.ts';
+import { selectLayer } from './state.ts';
 
 /** How long the wheel has to rest before a zoom becomes its own undo step. */
 const WHEEL_GESTURE_MS = 400;
@@ -90,6 +91,8 @@ export function FramingOverlay({ clipId, layout, half, onHalf, time, sourceSize 
       onPointerDown={(e) => {
         if (!sourceSize || e.button !== 0) return;
         pauseClip();
+        // Pressing the picture itself puts its settings back in the editor.
+        selectLayer(null);
         const p = toOutput(e.clientX, e.clientY);
         const h = layout === 'split' ? halfAt(p.y) : half;
         if (h !== half) onHalf(h);
