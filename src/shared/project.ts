@@ -9,11 +9,13 @@
  * Phase 2 lets the user edit it.
  */
 import { z } from 'zod';
+import { assetSchema, type Asset } from './assets.ts';
 import { captionStyleSchema } from './caption-style.ts';
 import { fps, frameAt, timeOfFrame, workingFrameRate } from './frames.ts';
+import { motionSchema, transformSchema } from './motion.ts';
 
 /** Bumped when the file format changes in a way older files need migrating for. */
-export const PROJECT_FORMAT = 4;
+export const PROJECT_FORMAT = 5;
 export const PROJECT_EXTENSION = 'rezzo';
 
 export const TRANSCRIPT_LANGUAGES = ['sr', 'hr', 'bs'] as const;
@@ -197,9 +199,33 @@ export const captionLayerSchema = z.object({
 });
 export type CaptionLayer = z.infer<typeof captionLayerSchema>;
 
-/** Everything in a clip is a layer; Phase 3 adds images, effects and more. */
-export const layerSchema = z.discriminatedUnion('kind', [videoLayerSchema, captionLayerSchema]);
+/**
+ * An image over the picture from `start` to `end` (source seconds). Its
+ * transform has keyframes like the framing; `motion` adds preset
+ * animations on top (shared/motion.ts).
+ */
+export const imageLayerSchema = z.object({
+  id: z.uuid(),
+  kind: z.literal('image'),
+  /** One of the project's assets. */
+  assetId: z.uuid(),
+  start: seconds,
+  end: seconds,
+  transform: animated(transformSchema),
+  motion: motionSchema,
+});
+export type ImageLayer = z.infer<typeof imageLayerSchema>;
+
+/**
+ * Everything in a clip is a layer, drawn in the order of `layers`: the
+ * source video first, then the rest over it. Phase 3 adds more kinds.
+ */
+export const layerSchema = z.discriminatedUnion('kind', [videoLayerSchema, captionLayerSchema, imageLayerSchema]);
 export type Layer = z.infer<typeof layerSchema>;
+/** Layers that show for part of the clip and can be moved around in it. */
+export type TimedLayer = ImageLayer;
+
+export const isTimed = (layer: Layer): layer is TimedLayer => layer.kind === 'image';
 
 export const clipSchema = z
   .object({
@@ -210,6 +236,9 @@ export const clipSchema = z
     layers: z.array(layerSchema).min(1),
   })
   .refine((c) => c.end > c.start, 'a clip ends after it starts')
+  .refine((c) => c.layers[0]?.kind === 'video' && c.layers.filter((l) => l.kind === 'video').length === 1, 'a clip has one video layer, at the bottom')
+  .refine((c) => c.layers.filter((l) => l.kind === 'caption').length <= 1, 'a clip has at most one caption layer')
+  .refine((c) => c.layers.every((l) => !isTimed(l) || l.end > l.start), 'a layer ends after it starts')
   .refine((c) => c.end - c.start <= MAX_CLIP_SECONDS + 1e-6, `a clip is at most ${MAX_CLIP_SECONDS} s long`);
 export type Clip = z.infer<typeof clipSchema>;
 
@@ -225,19 +254,33 @@ export function captionLayerOf(clip: Clip): CaptionLayer | null {
   return clip.layers.find((l) => l.kind === 'caption') ?? null;
 }
 
-export const projectSchema = z.object({
-  format: z.literal(PROJECT_FORMAT),
-  id: z.uuid(),
-  name: z.string(),
-  source: sourceSchema.nullable(),
-  transcript: transcriptSchema.nullable(),
-  clips: z.array(clipSchema),
-});
+/** The clip's layers that show for part of it, bottom first. */
+export const timedLayers = (clip: Clip): TimedLayer[] => clip.layers.filter(isTimed);
+
+export const projectSchema = z
+  .object({
+    format: z.literal(PROJECT_FORMAT),
+    id: z.uuid(),
+    name: z.string(),
+    source: sourceSchema.nullable(),
+    transcript: transcriptSchema.nullable(),
+    clips: z.array(clipSchema),
+    /** Files the clips' layers show; each layer names one by id. */
+    assets: z.array(assetSchema),
+  })
+  .refine((p) => new Set(p.assets.map((a) => a.id)).size === p.assets.length, 'asset ids are unique')
+  .refine((p) => {
+    const ids = new Set(p.assets.map((a) => a.id));
+    return p.clips.every((c) => c.layers.every((l) => !isTimed(l) || ids.has(l.assetId)));
+  }, "every layer uses one of the project's assets");
 export type Project = z.infer<typeof projectSchema>;
 
 export function newProject(name: string, id: string = crypto.randomUUID()): Project {
-  return { format: PROJECT_FORMAT, id, name, source: null, transcript: null, clips: [] };
+  return { format: PROJECT_FORMAT, id, name, source: null, transcript: null, clips: [], assets: [] };
 }
+
+/** The asset with this id, or undefined. */
+export const assetOf = (project: Pick<Project, 'assets'>, id: string): Asset | undefined => project.assets.find((a) => a.id === id);
 
 /** Older formats, each upgraded one step at a time. */
 const MIGRATIONS: Record<number, (old: Record<string, unknown>) => Record<string, unknown>> = {
@@ -248,6 +291,8 @@ const MIGRATIONS: Record<number, (old: Record<string, unknown>) => Record<string
   // Format 4 added captions. Nothing to change; the new number keeps older
   // versions of the app from opening a file they would drop the captions from.
   3: (old) => old,
+  // Format 5 added layers over the picture, and the files they show.
+  4: (old) => ({ ...old, assets: [] }),
 };
 
 export class ProjectFormatError extends Error {
