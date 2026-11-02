@@ -23,3 +23,17 @@ export function easeOutBounce(f: number): number {
   if (f < 2.5 / d) return n * (f - 2.25 / d) ** 2 + 0.9375;
   return n * (f - 2.625 / d) ** 2 + 0.984375;
 }
+
+/** A repeatable pseudo-random value in -1..1 for an integer. */
+export function hash(n: number): number {
+  const s = Math.sin(n * 127.1 + 311.7) * 43758.5453;
+  return (s - Math.floor(s)) * 2 - 1;
+}
+
+/** Smooth noise in -1..1 along `x`; `seed` gives independent curves. */
+export function noise(x: number, seed: number): number {
+  const i = Math.floor(x);
+  const a = hash(i + seed * 7919);
+  const b = hash(i + 1 + seed * 7919);
+  return a + (b - a) * smoothstep(x - i);
+}

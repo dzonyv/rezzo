@@ -1,6 +1,7 @@
 import { describe, expect, it } from 'vitest';
 import { clipFromWords } from './clips.ts';
 import { DEFAULT_CHROMA_KEY } from './chroma-key.ts';
+import { defaultParams } from './effects.ts';
 import { DEFAULT_MOTION } from './motion.ts';
 import { DTW_START_SHIFT, MAX_CLIP_SECONDS, newProject, parseProject, PROJECT_FORMAT, ProjectFormatError, serializeProject, type Project } from './project.ts';
 
@@ -173,6 +174,71 @@ describe('project files', () => {
 
   it('rejects a layer whose file is of the wrong kind', () => {
     expect(code(() => parseProject(JSON.stringify(withVideo(asset.id))))).toBe('invalid');
+  });
+
+  const lottieAsset = {
+    id: '2c3d4e5f-6071-4829-93a4-b5c6d7e8f901',
+    kind: 'lottie' as const,
+    name: 'zvezdice.json',
+    path: 'D:\\Animacije\\zvezdice.json',
+    size: 8192,
+    fingerprint: 'e'.repeat(64),
+    width: 512,
+    height: 512,
+    frameRate: 29.97,
+    frames: 90,
+  };
+  const withLottieAndEffect = (): Project => {
+    const p = withVideo();
+    p.assets.push(lottieAsset);
+    p.clips[0]!.layers.push(
+      {
+        id: '3d4e5f60-7182-4930-a4b5-c6d7e8f90112',
+        kind: 'lottie',
+        assetId: lottieAsset.id,
+        start: 0.4,
+        end: 1.3,
+        transform: [{ t: 0.4, value: { x: 0.5, y: 0.5, scale: 0.4, rotation: 0, opacity: 1 }, ease: 'cut' }],
+        motion: DEFAULT_MOTION,
+        speed: 1.5,
+        loop: true,
+      },
+      {
+        id: '4e5f6071-8293-4a41-b5c6-d7e8f9011223',
+        kind: 'effect',
+        effect: 'zoomPunch',
+        start: 0.3,
+        end: 1.1,
+        intensity: [{ t: 0.3, value: 1, ease: 'cut' }, { t: 0.9, value: 0.5, ease: 'smooth' }],
+        params: defaultParams('zoomPunch'),
+      },
+    );
+    return p;
+  };
+
+  it('round-trips Lottie layers, their files and effects', () => {
+    expect(parseProject(serializeProject(withLottieAndEffect()))).toEqual(withLottieAndEffect());
+  });
+
+  it('upgrades a format 6 file, which had no animations or effects, as it is', () => {
+    expect(parseProject(JSON.stringify({ ...withVideo(), format: 6 }))).toEqual(withVideo());
+  });
+
+  it('rejects an effect setting out of its range, or one the effect does not have', () => {
+    const tooMuch = withLottieAndEffect();
+    const effect = tooMuch.clips[0]!.layers.at(-1)!;
+    if (effect.kind === 'effect') effect.params['zoom'] = 5;
+    expect(code(() => parseProject(JSON.stringify(tooMuch)))).toBe('invalid');
+    const unknown = withLottieAndEffect();
+    const other = unknown.clips[0]!.layers.at(-1)!;
+    if (other.kind === 'effect') other.params['wobble'] = 1;
+    expect(code(() => parseProject(JSON.stringify(unknown)))).toBe('invalid');
+  });
+
+  it('rejects an effect it does not know', () => {
+    const p = withLottieAndEffect();
+    const text = JSON.stringify(p).replace('"zoomPunch"', '"wobble"');
+    expect(code(() => parseProject(text))).toBe('invalid');
   });
 
   it('rejects a video layer that is too loud', () => {

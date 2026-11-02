@@ -1,10 +1,10 @@
 import { describe, expect, it } from 'vitest';
-import type { ImageAsset, VideoAsset } from './assets.ts';
+import type { ImageAsset, LottieAsset, VideoAsset } from './assets.ts';
 import { newCaptionLayer } from './captions.ts';
 import { DEFAULT_CAPTION_STYLE } from './caption-style.ts';
 import { defaultVideoLayer } from './framing.ts';
 import { DEFAULT_MOTION } from './motion.ts';
-import type { Clip, ImageLayer, OverlayLayer } from './project.ts';
+import type { Clip, EffectLayer, ImageLayer, LottieLayer, OverlayLayer } from './project.ts';
 import { overlayTimeAt, quadContains, quadCorners, quadOf, sceneAt } from './scene.ts';
 
 const asset: ImageAsset = {
@@ -47,6 +47,25 @@ const video: VideoAsset = {
 
 function overlay(start: number, end: number, offset: number, loop: boolean): OverlayLayer {
   return { ...image(start, end), kind: 'overlay', assetId: video.id, offset, volume: 1, loop };
+}
+
+const animation: LottieAsset = {
+  ...asset,
+  id: '8f7e6d5c-4b3a-4291-8a0f-9e8d7c6b5a49',
+  kind: 'lottie',
+  width: 512,
+  height: 512,
+  frameRate: 30,
+  frames: 120,
+};
+
+function lottie(start: number, end: number): LottieLayer {
+  const { key: _key, ...placed } = image(start, end);
+  return { ...placed, kind: 'lottie', assetId: animation.id, speed: 1.5, loop: false };
+}
+
+function blackWhite(start: number, end: number): EffectLayer {
+  return { id: crypto.randomUUID(), kind: 'effect', effect: 'blackWhite', start, end, intensity: [{ t: start, value: 1, ease: 'cut' }], params: {} };
 }
 
 const SOURCE = { width: 1920, height: 1080 };
@@ -94,6 +113,27 @@ describe('scene', () => {
     expect(overlayTimeAt({ start: 2, offset: 0.5, loop: true }, 3, 7)).toBeCloseTo(2.5);
     // Asked about a moment before the layer starts, it shows its first frame.
     expect(overlayTimeAt({ start: 2, offset: 0.5, loop: false }, 3, 1)).toBe(0.5);
+  });
+
+  it('draws a Lottie layer at its frame, rendered at about its size on screen', () => {
+    const c: Clip = { ...clip, layers: [defaultVideoLayer(0), lottie(2, 8)] };
+    const op = sceneAt(c, [animation], 3, SOURCE)[1]!;
+    expect(op).toMatchObject({ type: 'lottie', assetId: animation.id, frame: 45, quad: { w: 540, h: 540 } });
+    if (op.type !== 'lottie') throw new Error('not a Lottie op');
+    expect(op.size.width).toBeGreaterThanOrEqual(540);
+  });
+
+  it('puts an effect where it is in the order, so it changes only what is under it', () => {
+    const c: Clip = { ...clip, layers: [defaultVideoLayer(0), image(0, 10), blackWhite(1, 5), newCaptionLayer(0, DEFAULT_CAPTION_STYLE)] };
+    expect(sceneAt(c, [asset], 3, SOURCE).map((o) => o.type)).toEqual(['video', 'image', 'effect', 'captions']);
+    expect(sceneAt(c, [asset], 3, SOURCE)[2]).toMatchObject({ type: 'effect', pass: { pass: 'grade', saturation: -1 } });
+    expect(sceneAt(c, [asset], 6, SOURCE).map((o) => o.type)).toEqual(['video', 'image', 'captions']);
+  });
+
+  it('leaves out an effect that changes nothing', () => {
+    const off: EffectLayer = { ...blackWhite(1, 5), intensity: [{ t: 1, value: 0, ease: 'cut' }] };
+    const c: Clip = { ...clip, layers: [defaultVideoLayer(0), off] };
+    expect(sceneAt(c, [], 3, SOURCE).map((o) => o.type)).toEqual(['video']);
   });
 
   it('turns and hit-tests rotated quads', () => {

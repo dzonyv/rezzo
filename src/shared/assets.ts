@@ -1,13 +1,16 @@
 /**
- * Files a project uses besides its source video: images and videos now,
- * animations later. Like the source they're referenced by path and
- * fingerprint, never copied, so moving one means finding it again.
+ * Files a project uses besides its source video: images, videos and Lottie
+ * animations. Like the source they're referenced by path and fingerprint,
+ * never copied, so moving one means finding it again.
  */
 import { z } from 'zod';
+import { lottieInfoSchema } from './lottie.ts';
 
-export const ASSET_KINDS = ['image', 'video'] as const;
+export const ASSET_KINDS = ['image', 'video', 'lottie'] as const;
 export const IMAGE_EXTENSIONS = ['png', 'jpg', 'jpeg', 'webp'] as const;
 export const VIDEO_EXTENSIONS = ['mp4', 'mov', 'webm', 'mkv', 'gif'] as const;
+/** Lottie JSON, or a .lottie package (a zip with the JSON and its images). */
+export const LOTTIE_EXTENSIONS = ['json', 'lottie'] as const;
 /** Larger than any image anyone puts in a clip; keeps a mistaken pick from being read into memory. */
 export const MAX_IMAGE_BYTES = 100 * 1024 * 1024;
 /** Videos are only read by FFmpeg, never into memory whole; this just catches a wrong pick. */
@@ -58,7 +61,11 @@ export type VideoInfo = z.infer<typeof videoInfoSchema>;
 export const videoAssetSchema = assetFileSchema.extend({ id: z.uuid(), kind: z.literal('video') }).extend(videoInfoSchema.shape);
 export type VideoAsset = z.infer<typeof videoAssetSchema>;
 
-export const assetSchema = z.discriminatedUnion('kind', [imageAssetSchema, videoAssetSchema]);
+/** A Lottie animation, with what its JSON says about it (shared/lottie.ts). */
+export const lottieAssetSchema = assetFileSchema.extend({ id: z.uuid(), kind: z.literal('lottie') }).extend(lottieInfoSchema.shape);
+export type LottieAsset = z.infer<typeof lottieAssetSchema>;
+
+export const assetSchema = z.discriminatedUnion('kind', [imageAssetSchema, videoAssetSchema, lottieAssetSchema]);
 export type Asset = z.infer<typeof assetSchema>;
 export type AssetKind = (typeof ASSET_KINDS)[number];
 
