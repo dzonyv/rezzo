@@ -1,12 +1,14 @@
 import i18n from 'i18next';
-import { useEffect, useRef, useState } from 'react';
+import { useEffect, useMemo, useRef, useState } from 'react';
 import { useTranslation } from 'react-i18next';
-import { frameRecipe } from '../../../shared/framing.ts';
-import { captionLayerOf, videoLayerOf, type Clip, type Source } from '../../../shared/project.ts';
+import type { Asset } from '../../../shared/assets.ts';
+import { captionLayerOf, type Clip, type Source } from '../../../shared/project.ts';
+import { markMissing } from '../project/assets.ts';
 import { useProject } from '../project/store.ts';
-import { CaptionPainter, loadCaptionScene, type CaptionScene } from '../render/captions.ts';
-import { ClipPlayer, type SceneAt } from '../render/clip-player.ts';
-import { Compositor } from '../render/compositor.ts';
+import { loadCaptionScene, type CaptionScene } from '../render/captions.ts';
+import { ClipPlayer, type DrawAt } from '../render/clip-player.ts';
+import { Compositor, type LayerImage } from '../render/compositor.ts';
+import { assetsOf, loadImages, SceneRenderer } from '../render/scene-renderer.ts';
 import { useSettings } from '../settings.ts';
 import { flatOf } from '../transcript/words.ts';
 import { notify } from '../ui/prompts.ts';
@@ -17,34 +19,40 @@ const TRIM_SETTLE_MS = 400;
 
 /**
  * The 9:16 preview of the open clip. Makes sure there's a working file for
- * the clip's range, plays it through the compositor, and redraws when the
- * framing or the captions change. Children are drawn over the picture (the
- * framing and caption handles).
+ * the clip's range, plays it through the compositor, and redraws when
+ * anything in the clip changes. Children are drawn over the picture (the
+ * framing, caption and layer handles).
  */
 export function ClipPreview({ clip, source, children }: { clip: Clip; source: Source; children?: React.ReactNode }) {
   const { t } = useTranslation();
   const canvas = useRef<HTMLCanvasElement>(null);
   const compositor = useRef<Compositor | null>(null);
+  const renderer = useRef<SceneRenderer | null>(null);
   // Bumped when the GPU context comes back after being lost: everything is rebuilt.
   const [generation, setGeneration] = useState(0);
   const status = useClipPlayback((s) => s.status);
   const progress = useClipPlayback((s) => s.progress);
   const error = useClipPlayback((s) => s.error);
 
-  const layer = videoLayerOf(clip);
   const captions = captionLayerOf(clip);
   const segments = useProject((s) => s.project?.transcript?.segments);
+  const allAssets = useProject((s) => s.project?.assets);
   // Adding a font the captions were missing changes how they're drawn.
   const fonts = useSettings((s) => s.fonts);
   const [scene, setScene] = useState<CaptionScene | null>(null);
-  const painter = useRef<CaptionPainter | null>(null);
+  const [images, setImages] = useState<ReadonlyMap<string, LayerImage>>(new Map());
   /** What a player loading in the background will start with. */
-  const sceneAt = useRef<SceneAt>((time, size) => ({ recipe: frameRecipe(layer, time, size), overlay: null }));
+  const drawAt = useRef<DrawAt>(() => {});
+
+  // The files the layers show, as a value that changes only when they do (not when a layer moves).
+  const usedJson = JSON.stringify(assetsOf(clip, allAssets ?? []));
+  const used = useMemo(() => JSON.parse(usedJson) as Asset[], [usedJson]);
 
   useEffect(() => {
     const el = canvas.current!;
     const c = new Compositor(el);
     compositor.current = c;
+    renderer.current = new SceneRenderer(c);
     const resize = new ResizeObserver(() => {
       el.width = Math.round(el.clientWidth * devicePixelRatio);
       el.height = Math.round(el.clientHeight * devicePixelRatio);
@@ -69,6 +77,7 @@ export function ClipPreview({ clip, source, children }: { clip: Clip; source: So
       el.removeEventListener('webglcontextrestored', restored);
       setPlayer(null);
       compositor.current = null;
+      renderer.current = null;
       c.dispose();
     };
   }, [generation]);
@@ -101,7 +110,7 @@ export function ClipPreview({ clip, source, children }: { clip: Clip; source: So
           clipPlaybackStore.setState({ status: 'loading' });
           const c = compositor.current;
           if (!c) return;
-          const player = await ClipPlayer.load(result, c, range, (time, size) => sceneAt.current(time, size));
+          const player = await ClipPlayer.load(result, c, range, (time) => drawAt.current(time));
           if (cancelled) {
             player.dispose();
             return;
@@ -137,13 +146,25 @@ export function ClipPreview({ clip, source, children }: { clip: Clip; source: So
     };
   }, [captions, segments, fonts, clip.start, clip.end]);
 
-  // New framing or captions: redraw the frame on screen.
+  // The layers' pictures. One that can't be read is left out, and the editor offers to find it.
   useEffect(() => {
-    painter.current ??= new CaptionPainter();
-    const p = painter.current;
-    sceneAt.current = (time, size) => ({ recipe: frameRecipe(layer, time, size), overlay: scene ? p.paint(scene, time) : null });
-    currentPlayer()?.setScene(sceneAt.current);
-  }, [layer, scene]);
+    let current = true;
+    void loadImages(used, { onMissing: (a) => current && markMissing(a.id, true) }).then((loaded) => {
+      if (!current) return;
+      for (const a of used) if (loaded.has(a.id)) markMissing(a.id, false);
+      setImages(loaded);
+    });
+    return () => {
+      current = false;
+    };
+  }, [used]);
+
+  // Anything in the clip changed: redraw the frame on screen.
+  useEffect(() => {
+    const assets = allAssets ?? [];
+    drawAt.current = (time) => renderer.current?.draw({ clip, assets, captions: scene, images }, time);
+    currentPlayer()?.setScene(drawAt.current);
+  }, [clip, allAssets, scene, images, generation]);
 
   return (
     <div className="clip-preview">

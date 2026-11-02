@@ -3,6 +3,7 @@
  * sandboxed and reaches the rest of the app only through `window.rezzo`,
  * which the preload script builds from these channel lists.
  */
+import type { AssetFile, AssetKind, AssetStatus } from './assets.ts';
 import type { CustomFont } from './fonts.ts';
 import type { FrameRate } from './frames.ts';
 import type { Clip, Project, ProjectFormatError, Source, Transcript, TranscriptLanguage } from './project.ts';
@@ -70,6 +71,11 @@ export type AddFontResult =
   | { ok: true; font: CustomFont; missing: string[] }
   | { ok: false; error: 'unreadable' }
   | { ok: false; error: 'built-in'; family: string };
+
+/** A file for a layer, and a URL the page can read it from. "too-large": over the limit for its kind. */
+export type AddAssetResult = { ok: true; file: AssetFile; url: string } | { ok: false; error: 'unreadable' | 'too-large' };
+
+export type LocateAssetResult = AddAssetResult | { ok: false; error: 'different-file' };
 
 export interface RecentProject {
   path: string;
@@ -139,6 +145,14 @@ export interface InvokeApi {
   /** The bytes of an added font, by its `file` in the settings. */
   'fonts:read': (file: string) => Uint8Array;
 
+  /** Asks for a file of this kind for a layer. Null: the user cancelled. */
+  'asset:add': (kind: AssetKind) => AddAssetResult | null;
+  'asset:check': (asset: AssetFile) => AssetStatus;
+  /** Asks where a layer's file went; only the same file is accepted. Null: cancelled. */
+  'asset:locate': (kind: AssetKind, asset: AssetFile) => LocateAssetResult | null;
+  /** A rezzo-media:// URL the page can read a layer's file from. */
+  'asset:url': (asset: AssetFile) => string;
+
   /** Closes the window for real, after the renderer has dealt with unsaved work. */
   'app:close': () => void;
 }
@@ -186,6 +200,10 @@ export const INVOKE_CHANNELS = {
   'export:open': true,
   'fonts:add': true,
   'fonts:read': true,
+  'asset:add': true,
+  'asset:check': true,
+  'asset:locate': true,
+  'asset:url': true,
   'app:close': true,
 } as const satisfies Record<InvokeChannel, true>;
 

@@ -44,14 +44,25 @@
     "removeCaptions": "uklanjanje titlova",
     "captionStyle": "stil titlova",
     "moveCaptions": "pomeranje titlova",
-    "pageBreak": "nova strana titla"
+    "pageBreak": "nova strana titla",
+    "addImage": "dodavanje slike",
+    "replaceImage": "promena slike",
+    "moveLayer": "pomeranje sloja u vremenu",
+    "trimLayer": "promena dužine sloja",
+    "reorderLayer": "promena redosleda slojeva",
+    "deleteLayer": "brisanje sloja",
+    "duplicateLayer": "dupliranje sloja",
+    "placeLayer": "pomeranje sloja",
+    "layerAnimation": "animacija sloja",
+    "locateFile": "pronalaženje fajla"
   },
   "files": {
     "project": "Rezzo projekat",
     "video": "Video",
     "all": "Svi fajlovi",
     "mp4": "MP4 video",
-    "font": "Fajl fonta"
+    "font": "Fajl fonta",
+    "image": "Slika"
   },
   "unsaved": {
     "title": "Sačuvati izmene u „{{name}}”?",
@@ -218,7 +229,8 @@
       "body": "Da ga prekinem? Nedovršeni fajl se briše.",
       "stop": "Prekini izvoz",
       "keep": "Nastavi izvoz"
-    }
+    },
+    "missingFiles": "Ovi fajlovi ne mogu da se pronađu, pa klip ne može da se izveze: {{names}}. Pronađi ih u podešavanjima sloja."
   },
   "replacements": {
     "title": "Lista zamena",
@@ -317,5 +329,76 @@
     "newPageHelp": "Započni novu stranu titla od reči koja se izgovara",
     "joinPage": "Spoji sa prethodnom stranom",
     "joinPageHelp": "Od ove reči počinje strana titla; spoji je sa prethodnom"
+  },
+  "layers": {
+    "add": "Dodaj",
+    "addHelp": "Dodaj sloj preko slike, od playheada nadalje",
+    "kinds": {
+      "image": "Slika"
+    },
+    "video": "Video",
+    "captions": "Titlovi",
+    "rows": "Slojevi",
+    "select": "Izaberi {{name}}",
+    "moveBar": "{{name}}: prevuci da ga pomeriš u vremenu",
+    "startHandle": "Početak: {{name}}",
+    "endHandle": "Kraj: {{name}}",
+    "up": "Napred",
+    "down": "Nazad",
+    "delete": "Obriši sloj",
+    "duplicate": "Dupliraj",
+    "zoomHelp": "Ctrl+točkić zumira timeline",
+    "title": "Slika: {{name}}",
+    "deselect": "Nazad na sliku klipa",
+    "change": "Promeni sliku…",
+    "missing": "{{name}} više nije na {{path}}, pa se ne prikazuje.",
+    "locate": "Pronađi…",
+    "x": "Vodoravno",
+    "y": "Uspravno",
+    "scale": "Veličina",
+    "rotation": "Rotacija",
+    "opacity": "Vidljivost",
+    "placeHelp": "Prevuci sliku u previewu da je pomeriš, uglove da joj promeniš veličinu, a okruglu ručku da je okreneš. Shift isključuje lepljenje.",
+    "keyframeHelp": "Bez keyframe-ova slika stoji na istom mestu sve vreme. Dodaj ga gde treba da se pomeri, pa je pomeri tamo.",
+    "rotate": "Okreni sliku",
+    "resize": "Promeni veličinu slike",
+    "in": "Ulaz",
+    "out": "Izlaz",
+    "loop": "Dok se vidi",
+    "seconds": "Trajanje",
+    "strength": "Jačina",
+    "direction": "Smer",
+    "entrances": {
+      "none": "Odmah",
+      "fade": "Pojavljivanje",
+      "pop": "Pop",
+      "slide": "Klizanje",
+      "zoom": "Zum",
+      "bounce": "Odskok"
+    },
+    "exits": {
+      "none": "Odmah",
+      "fade": "Nestajanje",
+      "pop": "Pop",
+      "slide": "Klizanje",
+      "zoom": "Zum"
+    },
+    "loops": {
+      "none": "Mirno",
+      "shake": "Drmanje",
+      "pulse": "Pulsiranje",
+      "kenBurns": "Ken Burns"
+    },
+    "directions": {
+      "left": "Levo",
+      "right": "Desno",
+      "up": "Gore",
+      "down": "Dole"
+    },
+    "errors": {
+      "unreadable": "Taj fajl nije slika koju Rezzo može da pročita.",
+      "too-large": "Ta slika je prevelika (preko 100 MB).",
+      "different-file": "To je drugi fajl. Izaberi onaj koji je ovaj projekat koristio."
+    }
   }
 }
