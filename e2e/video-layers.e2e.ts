@@ -7,8 +7,9 @@
  *   yellow for the second, the right half is transparent;
  * - "green": 640×360, 2 s, green with a red 200×200 square in the middle;
  * - "beep": 640×360, 1 s, black, with a 3 kHz beep from 0.5 s to 0.7 s.
- * The project is written by the test, since the Add menu doesn't offer
- * video yet.
+ * The project is written by the test, so the drawing is checked apart
+ * from the editing; the last tests add and edit a video layer through the
+ * editor.
  */
 import { execFile } from 'node:child_process';
 import { mkdtemp, readFile, rm, stat, writeFile } from 'node:fs/promises';
@@ -52,6 +53,8 @@ const KEYED_X = 330;
 let dir: string;
 let app: ElectronApplication | undefined;
 let page: Page;
+let file: string;
+let greenFile: string;
 
 async function until(check: () => Promise<boolean>, timeoutMs = 10_000): Promise<void> {
   const end = Date.now() + timeoutMs;
@@ -126,7 +129,7 @@ beforeAll(async () => {
     '-filter_complex', "[0:v][1:v]concat=n=2:v=1,format=rgba,geq=r='r(X,Y)':g='g(X,Y)':b='b(X,Y)':a='if(lt(X,320),255,0)'",
     '-c:v', 'libvpx-vp9', '-pix_fmt', 'yuva420p', '-crf', '20', '-b:v', '0', alphaFile,
   ]);
-  const greenFile = path.join(dir, 'green.mp4');
+  greenFile = path.join(dir, 'green.mp4');
   await run(ffmpegExe(), [
     '-y', '-v', 'error', '-f', 'lavfi', '-i', 'color=c=0x00ff00:s=640x360:r=30:d=2',
     '-vf', 'drawbox=x=220:y=80:w=200:h=200:color=red:t=fill', '-c:v', 'libx264', '-pix_fmt', 'yuv420p', '-crf', '12', greenFile,
@@ -141,7 +144,7 @@ beforeAll(async () => {
   ({ app, page } = await launchApp(dir));
   await answerOpenDialog(app, video);
   await page.getByRole('button', { name: 'New project' }).click();
-  const file = path.join(dir, 'numbered.rezzo');
+  file = path.join(dir, 'numbered.rezzo');
   await answerSaveDialog(app, file);
   await page.getByRole('textbox', { name: 'Project name' }).waitFor();
   await page.keyboard.press('Control+S');
@@ -255,5 +258,73 @@ describe('video layers', () => {
     expect(ends).toHaveLength(1);
     expect(ends[0]).toBeCloseTo(2.5, 1);
     expect(starts[1]).toBeCloseTo(2.7, 1);
+  });
+});
+
+describe('editing video layers', () => {
+  const layers = async () => {
+    await page.keyboard.press('Control+S');
+    await expect.poll(() => page.locator('.topbar .dirty').count()).toBe(0);
+    return (JSON.parse(await readFile(file, 'utf8')) as Project).clips[0]!.layers.filter((l): l is OverlayLayer => l.kind === 'overlay');
+  };
+  /** Where output pixel (x, y) is on screen. */
+  const onScreen = async (x: number, y: number) => {
+    // The inspector can push the preview out of view in the small test window.
+    await page.locator('.clip-preview').scrollIntoViewIfNeeded();
+    const box = (await page.locator('.clip-preview canvas').boundingBox())!;
+    return { x: box.x + (x / W) * box.width, y: box.y + (y / H) * box.height };
+  };
+
+  it('adds a video from the playhead on, as long as the file', async () => {
+    await goTo(2.5);
+    await answerOpenDialog(app!, greenFile);
+    await page.locator('.add-menu summary').click();
+    await page.locator('.add-menu').getByRole('button', { name: 'Video' }).click();
+    await page.getByRole('heading', { name: 'Video: green.mp4' }).waitFor();
+    const added = (await layers()).at(-1)!;
+    expect(added.start).toBeCloseTo(2.5, 5);
+    expect(added.end).toBeCloseTo(4.5, 5);
+    expect(added).toMatchObject({ offset: 0, volume: 1, loop: false, key: null });
+    // The same file as the keyed layer: one asset for both.
+    expect(new Set((await layers()).map((l) => l.assetId)).size).toBe(3);
+  });
+
+  it('refuses a fifth video at the same moment', async () => {
+    await goTo(4.2);
+    await answerOpenDialog(app!, greenFile);
+    await page.locator('.add-menu summary').click();
+    await page.locator('.add-menu').getByRole('button', { name: 'Video' }).click();
+    await page.locator('.notice', { hasText: 'At most 4 videos' }).waitFor();
+    expect(await layers()).toHaveLength(4);
+  });
+
+  it("changes where the video starts, whether it loops, and says it has no sound", async () => {
+    // The video added above is still selected.
+    await page.getByRole('heading', { name: 'Video: green.mp4' }).waitFor();
+    await page.getByText('This video has no sound.').waitFor();
+    await page.getByRole('slider', { name: 'Start in the video' }).fill('1');
+    await page.getByRole('checkbox', { name: 'Start over at the end' }).check();
+    const added = (await layers()).at(-1)!;
+    expect(added.offset).toBeCloseTo(1, 5);
+    expect(added.loop).toBe(true);
+  });
+
+  it('turns on a green screen and picks its colour from the layer in the preview', async () => {
+    await goTo(3);
+    await page.getByRole('checkbox', { name: 'Green screen' }).check();
+    expect((await layers()).at(-1)!.key).toMatchObject({ color: '#00ff00' });
+    // The new layer is on top; its red square is drawn once its working file is decoded.
+    await expect.poll(async () => isRed(await pixel(540, 960)), { timeout: 15_000 }).toBe(true);
+    // The new layer is 648 wide in the middle; its file's red square is at x 439 to 641 there.
+    await page.getByRole('button', { name: 'Pick from the picture' }).click();
+    const at = await onScreen(540, 960);
+    await page.mouse.click(at.x, at.y);
+    const color = (await layers()).at(-1)!.key!.color;
+    const [r, g, b] = [1, 3, 5].map((i) => Number.parseInt(color.slice(i, i + 2), 16));
+    expect(r).toBeGreaterThan(200);
+    expect(g).toBeLessThan(60);
+    expect(b).toBeLessThan(60);
+    // Picking from the layer's own picture: the keyed layer above it doesn't change the answer.
+    expect(await page.getByText('Click the colour to remove').count()).toBe(0);
   });
 });

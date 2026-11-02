@@ -1520,3 +1520,47 @@ button.icon {
 .layer-bar.overlay {
   background: #3f86c9;
 }
+
+/* Picking a green screen colour: the whole preview takes the click. */
+.layer-overlay.picking {
+  pointer-events: auto;
+  cursor: crosshair;
+}
+
+.layer-overlay.picking .layer-box {
+  cursor: crosshair;
+}
+
+/* A video's sound and the green screen: sliders two by two, everything else across. */
+.layer-section {
+  padding-top: 8px;
+  border-top: 1px solid var(--border);
+}
+
+.layer-section > :not(.layer-slider) {
+  grid-column: 1 / -1;
+}
+
+.layer-section h4 {
+  margin: 0;
+  font-size: 12px;
+}
+
+.layer-grid label.layer-check {
+  flex-direction: row;
+  align-items: center;
+  gap: 6px;
+  color: var(--text);
+}
+
+.layer-color input {
+  width: 48px;
+  height: 26px;
+  padding: 0;
+  border: 0;
+  background: none;
+}
+
+.layer-bar.over-limit {
+  background: repeating-linear-gradient(135deg, #3f86c9 0 6px, #2b5a87 6px 12px);
+}

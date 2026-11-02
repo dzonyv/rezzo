@@ -1,11 +1,11 @@
 import { useEffect, useRef, useState } from 'react';
 import { useTranslation } from 'react-i18next';
-import { addImage } from '../project/assets.ts';
+import { addLayerFile } from '../project/assets.ts';
 import { pauseClip } from './playback.ts';
 import { selectLayer } from './state.ts';
 
 /** Kinds of layer the menu offers. */
-const KINDS = ['image'] as const;
+const KINDS = ['image', 'video'] as const;
 
 /** "Add": a menu of the kinds of layer that can go over the picture, added from the playhead on. */
 export function AddLayerMenu({ clipId, time }: { clipId: string; time: number }) {
@@ -39,10 +39,8 @@ export function AddLayerMenu({ clipId, time }: { clipId: string; time: number })
   const add = async (kind: (typeof KINDS)[number]) => {
     menu.current!.open = false;
     pauseClip();
-    if (kind === 'image') {
-      const id = await addImage(clipId, time);
-      if (id) selectLayer(id);
-    }
+    const id = await addLayerFile(kind, clipId, time);
+    if (id) selectLayer(id);
   };
 
   return (

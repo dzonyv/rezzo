@@ -53,7 +53,12 @@
     "deleteLayer": "delete layer",
     "duplicateLayer": "duplicate layer",
     "placeLayer": "move layer",
-    "layerAnimation": "layer animation"
+    "layerAnimation": "layer animation",
+    "addVideo": "add video",
+    "replaceVideo": "change video",
+    "layerSound": "video sound",
+    "videoStart": "video start",
+    "greenScreen": "green screen"
   },
   "files": {
     "project": "Rezzo project",
@@ -399,13 +404,34 @@
       "unreadable": "That file isn't an image Rezzo can read.",
       "too-large": "That image is too large (over 100 MB).",
       "different-file": "That's a different file. Choose the one this project used.",
-      "prepare": "The video couldn't be prepared: {{detail}}"
+      "prepare": "The video couldn't be prepared: {{detail}}",
+      "video": {
+        "unreadable": "That file isn't a video Rezzo can read.",
+        "too-large": "That video is too large."
+      },
+      "tooManyVideos": "At most {{count}} videos can show at the same moment. Make room on the timeline first."
     },
     "units": {
       "percent": "{{value}}%",
       "degrees": "{{value}}°",
       "seconds": "{{value}} s"
     },
-    "preparing": "Preparing the video"
+    "preparing": "Preparing the video",
+    "changeVideo": "Change video…",
+    "sound": "Sound",
+    "volume": "Volume",
+    "noSound": "This video has no sound.",
+    "loopVideo": "Start over at the end",
+    "videoStart": "Start in the video",
+    "videoHelp": "Without starting over, the last frame stays up once the video ends, and the sound stops.",
+    "overLimit": "At most {{count}} videos can show at the same moment. Where more overlap, this one isn't shown.",
+    "greenScreen": "Green screen",
+    "keyColor": "Colour",
+    "pickColor": "Pick from the picture",
+    "picking": "Click the colour to remove in the preview",
+    "similarity": "Similarity",
+    "smoothness": "Softness",
+    "spill": "Remove tint",
+    "titleVideo": "Video: {{name}}"
   }
 }

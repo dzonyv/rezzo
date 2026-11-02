@@ -2,6 +2,7 @@ import { useEffect, useMemo, useState } from 'react';
 import { useTranslation } from 'react-i18next';
 import { keyAt, valueAt } from '../../../shared/framing.ts';
 import { fps, workingFrameRate } from '../../../shared/frames.ts';
+import { videoLayersOverLimit } from '../../../shared/overlay-files.ts';
 import { captionPages } from '../../../shared/captions.ts';
 import { captionLayerOf, isTimed, LAYOUTS, MAX_ZOOM, videoLayerOf, type Clip, type Source } from '../../../shared/project.ts';
 import { exportClip, isExporting, useExport } from '../export/state.ts';
@@ -164,7 +165,14 @@ export function ClipEditor({ clip, source }: { clip: Clip; source: Source }) {
       {transcript && <WordStrip clip={clip} transcript={transcript} time={time} rate={rate} captions={captions !== null} />}
 
       {selectedLayer ? (
-        <LayerPanel clipId={clip.id} layer={selectedLayer} asset={assets.find((a) => a.id === selectedLayer.assetId)} time={time} rate={rate} />
+        <LayerPanel
+          clipId={clip.id}
+          layer={selectedLayer}
+          asset={assets.find((a) => a.id === selectedLayer.assetId)}
+          time={time}
+          rate={rate}
+          overLimit={videoLayersOverLimit(clip).has(selectedLayer.id)}
+        />
       ) : (
         pictureSettings()
       )}

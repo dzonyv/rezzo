@@ -345,6 +345,43 @@ export class Compositor {
     }
   }
 
+  /**
+   * The average colour (RGB 0..255) of a 5×5 patch of a layer's own
+   * picture at (u, v), 0..1 from its top left: a video layer's latest frame
+   * (by layer id) or an image (by asset id), before any key. Null when
+   * neither is here. For the green screen's eyedropper.
+   */
+  sampleLayer(layerId: string, assetId: string, u: number, v: number): [number, number, number] | null {
+    const gl = this.gl;
+    const frame = this.frames.get(layerId);
+    const image = this.images.get(assetId);
+    const source = frame
+      ? { tex: frame.tex, w: frame.layout.width, h: frame.layout.height, premultiplied: false }
+      : image
+        ? { tex: image.tex, w: image.image.width, h: image.image.height, premultiplied: true }
+        : null;
+    if (!source) return null;
+    const x = Math.min(Math.max(Math.round(u * source.w) - 2, 0), Math.max(0, source.w - 5));
+    const y = Math.min(Math.max(Math.round(v * source.h) - 2, 0), Math.max(0, source.h - 5));
+    const fbo = gl.createFramebuffer();
+    gl.bindFramebuffer(gl.FRAMEBUFFER, fbo);
+    gl.framebufferTexture2D(gl.FRAMEBUFFER, gl.COLOR_ATTACHMENT0, gl.TEXTURE_2D, source.tex, 0);
+    const px = new Uint8Array(5 * 5 * 4);
+    // Texture rows are top first, like comp's, so (x, y) needs no flipping.
+    gl.readPixels(x, y, Math.min(5, source.w), Math.min(5, source.h), gl.RGBA, gl.UNSIGNED_BYTE, px);
+    gl.bindFramebuffer(gl.FRAMEBUFFER, null);
+    gl.deleteFramebuffer(fbo);
+    const sum = [0, 0, 0];
+    let weight = 0;
+    for (let i = 0; i < px.length; i += 4) {
+      const a = source.premultiplied ? px[i + 3]! / 255 : 1;
+      if (a <= 0) continue;
+      for (let c = 0; c < 3; c++) sum[c]! += px[i + c]! / a;
+      weight++;
+    }
+    return weight > 0 ? (sum.map((s) => Math.min(255, s / weight)) as [number, number, number]) : null;
+  }
+
   /** Copies a decoded frame into the source texture. The caller can close the frame right after. */
   upload(frame: VideoFrame): void {
     const gl = this.gl;

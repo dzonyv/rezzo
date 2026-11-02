@@ -32,7 +32,7 @@ Built in two parts: 2a (correcting the transcript, word timing, the replacement 
 
 ## Phase 3 — Layers
 
-Built in three parts: 3a (layers over the picture, the multi-layer timeline, images with animations), 3b (video layers and green screen) and 3c (Lottie and effects).
+Built in three parts: 3a (layers over the picture, the multi-layer timeline, images with animations), 3b (video layers and green screen) and 3c (Lottie and effects). 3a and 3b are done.
 
 - Images with animations: pop, slide, zoom, bounce, shake, Ken Burns.
 - Green screen with adjustable keying.

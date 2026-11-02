@@ -1,15 +1,17 @@
 /**
- * Edits to the layers over a clip's picture: adding images, moving and
+ * Edits to the layers over a clip's picture: adding images and videos, moving and
  * trimming them in time, stacking them, placing them and animating them.
  * Placement works like framing (see project/framing.ts): while the
  * transform has one keyframe an edit changes it for the layer's whole time.
  */
 import { current, type Draft } from 'immer';
-import type { AssetFile } from '../../../shared/assets.ts';
+import type { AssetFile, VideoInfo } from '../../../shared/assets.ts';
+import { DEFAULT_CHROMA_KEY, type ChromaKey } from '../../../shared/chroma-key.ts';
 import { editAt, OUTPUT, removeKey, setKey, valueAt, type Size } from '../../../shared/framing.ts';
 import { fps, frameAt, timeOfFrame } from '../../../shared/frames.ts';
 import { clampTransform, DEFAULT_MOTION, type Motion, type Transform } from '../../../shared/motion.ts';
-import { isTimed, type Clip, type Project, type TimedLayer } from '../../../shared/project.ts';
+import { videoLayersOverLimit } from '../../../shared/overlay-files.ts';
+import { isTimed, type Clip, type OverlayLayer, type Project, type TimedLayer } from '../../../shared/project.ts';
 import { sourceRate } from './framing.ts';
 import { projectStore, type EditLabel } from './store.ts';
 
@@ -197,4 +199,88 @@ export function setLayerKeySmooth(clipId: string, layerId: string, index: number
 /** Changes part of how the layer comes in, goes out or moves while it's up. */
 export function setMotion(clipId: string, layerId: string, part: keyof Motion, patch: Partial<Motion[keyof Motion]>): void {
   editLayer(clipId, layerId, 'history.layerAnimation', (layer) => void Object.assign(layer.motion[part], patch));
+}
+
+/**
+ * Adds a video from `time` on, as long as the file runs or to the clip's
+ * end, over the other layers but under the captions. Like an image, the
+ * file becomes one of the project's assets unless it already is. Returns
+ * the new layer's id, or "too-many" when MAX_VIDEO_LAYERS videos would
+ * show at once somewhere in its time.
+ */
+export function addVideoLayer(clipId: string, file: AssetFile, info: VideoInfo, time: number): string | 'too-many' | null {
+  const project = store().project;
+  const clip = project?.clips.find((c) => c.id === clipId);
+  if (!project || !clip) return null;
+  const { rate, first, end } = clipFrames(clip);
+  const length = Math.max(1, Math.min(end - first, Math.round(info.duration * fps(rate))));
+  const from = Math.min(Math.max(frameAt(time, rate), first), end - length);
+  const start = timeOfFrame(from, rate);
+  const existing = project.assets.find((a) => a.kind === 'video' && a.fingerprint === file.fingerprint);
+  const assetId = existing?.id ?? crypto.randomUUID();
+  const layer: OverlayLayer = {
+    id: crypto.randomUUID(),
+    kind: 'overlay',
+    assetId,
+    start,
+    end: timeOfFrame(from + length, rate),
+    transform: [{ t: start, value: { x: 0.5, y: 0.5, scale: startingScale(info), rotation: 0, opacity: 1 }, ease: 'cut' }],
+    motion: DEFAULT_MOTION,
+    key: null,
+    offset: 0,
+    volume: 1,
+    loop: false,
+  };
+  if (videoLayersOverLimit({ layers: [...clip.layers, layer] }).has(layer.id)) return 'too-many';
+  editClip(clipId, 'history.addVideo', (c, d) => {
+    if (existing) Object.assign(d.assets.find((a) => a.id === existing.id)!, { path: file.path, name: file.name });
+    else d.assets.push({ id: assetId, kind: 'video', ...file, ...info });
+    const captions = c.layers.findIndex((l) => l.kind === 'caption');
+    c.layers.splice(captions >= 0 ? captions : c.layers.length, 0, layer);
+  });
+  return layer.id;
+}
+
+/** Puts a different video in the layer, keeping where it is, how it moves and its sound settings. */
+export function replaceVideo(clipId: string, layerId: string, file: AssetFile, info: VideoInfo): void {
+  const existing = store().project?.assets.find((a) => a.kind === 'video' && a.fingerprint === file.fingerprint);
+  const assetId = existing?.id ?? crypto.randomUUID();
+  editClip(clipId, 'history.replaceVideo', (c, d) => {
+    const layer = c.layers.find((l) => l.id === layerId);
+    if (layer?.kind !== 'overlay') return;
+    if (!existing) d.assets.push({ id: assetId, kind: 'video', ...file, ...info });
+    layer.assetId = assetId;
+    // The new file may be shorter.
+    layer.offset = Math.min(layer.offset, Math.max(0, info.duration - 1 / fps(sourceRate())));
+    pruneAssets(d);
+  });
+}
+
+/** A video layer's volume (0..1) or whether it loops; the volume slider calls it inside a gesture. */
+export function setLayerSound(clipId: string, layerId: string, patch: Partial<Pick<OverlayLayer, 'volume' | 'loop'>>): void {
+  editLayer(clipId, layerId, 'history.layerSound', (layer) => {
+    if (layer.kind !== 'overlay') return;
+    if (patch.volume !== undefined) layer.volume = Math.min(1, Math.max(0, patch.volume));
+    if (patch.loop !== undefined) layer.loop = patch.loop;
+  });
+}
+
+/** Where in its file a video layer starts playing, snapped to a frame of the clip and inside the file. */
+export function setVideoStart(clipId: string, layerId: string, offset: number, duration: number): void {
+  editLayer(clipId, layerId, 'history.videoStart', (layer) => {
+    if (layer.kind !== 'overlay') return;
+    const rate = sourceRate();
+    const last = Math.max(0, Math.ceil(duration * fps(rate)) - 1);
+    layer.offset = timeOfFrame(Math.min(Math.max(Math.round(offset * fps(rate)), 0), last), rate);
+  });
+}
+
+/**
+ * Turns the layer's green screen on (with the usual settings, or `patch`
+ * over the ones it has), changes it, or turns it off with null.
+ */
+export function setChromaKey(clipId: string, layerId: string, patch: Partial<ChromaKey> | null): void {
+  editLayer(clipId, layerId, 'history.greenScreen', (layer) => {
+    layer.key = patch === null ? null : { ...(layer.key ?? DEFAULT_CHROMA_KEY), ...patch };
+  });
 }

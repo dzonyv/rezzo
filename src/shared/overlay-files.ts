@@ -7,7 +7,8 @@
  */
 import type { VideoAsset } from './assets.ts';
 import { OUTPUT, type Size } from './framing.ts';
-import { MAX_CLIP_SECONDS, type OverlayLayer } from './project.ts';
+import { MAX_CLIP_SECONDS, type Clip, type OverlayLayer } from './project.ts';
+import { showsAt } from './scene.ts';
 
 /** Bumped when the conversion changes, so old cached files aren't reused. */
 export const OVERLAY_VERSION = 1;
@@ -107,4 +108,26 @@ export function overlaySoundPieces(
     t += length;
   }
   return pieces;
+}
+
+/**
+ * Video layers that are left out for some of their time because
+ * MAX_VIDEO_LAYERS lower ones already show then: the renderer draws the
+ * lowest ones (render/layer-frames.ts).
+ */
+export function videoLayersOverLimit(clip: Pick<Clip, 'layers'>): Set<string> {
+  const videos = clip.layers.filter((l) => l.kind === 'overlay');
+  const over = new Set<string>();
+  for (const layer of videos) {
+    // The set of layers showing only changes where one starts.
+    const moments = [layer.start, ...videos.map((v) => v.start).filter((t) => t > layer.start && t < layer.end)];
+    for (const t of moments) {
+      const below = videos.filter((v) => showsAt(v, t));
+      if (below.indexOf(layer) >= MAX_VIDEO_LAYERS) {
+        over.add(layer.id);
+        break;
+      }
+    }
+  }
+  return over;
 }

@@ -16,6 +16,7 @@ import { assetsOf, loadImages, SceneRenderer } from '../render/scene-renderer.ts
 import { useSettings } from '../settings.ts';
 import { flatOf } from '../transcript/words.ts';
 import { notify } from '../ui/prompts.ts';
+import { setSampler } from './eyedropper.ts';
 import { clipPlaybackStore, currentPlayer, setPlayer, useClipPlayback } from './playback.ts';
 
 /** Trimming a clip in small steps shouldn't start a conversion for every step. */
@@ -64,6 +65,7 @@ export function ClipPreview({ clip, source, children }: { clip: Clip; source: So
     const r = new SceneRenderer(c);
     renderer.current = r;
     r.layers.onError = (_layerId, e) => notify('error', i18n.t('layers.errors.prepare', { detail: e instanceof Error ? e.message : String(e) }));
+    setSampler((layerId, assetId, u, v) => c.sampleLayer(layerId, assetId, u, v));
     const resize = new ResizeObserver(() => {
       el.width = Math.round(el.clientWidth * devicePixelRatio);
       el.height = Math.round(el.clientHeight * devicePixelRatio);
@@ -89,6 +91,7 @@ export function ClipPreview({ clip, source, children }: { clip: Clip; source: So
       setPlayer(null);
       compositor.current = null;
       renderer.current = null;
+      setSampler(null);
       r.dispose();
       c.dispose();
     };

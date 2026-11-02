@@ -1,5 +1,5 @@
 import { describe, expect, it } from 'vitest';
-import { overlayLayout, overlayRange, overlaySize, overlaySoundPieces, stackedHalf } from './overlay-files.ts';
+import { overlayLayout, overlayRange, overlaySize, overlaySoundPieces, stackedHalf, videoLayersOverLimit } from './overlay-files.ts';
 
 describe('video layer files', () => {
   it('shrinks a file to fit the output frame, never enlarging it', () => {
@@ -57,5 +57,18 @@ describe('video layer sound', () => {
   it('keeps to the clip', () => {
     // The layer starts before the clip: its sound is already 3 s in at the clip's start.
     expect(overlaySoundPieces({ start: 7, end: 25, offset: 0, loop: false }, 60, clip)).toEqual([{ at: 10, from: 3, duration: 10 }]);
+  });
+});
+
+describe('the limit on video layers', () => {
+  const video = (start: number, end: number) => ({ id: `v${start}-${end}`, kind: 'overlay' as const, start, end });
+  const clip = (...layers: ReturnType<typeof video>[]) => ({ layers }) as unknown as Parameters<typeof videoLayersOverLimit>[0];
+
+  it('leaves out the fifth layer only where five show at once', () => {
+    const four = [video(0, 10), video(0, 10), video(2, 6), video(0, 4)].map((v, i) => ({ ...v, id: `${v.id}#${i}` }));
+    expect(videoLayersOverLimit(clip(...four, video(5, 8)))).toEqual(new Set());
+    expect(videoLayersOverLimit(clip(...four, video(3, 8)))).toEqual(new Set(['v3-8']));
+    // The topmost one goes, whichever started first.
+    expect(videoLayersOverLimit(clip(video(3, 8), ...four))).toEqual(new Set(['v0-4#3']));
   });
 });
