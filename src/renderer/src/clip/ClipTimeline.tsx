@@ -2,7 +2,7 @@ import { useEffect, useRef, useState } from 'react';
 import { useTranslation } from 'react-i18next';
 import type { Asset } from '../../../shared/assets.ts';
 import type { CaptionPage } from '../../../shared/captions.ts';
-import { isTimed, videoLayerOf, type Animated, type Clip, type TimedLayer } from '../../../shared/project.ts';
+import { ASSET_KIND_OF, isTimed, videoLayerOf, type Animated, type Clip, type TimedLayer } from '../../../shared/project.ts';
 import { moveLayer, reorderLayer, trimLayer } from '../project/layers.ts';
 import { projectStore } from '../project/store.ts';
 import { pauseClip, seekClip } from './playback.ts';
@@ -59,7 +59,7 @@ export function ClipTimeline({ clip, assets, keys, pages, selectedId, time }: Pr
   const rows = clip.layers.slice(1).reverse();
   const raise = (id: string) => reorderLayer(clip.id, id, 'up');
   const lower = (id: string) => reorderLayer(clip.id, id, 'down');
-  const nameOf = (layer: TimedLayer) => assets.find((a) => a.id === layer.assetId)?.name ?? t('layers.kinds.image');
+  const nameOf = (layer: TimedLayer) => assets.find((a) => a.id === layer.assetId)?.name ?? t(`layers.kinds.${ASSET_KIND_OF[layer.kind]}`);
 
   /** Diamonds for keyframes inside the clip; pressing one goes to it. */
   const keyMarks = (marks: Animated<unknown>) =>

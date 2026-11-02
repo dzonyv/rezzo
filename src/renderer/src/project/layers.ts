@@ -76,6 +76,7 @@ export function addImageLayer(clipId: string, file: AssetFile, size: Size, time:
     end: timeOfFrame(from + length, rate),
     transform: [{ t: start, value: { x: 0.5, y: 0.5, scale: startingScale(size), rotation: 0, opacity: 1 }, ease: 'cut' }],
     motion: DEFAULT_MOTION,
+    key: null,
   };
   editClip(clipId, 'history.addImage', (c, d) => {
     if (existing) Object.assign(d.assets.find((a) => a.id === existing.id)!, { path: file.path, name: file.name });

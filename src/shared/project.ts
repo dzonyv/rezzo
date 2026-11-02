@@ -11,11 +11,12 @@
 import { z } from 'zod';
 import { assetSchema, type Asset } from './assets.ts';
 import { captionStyleSchema } from './caption-style.ts';
+import { chromaKeySchema } from './chroma-key.ts';
 import { fps, frameAt, timeOfFrame, workingFrameRate } from './frames.ts';
 import { motionSchema, transformSchema } from './motion.ts';
 
 /** Bumped when the file format changes in a way older files need migrating for. */
-export const PROJECT_FORMAT = 5;
+export const PROJECT_FORMAT = 6;
 export const PROJECT_EXTENSION = 'rezzo';
 
 export const TRANSCRIPT_LANGUAGES = ['sr', 'hr', 'bs'] as const;
@@ -213,19 +214,39 @@ export const imageLayerSchema = z.object({
   end: seconds,
   transform: animated(transformSchema),
   motion: motionSchema,
+  /** Green screen, or null for none. */
+  key: chromaKeySchema.nullable(),
 });
 export type ImageLayer = z.infer<typeof imageLayerSchema>;
+
+/**
+ * A video over the picture, placed and animated like an image. It plays
+ * from `offset` seconds into the file at the layer's `start`; past the
+ * file's end it starts over when `loop` is on, otherwise its last frame
+ * stays up (shared/scene.ts, overlayTimeAt).
+ */
+export const overlayLayerSchema = imageLayerSchema.extend({
+  kind: z.literal('overlay'),
+  offset: seconds,
+  /** Loudness of the file's own sound in the mix, 0..1. */
+  volume: z.number().min(0).max(1),
+  loop: z.boolean(),
+});
+export type OverlayLayer = z.infer<typeof overlayLayerSchema>;
 
 /**
  * Everything in a clip is a layer, drawn in the order of `layers`: the
  * source video first, then the rest over it. Phase 3 adds more kinds.
  */
-export const layerSchema = z.discriminatedUnion('kind', [videoLayerSchema, captionLayerSchema, imageLayerSchema]);
+export const layerSchema = z.discriminatedUnion('kind', [videoLayerSchema, captionLayerSchema, imageLayerSchema, overlayLayerSchema]);
 export type Layer = z.infer<typeof layerSchema>;
 /** Layers that show for part of the clip and can be moved around in it. */
-export type TimedLayer = ImageLayer;
+export type TimedLayer = ImageLayer | OverlayLayer;
 
-export const isTimed = (layer: Layer): layer is TimedLayer => layer.kind === 'image';
+export const isTimed = (layer: Layer): layer is TimedLayer => layer.kind === 'image' || layer.kind === 'overlay';
+
+/** The kind of asset each timed layer shows. */
+export const ASSET_KIND_OF = { image: 'image', overlay: 'video' } as const satisfies Record<TimedLayer['kind'], Asset['kind']>;
 
 export const clipSchema = z
   .object({
@@ -270,9 +291,9 @@ export const projectSchema = z
   })
   .refine((p) => new Set(p.assets.map((a) => a.id)).size === p.assets.length, 'asset ids are unique')
   .refine((p) => {
-    const ids = new Set(p.assets.map((a) => a.id));
-    return p.clips.every((c) => c.layers.every((l) => !isTimed(l) || ids.has(l.assetId)));
-  }, "every layer uses one of the project's assets");
+    const kinds = new Map(p.assets.map((a) => [a.id, a.kind]));
+    return p.clips.every((c) => c.layers.every((l) => !isTimed(l) || kinds.get(l.assetId) === ASSET_KIND_OF[l.kind]));
+  }, "every layer uses one of the project's assets, of the right kind");
 export type Project = z.infer<typeof projectSchema>;
 
 export function newProject(name: string, id: string = crypto.randomUUID()): Project {
@@ -293,7 +314,18 @@ const MIGRATIONS: Record<number, (old: Record<string, unknown>) => Record<string
   3: (old) => old,
   // Format 5 added layers over the picture, and the files they show.
   4: (old) => ({ ...old, assets: [] }),
+  // Format 6 added video layers, and green screen on images.
+  5: (old) => ({ ...old, clips: imagesWithoutKey(old.clips) }),
 };
+
+function imagesWithoutKey(clips: unknown): unknown {
+  if (!Array.isArray(clips)) return clips;
+  return clips.map((clip: { layers?: unknown }) =>
+    Array.isArray(clip?.layers)
+      ? { ...clip, layers: clip.layers.map((l: { kind?: unknown }) => (l?.kind === 'image' ? { ...l, key: null } : l)) }
+      : clip,
+  );
+}
 
 export class ProjectFormatError extends Error {
   readonly code: 'not-json' | 'not-a-project' | 'too-new' | 'invalid';

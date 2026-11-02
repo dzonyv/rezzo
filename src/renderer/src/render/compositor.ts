@@ -266,7 +266,7 @@ export class Compositor {
         this.drawVideo(op.recipe);
       } else if (op.type === 'captions') {
         if (captions) this.drawOverlay(captions);
-      } else {
+      } else if (op.type === 'image') {
         const image = images.get(op.assetId);
         // A closed ImageBitmap (let go of after its layer went) is 0×0 and can't be uploaded.
         if (image && image.width > 0) this.drawQuad(this.imageTexture(op.assetId, image), op.quad, op.opacity);

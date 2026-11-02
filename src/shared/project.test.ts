@@ -1,5 +1,6 @@
 import { describe, expect, it } from 'vitest';
 import { clipFromWords } from './clips.ts';
+import { DEFAULT_CHROMA_KEY } from './chroma-key.ts';
 import { DEFAULT_MOTION } from './motion.ts';
 import { DTW_START_SHIFT, MAX_CLIP_SECONDS, newProject, parseProject, PROJECT_FORMAT, ProjectFormatError, serializeProject, type Project } from './project.ts';
 
@@ -115,12 +116,69 @@ describe('project files', () => {
       end: 1.2,
       transform: [{ t: 0.3, value: { x: 0.5, y: 0.3, scale: 0.6, rotation: 0, opacity: 1 }, ease: 'cut' as const }],
       motion: DEFAULT_MOTION,
+      key: null,
     };
     return { ...sample, assets: [asset], clips: [{ ...clip, layers: [...clip.layers, image] }] };
   };
 
+  const videoAsset = {
+    id: '7e6d5c4b-3a29-4180-9f7e-6d5c4b3a2918',
+    kind: 'video' as const,
+    name: 'konfete.webm',
+    path: 'D:\\Video\\konfete.webm',
+    size: 4096,
+    fingerprint: 'd'.repeat(64),
+    codec: 'vp9',
+    width: 1080,
+    height: 1920,
+    duration: 3.5,
+    frameRate: [30, 1] as [number, number],
+    alpha: true,
+    hasAudio: false,
+  };
+  const withVideo = (assetId = videoAsset.id): Project => {
+    const p = withImage();
+    const overlay = {
+      id: '1b2c3d4e-5f60-4718-8293-a4b5c6d7e8f9',
+      kind: 'overlay' as const,
+      assetId,
+      start: 0.5,
+      end: 1.4,
+      transform: [{ t: 0.5, value: { x: 0.5, y: 0.5, scale: 1, rotation: 0, opacity: 1 }, ease: 'cut' as const }],
+      motion: DEFAULT_MOTION,
+      key: { ...DEFAULT_CHROMA_KEY },
+      offset: 1.25,
+      volume: 0.8,
+      loop: true,
+    };
+    p.assets.push(videoAsset);
+    p.clips[0]!.layers.push(overlay);
+    return p;
+  };
+
   it('round-trips image layers and their files', () => {
     expect(parseProject(serializeProject(withImage()))).toEqual(withImage());
+  });
+
+  it('upgrades a format 5 file, whose images had no green screen', () => {
+    const p = withImage();
+    const old = { ...p, format: 5, clips: p.clips.map((c) => ({ ...c, layers: c.layers.map((l) => (l.kind === 'image' ? { ...l, key: undefined } : l)) })) };
+    expect(parseProject(JSON.stringify(old))).toEqual(p);
+  });
+
+  it('round-trips video layers and their files', () => {
+    expect(parseProject(serializeProject(withVideo()))).toEqual(withVideo());
+  });
+
+  it('rejects a layer whose file is of the wrong kind', () => {
+    expect(code(() => parseProject(JSON.stringify(withVideo(asset.id))))).toBe('invalid');
+  });
+
+  it('rejects a video layer that is too loud', () => {
+    const p = withVideo();
+    const overlay = p.clips[0]!.layers.at(-1)!;
+    if (overlay.kind === 'overlay') overlay.volume = 1.5;
+    expect(code(() => parseProject(JSON.stringify(p)))).toBe('invalid');
   });
 
   it('rejects a layer whose file is not in the project', () => {

@@ -7,9 +7,10 @@
  * Quads are in output pixels, origin top left, rotation clockwise.
  */
 import type { Asset } from './assets.ts';
+import type { ChromaKey } from './chroma-key.ts';
 import { frameRecipe, OUTPUT, type FrameRecipe, type Size } from './framing.ts';
 import { layerTransformAt, type Transform } from './motion.ts';
-import { videoLayerOf, type Clip, type TimedLayer } from './project.ts';
+import { ASSET_KIND_OF, videoLayerOf, type Clip, type OverlayLayer, type TimedLayer } from './project.ts';
 
 export interface Quad {
   cx: number;
@@ -22,11 +23,24 @@ export interface Quad {
 
 export type SceneOp =
   | { type: 'video'; recipe: FrameRecipe }
-  | { type: 'image'; layerId: string; assetId: string; quad: Quad; opacity: number }
+  | { type: 'image'; layerId: string; assetId: string; quad: Quad; opacity: number; key: ChromaKey | null }
+  /** `time`: seconds into the video file (overlayTimeAt). */
+  | { type: 'overlay'; layerId: string; assetId: string; quad: Quad; opacity: number; key: ChromaKey | null; time: number }
   | { type: 'captions' };
 
 /** Whether a timed layer shows at source time `t`. */
 export const showsAt = (layer: Pick<TimedLayer, 'start' | 'end'>, t: number): boolean => t >= layer.start - 1e-6 && t < layer.end - 1e-6;
+
+/**
+ * Seconds into its file a video layer shows at source time `t`: from
+ * `offset` on, starting over at the end when it loops and holding the end
+ * otherwise (the frame lookup turns that into the last frame).
+ */
+export function overlayTimeAt(layer: Pick<OverlayLayer, 'start' | 'offset' | 'loop'>, duration: number, t: number): number {
+  const time = layer.offset + Math.max(0, t - layer.start);
+  if (layer.loop && duration > 0) return time % duration;
+  return Math.min(time, duration);
+}
 
 /** Where a layer of this picture size lands with this transform. */
 export function quadOf(transform: Transform, size: Size, out: Size = OUTPUT): Quad {
@@ -69,7 +83,8 @@ export function quadContains(q: Quad, px: number, py: number): boolean {
 
 /**
  * Everything to draw for `clip` at source time `t`, bottom first. Layers
- * whose asset isn't in `assets`, or that are fully transparent, are left out.
+ * whose asset isn't in `assets` (or isn't of their kind), or that are fully
+ * transparent, are left out.
  */
 export function sceneAt(clip: Clip, assets: readonly Asset[], t: number, source: Size): SceneOp[] {
   const ops: SceneOp[] = [];
@@ -80,10 +95,12 @@ export function sceneAt(clip: Clip, assets: readonly Asset[], t: number, source:
       ops.push({ type: 'captions' });
     } else if (showsAt(layer, t)) {
       const asset = assets.find((a) => a.id === layer.assetId);
-      if (!asset) continue;
+      if (asset?.kind !== ASSET_KIND_OF[layer.kind]) continue;
       const transform = layerTransformAt(layer, t);
       if (transform.opacity <= 0 || transform.scale <= 0) continue;
-      ops.push({ type: 'image', layerId: layer.id, assetId: asset.id, quad: quadOf(transform, asset), opacity: transform.opacity });
+      const op = { layerId: layer.id, assetId: asset.id, quad: quadOf(transform, asset), opacity: transform.opacity, key: layer.key };
+      if (layer.kind === 'image') ops.push({ type: 'image', ...op });
+      else if (asset.kind === 'video') ops.push({ type: 'overlay', ...op, time: overlayTimeAt(layer, asset.duration, t) });
     }
   }
   return ops;

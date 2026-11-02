@@ -333,7 +333,8 @@
     "add": "Dodaj",
     "addHelp": "Dodaj sloj preko slike, od playheada nadalje",
     "kinds": {
-      "image": "Slika"
+      "image": "Slika",
+      "video": "Video"
     },
     "video": "Video",
     "captions": "Titlovi",

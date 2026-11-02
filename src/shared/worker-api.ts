@@ -3,6 +3,7 @@
  * process). Heavy or slow work runs there so the main process, which routes
  * every window event, never stalls.
  */
+import type { VideoInfo } from './assets.ts';
 import type { FrameRate } from './frames.ts';
 import type { Source, Transcript, TranscriptLanguage } from './project.ts';
 
@@ -72,6 +73,8 @@ export type TranscribeProgress =
 export interface WorkerMethods {
   /** Reads streams and duration. Fails with code "unreadable" or "no-video". */
   probe(file: string): ProbeResult;
+  /** Reads a video layer's file, alpha included. Fails like probe. */
+  probeVideo(file: string): VideoInfo;
   /** A content hash of the file (see workers/media/fingerprint.ts). */
   fingerprint(file: string): string;
   /** Installs a tool from tools.json into `dir`; reports DownloadProgress. */

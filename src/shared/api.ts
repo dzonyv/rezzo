@@ -3,7 +3,7 @@
  * sandboxed and reaches the rest of the app only through `window.rezzo`,
  * which the preload script builds from these channel lists.
  */
-import type { AssetFile, AssetKind, AssetStatus } from './assets.ts';
+import type { AssetFile, AssetKind, AssetStatus, VideoInfo } from './assets.ts';
 import type { CustomFont } from './fonts.ts';
 import type { FrameRate } from './frames.ts';
 import type { Clip, Project, ProjectFormatError, Source, Transcript, TranscriptLanguage } from './project.ts';
@@ -72,8 +72,13 @@ export type AddFontResult =
   | { ok: false; error: 'unreadable' }
   | { ok: false; error: 'built-in'; family: string };
 
-/** A file for a layer, and a URL the page can read it from. "too-large": over the limit for its kind. */
-export type AddAssetResult = { ok: true; file: AssetFile; url: string } | { ok: false; error: 'unreadable' | 'too-large' };
+/**
+ * A file for a layer, and a URL the page can read it from; for a video,
+ * also what ffprobe found. "too-large": over the limit for its kind.
+ */
+export type AddAssetResult =
+  | { ok: true; file: AssetFile; url: string; video?: VideoInfo }
+  | { ok: false; error: 'unreadable' | 'too-large' };
 
 export type LocateAssetResult = AddAssetResult | { ok: false; error: 'different-file' };
 

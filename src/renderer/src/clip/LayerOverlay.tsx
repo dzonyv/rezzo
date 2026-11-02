@@ -3,7 +3,7 @@ import { useTranslation } from 'react-i18next';
 import type { Asset } from '../../../shared/assets.ts';
 import { OUTPUT, valueAt } from '../../../shared/framing.ts';
 import { layerTransformAt, MAX_LAYER_SCALE, MIN_LAYER_SCALE, type Transform } from '../../../shared/motion.ts';
-import { timedLayers, type Clip, type TimedLayer } from '../../../shared/project.ts';
+import { isTimed, timedLayers, type Clip, type TimedLayer } from '../../../shared/project.ts';
 import { quadOf, showsAt } from '../../../shared/scene.ts';
 import { setTransform } from '../project/layers.ts';
 import { projectStore } from '../project/store.ts';
@@ -47,7 +47,7 @@ const snapTo = (value: number, target: number, reach: number, off: boolean) => (
 /** The layer's transform without animations at `time`, as it is in the document right now. */
 function ownTransform(clipId: string, layerId: string, time: number): Transform | null {
   const layer = projectStore.getState().project?.clips.find((c) => c.id === clipId)?.layers.find((l) => l.id === layerId);
-  return layer && layer.kind === 'image' ? valueAt(layer.transform, time) : null;
+  return layer && isTimed(layer) ? valueAt(layer.transform, time) : null;
 }
 
 /**

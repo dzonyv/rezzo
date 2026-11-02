@@ -4,7 +4,7 @@
  * preview and the export each have one, fed the same Scene, so they draw
  * the same frame for the same time.
  */
-import type { Asset } from '../../../shared/assets.ts';
+import type { Asset, ImageAsset } from '../../../shared/assets.ts';
 import { captionLayerOf, timedLayers, type Clip, type Word } from '../../../shared/project.ts';
 import { sceneAt } from '../../../shared/scene.ts';
 import { CaptionPainter, loadCaptionScene, type CaptionScene } from './captions.ts';
@@ -37,7 +37,7 @@ export function assetsOf(clip: Clip, assets: readonly Asset[]): Asset[] {
 }
 
 /**
- * Loads the pictures of `assets`. With `strict` (the export) a file that
+ * Loads the pictures of the image assets among `assets`. With `strict` (the export) a file that
  * can't be read is an error; otherwise (the preview) it's left out and
  * reported through `onMissing`.
  */
@@ -45,7 +45,7 @@ export async function loadImages(assets: readonly Asset[], { strict = false, onM
   const images = new Map<string, LayerImage>();
   const missing: string[] = [];
   await Promise.all(
-    assets.map(async (asset) => {
+    assets.filter((a): a is ImageAsset => a.kind === 'image').map(async (asset) => {
       try {
         images.set(asset.id, await loadImage(asset));
       } catch {

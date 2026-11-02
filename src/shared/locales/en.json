@@ -333,7 +333,8 @@
     "add": "Add",
     "addHelp": "Add a layer over the picture, from the playhead on",
     "kinds": {
-      "image": "Image"
+      "image": "Image",
+      "video": "Video"
     },
     "video": "Video",
     "captions": "Captions",

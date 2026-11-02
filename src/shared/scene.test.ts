@@ -1,11 +1,11 @@
 import { describe, expect, it } from 'vitest';
-import type { ImageAsset } from './assets.ts';
+import type { ImageAsset, VideoAsset } from './assets.ts';
 import { newCaptionLayer } from './captions.ts';
 import { DEFAULT_CAPTION_STYLE } from './caption-style.ts';
 import { defaultVideoLayer } from './framing.ts';
 import { DEFAULT_MOTION } from './motion.ts';
-import type { Clip, ImageLayer } from './project.ts';
-import { quadContains, quadCorners, quadOf, sceneAt } from './scene.ts';
+import type { Clip, ImageLayer, OverlayLayer } from './project.ts';
+import { overlayTimeAt, quadContains, quadCorners, quadOf, sceneAt } from './scene.ts';
 
 const asset: ImageAsset = {
   id: '5d3c2b1a-0f9e-4d8c-8b7a-6f5e4d3c2b1a',
@@ -27,7 +27,25 @@ function image(start: number, end: number): ImageLayer {
     end,
     transform: [{ t: start, value: { x: 0.5, y: 0.25, scale: 0.5, rotation: 0, opacity: 1 }, ease: 'cut' }],
     motion: { ...DEFAULT_MOTION, in: { ...DEFAULT_MOTION.in, kind: 'none' } },
+    key: null,
   };
+}
+
+const video: VideoAsset = {
+  ...asset,
+  id: '7e6d5c4b-3a29-4180-9f7e-6d5c4b3a2918',
+  kind: 'video',
+  codec: 'vp9',
+  width: 1080,
+  height: 1920,
+  duration: 3,
+  frameRate: [30, 1],
+  alpha: true,
+  hasAudio: false,
+};
+
+function overlay(start: number, end: number, offset: number, loop: boolean): OverlayLayer {
+  return { ...image(start, end), kind: 'overlay', assetId: video.id, offset, volume: 1, loop };
 }
 
 const SOURCE = { width: 1920, height: 1080 };
@@ -55,6 +73,26 @@ describe('scene', () => {
   it('sizes an image by the output width, keeping its shape', () => {
     const op = sceneAt(clip, [asset], 3, SOURCE)[1]!;
     expect(op).toMatchObject({ type: 'image', quad: { cx: 540, cy: 480, w: 540, h: 270, rotation: 0 }, opacity: 1 });
+  });
+
+  it('draws a video layer at its time in the file', () => {
+    const c: Clip = { ...clip, layers: [defaultVideoLayer(0), overlay(2, 8, 0.5, false)] };
+    const op = sceneAt(c, [video], 3, SOURCE)[1]!;
+    expect(op).toMatchObject({ type: 'overlay', assetId: video.id, time: 1.5, key: null, quad: { w: 540, h: 960 } });
+  });
+
+  it('leaves out a layer whose file is of another kind', () => {
+    const c: Clip = { ...clip, layers: [defaultVideoLayer(0), { ...overlay(2, 8, 0, false), assetId: asset.id }] };
+    expect(sceneAt(c, [asset, video], 3, SOURCE).map((o) => o.type)).toEqual(['video']);
+  });
+
+  it('loops a video layer or holds its end', () => {
+    expect(overlayTimeAt({ start: 2, offset: 0.5, loop: false }, 3, 3)).toBe(1.5);
+    expect(overlayTimeAt({ start: 2, offset: 0.5, loop: false }, 3, 7)).toBe(3);
+    expect(overlayTimeAt({ start: 2, offset: 0.5, loop: true }, 3, 5)).toBeCloseTo(0.5);
+    expect(overlayTimeAt({ start: 2, offset: 0.5, loop: true }, 3, 7)).toBeCloseTo(2.5);
+    // Asked about a moment before the layer starts, it shows its first frame.
+    expect(overlayTimeAt({ start: 2, offset: 0.5, loop: false }, 3, 1)).toBe(0.5);
   });
 
   it('turns and hit-tests rotated quads', () => {
