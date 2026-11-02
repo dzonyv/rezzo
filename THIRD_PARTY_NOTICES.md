@@ -42,6 +42,14 @@ These are compiled into the app's code:
 | MP4Box.js | 2.5.0 | BSD-3-Clause |
 | TanStack Virtual | 3.14.24 | MIT |
 
+## Lottie player
+
+Lottie animations are drawn by dotLottie Web 0.81.0 (`@lottiefiles/dotlottie-web`, MIT, Copyright (c) 2023 LottieFiles.com, https://github.com/LottieFiles/dotlottie-web). Its JavaScript is compiled into the app's code, and its WebAssembly file (`dotlottie-player.wasm`) ships next to it. The WebAssembly is built from:
+
+- dotlottie-rs (MIT), https://github.com/LottieFiles/dotlottie-rs
+- ThorVG (MIT), https://github.com/thorvg/thorvg, including its WebP decoder, which is based on libwebp (BSD-3-Clause)
+- Rust crates under MIT or Apache-2.0 (dual-licensed): miniz_oxide 0.8.9 (also Zlib), hashbrown 0.17.1, dlmalloc 0.2.13, once_cell 1.21.4, tinyrlibc 0.5.1, console_error_panic_hook 0.1.7
+
 ## Downloaded on first use, not included
 
 The first time you transcribe, Rezzo downloads these into `%LOCALAPPDATA%\Rezzo\tools`. They aren't part of the installer.
