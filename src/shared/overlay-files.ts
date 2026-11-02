@@ -13,6 +13,13 @@ import { MAX_CLIP_SECONDS, type OverlayLayer } from './project.ts';
 export const OVERLAY_VERSION = 1;
 
 /**
+ * Video layers showing at the same moment. Four full-size ones play at
+ * 30 fps with room to spare on a GTX 1660; six already run late
+ * (spikes/REPORT.md, Phase 3 checks).
+ */
+export const MAX_VIDEO_LAYERS = 4;
+
+/**
  * The size a video layer is converted at: shrunk to fit the output frame,
  * never enlarged, even on both sides. The export is 1080 wide, so a layer
  * never needs more, and decoding cost goes with the number of pixels.

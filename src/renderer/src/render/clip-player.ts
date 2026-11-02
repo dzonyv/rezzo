@@ -8,7 +8,8 @@
  *
  * Times are source seconds, like everywhere in the project. Each frame is
  * drawn with everything in the clip at that frame's own time, as the
- * export does.
+ * export does. What takes time to get ready for a frame (video layers'
+ * frames) is prepared before the frame is shown.
  */
 import type { Size } from '../../../shared/framing.ts';
 import { fps, type FrameRate } from '../../../shared/frames.ts';
@@ -27,6 +28,14 @@ export interface WorkingFile {
 
 /** Draws the clip at a moment into the compositor, over the source frame it has (see SceneRenderer). */
 export type DrawAt = (time: number) => void;
+
+/**
+ * Gets what DrawAt needs for a moment ready (see SceneRenderer.prepare);
+ * `sequential` while playing forward. Resolves true when something changed.
+ */
+export type PrepareAt = (time: number, sequential: boolean) => Promise<boolean>;
+
+const nothingToPrepare: PrepareAt = () => Promise.resolve(false);
 
 /** Loudness values per second of sound in Peaks. */
 export const PEAKS_PER_SECOND = 100;
@@ -66,6 +75,7 @@ export class ClipPlayer {
 
   private range: { start: number; end: number };
   private drawAt: DrawAt;
+  private prepareAt: PrepareAt = nothingToPrepare;
   private time: number;
   private playing = false;
   /** Bumped to stop the running playback loop. */
@@ -133,10 +143,20 @@ export class ClipPlayer {
     if (this.time < range.start || this.time >= range.end) this.seek(range.start);
   }
 
-  /** Something to draw changed (framing, captions, layers): redraws the frame on screen when paused. */
-  setScene(drawAt: DrawAt): void {
+  /**
+   * Something to draw changed (framing, captions, layers): redraws the frame
+   * on screen when paused, at once, and again if the change needed a video
+   * layer's frame decoded.
+   */
+  setScene(drawAt: DrawAt, prepareAt: PrepareAt = nothingToPrepare): void {
     this.drawAt = drawAt;
-    if (!this.playing && this.shown >= 0) this.draw(this.shown);
+    this.prepareAt = prepareAt;
+    if (this.playing || this.shown < 0) return;
+    const shown = this.shown;
+    this.draw(shown);
+    void this.exclusive(async () => {
+      if ((await this.prepareAt(this.timeOf(shown), false)) && !this.playing && this.shown === shown) this.draw(shown);
+    });
   }
 
   seek(time: number): void {
@@ -221,6 +241,10 @@ export class ClipPlayer {
     while (!this.playing && !this.disposed && this.wanted !== null && this.wanted !== this.shown) {
       const target = this.wanted;
       const frame = await this.frames.seek(target);
+      await this.prepareAt(this.timeOf(target), false).catch((e: unknown) => {
+        frame.close();
+        throw e;
+      });
       if (this.playing || this.disposed) {
         frame.close();
         return;
@@ -281,6 +305,16 @@ export class ClipPlayer {
       if (this.clock() > due + frameSeconds && index < end - 1) {
         frame.close();
         continue;
+      }
+      try {
+        await this.prepareAt(due, true);
+      } catch (e) {
+        frame.close();
+        throw e;
+      }
+      if (run !== this.run) {
+        frame.close();
+        return;
       }
       this.show(frame, index);
       this.time = due;

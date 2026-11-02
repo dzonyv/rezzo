@@ -6,10 +6,10 @@
  */
 import { useStore } from 'zustand';
 import { createStore } from 'zustand/vanilla';
-import type { Asset } from '../../../shared/assets.ts';
+import type { Asset, VideoAsset } from '../../../shared/assets.ts';
 import type { FrameRate } from '../../../shared/frames.ts';
 import { overlayRange, type OverlayLayout } from '../../../shared/overlay-files.ts';
-import type { Clip } from '../../../shared/project.ts';
+import type { Clip, OverlayLayer } from '../../../shared/project.ts';
 import { markMissing } from '../project/assets.ts';
 
 /** A video layer's working file: frame 0 is at `start` seconds of the layer's file. */
@@ -38,6 +38,25 @@ function setState(layerId: string, state: OverlayFileState | null): void {
   if (state) files.set(layerId, state);
   else files.delete(layerId);
   overlayFilesStore.setState({ files });
+}
+
+/** Asks the main process for the working file of `layer`'s file at `rate`. */
+export async function requestOverlayFile(layer: OverlayLayer, asset: VideoAsset, rate: FrameRate, requestId: string = crypto.randomUUID()): Promise<OverlayFileState> {
+  try {
+    const result = await window.rezzo.invoke('overlay:prepare', asset, overlayRange(layer, asset), rate, requestId);
+    if (result.ok) return { status: 'ready', file: { assetId: asset.id, url: result.url, start: result.start, end: result.end, frameRate: result.frameRate, layout: result.layout } };
+    if (result.error === 'missing') return { status: 'missing' };
+    return { status: 'failed', detail: result.detail };
+  } catch (e) {
+    return { status: 'failed', detail: e instanceof Error ? e.message : String(e) };
+  }
+}
+
+/** The ready files of the layers in `files`, by layer id: what the renderer draws from. */
+export function readyFiles(files: ReadonlyMap<string, OverlayFileState>): Map<string, OverlayFile> {
+  const ready = new Map<string, OverlayFile>();
+  for (const [id, state] of files) if (state.status === 'ready') ready.set(id, state.file);
+  return ready;
 }
 
 /** What each layer last asked for, so an unchanged layer isn't asked again and a stale answer is dropped. */
@@ -81,24 +100,14 @@ export function prepareOverlayFiles(clip: Clip, assets: readonly Asset[], rate: 
     const requestId = crypto.randomUUID();
     progressOf.set(requestId, layer.id);
     setState(layer.id, { status: 'preparing', progress: 0 });
-    void window.rezzo
-      .invoke('overlay:prepare', asset, range, rate, requestId)
-      .then(
-        (result): OverlayFileState => {
-          if (result.ok) return { status: 'ready', file: { assetId: asset.id, url: result.url, start: result.start, end: result.end, frameRate: result.frameRate, layout: result.layout } };
-          if (result.error === 'missing') return { status: 'missing' };
-          return { status: 'failed', detail: result.detail };
-        },
-        (e: unknown): OverlayFileState => ({ status: 'failed', detail: e instanceof Error ? e.message : String(e) }),
-      )
-      .then((state) => {
-        progressOf.delete(requestId);
-        // A newer request for the layer replaced this one. A missing file is
-        // asked for again once it's found, since its path is part of the key.
-        if (wanted.get(layer.id) !== key) return;
-        markMissing(asset.id, state.status === 'missing');
-        setState(layer.id, state);
-      });
+    void requestOverlayFile(layer, asset, rate, requestId).then((state) => {
+      progressOf.delete(requestId);
+      // A newer request for the layer replaced this one. A missing file is
+      // asked for again once it's found, since its path is part of the key.
+      if (wanted.get(layer.id) !== key) return;
+      markMissing(asset.id, state.status === 'missing');
+      setState(layer.id, state);
+    });
   }
   for (const id of overlayFilesStore.getState().files.keys()) {
     if (present.has(id)) continue;

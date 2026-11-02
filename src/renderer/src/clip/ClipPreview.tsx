@@ -1,15 +1,16 @@
 import i18n from 'i18next';
 import { useEffect, useMemo, useRef, useState } from 'react';
 import { useTranslation } from 'react-i18next';
+import { useStore } from 'zustand';
 import type { Asset } from '../../../shared/assets.ts';
 import { workingFrameRate } from '../../../shared/frames.ts';
 import { captionLayerOf, type Clip, type Source } from '../../../shared/project.ts';
 import { markMissing } from '../project/assets.ts';
 import { useProject } from '../project/store.ts';
 import { loadCaptionScene, type CaptionScene } from '../render/captions.ts';
-import { ClipPlayer, type DrawAt } from '../render/clip-player.ts';
+import { ClipPlayer, type DrawAt, type PrepareAt } from '../render/clip-player.ts';
 import { Compositor, type LayerImage } from '../render/compositor.ts';
-import { prepareOverlayFiles } from '../render/overlay-files.ts';
+import { overlayFilesStore, prepareOverlayFiles, readyFiles } from '../render/overlay-files.ts';
 import { assetsOf, loadImages, SceneRenderer } from '../render/scene-renderer.ts';
 import { useSettings } from '../settings.ts';
 import { flatOf } from '../transcript/words.ts';
@@ -45,6 +46,9 @@ export function ClipPreview({ clip, source, children }: { clip: Clip; source: So
   const [images, setImages] = useState<ReadonlyMap<string, LayerImage>>(new Map());
   /** What a player loading in the background will start with. */
   const drawAt = useRef<DrawAt>(() => {});
+  const prepareAt = useRef<PrepareAt>(() => Promise.resolve(false));
+  const overlayStates = useStore(overlayFilesStore, (s) => s.files);
+  const overlays = useMemo(() => readyFiles(overlayStates), [overlayStates]);
 
   // The files the layers show, as a value that changes only when they do (not when a layer moves).
   const usedJson = JSON.stringify(assetsOf(clip, allAssets ?? []));
@@ -54,7 +58,9 @@ export function ClipPreview({ clip, source, children }: { clip: Clip; source: So
     const el = canvas.current!;
     const c = new Compositor(el);
     compositor.current = c;
-    renderer.current = new SceneRenderer(c);
+    const r = new SceneRenderer(c);
+    renderer.current = r;
+    r.layers.onError = (_layerId, e) => notify('error', i18n.t('layers.errors.prepare', { detail: e instanceof Error ? e.message : String(e) }));
     const resize = new ResizeObserver(() => {
       el.width = Math.round(el.clientWidth * devicePixelRatio);
       el.height = Math.round(el.clientHeight * devicePixelRatio);
@@ -80,6 +86,7 @@ export function ClipPreview({ clip, source, children }: { clip: Clip; source: So
       setPlayer(null);
       compositor.current = null;
       renderer.current = null;
+      r.dispose();
       c.dispose();
     };
   }, [generation]);
@@ -118,6 +125,7 @@ export function ClipPreview({ clip, source, children }: { clip: Clip; source: So
             return;
           }
           player.onError = (e) => clipPlaybackStore.setState({ status: 'failed', error: String(e) });
+          player.setScene(drawAt.current, prepareAt.current);
           setPlayer(player);
           clipPlaybackStore.setState({ status: 'ready' });
         } catch (e) {
@@ -169,9 +177,11 @@ export function ClipPreview({ clip, source, children }: { clip: Clip; source: So
   // Anything in the clip changed: redraw the frame on screen.
   useEffect(() => {
     const assets = allAssets ?? [];
-    drawAt.current = (time) => renderer.current?.draw({ clip, assets, captions: scene, images }, time);
-    currentPlayer()?.setScene(drawAt.current);
-  }, [clip, allAssets, scene, images, generation]);
+    const s = { clip, assets, captions: scene, images, overlays };
+    drawAt.current = (time) => renderer.current?.draw(s, time);
+    prepareAt.current = (time, sequential) => renderer.current?.prepare(s, time, sequential) ?? Promise.resolve(false);
+    currentPlayer()?.setScene(drawAt.current, prepareAt.current);
+  }, [clip, allAssets, scene, images, overlays, generation]);
 
   return (
     <div className="clip-preview">

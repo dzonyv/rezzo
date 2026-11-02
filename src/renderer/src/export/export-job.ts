@@ -94,15 +94,19 @@ export async function renderExport(job: ExportJob, port: MessagePort, clip: Clip
   canvas.width = 1;
   canvas.height = 1;
   let compositor: Compositor | undefined;
+  let renderer: SceneRenderer | undefined;
   let frames: FrameSource | undefined;
   try {
     const response = await fetch(job.url);
     if (!response.ok) throw new Error(`loading the working file failed: ${response.status}`);
     const media = await demux(await response.arrayBuffer());
     // Fonts and pictures are loaded before the first frame, so none is drawn without them.
-    const scene = await loadScene(clip, assets, words);
+    const scene = await loadScene(clip, assets, words, job.frameRate);
     compositor = new Compositor(canvas);
-    const renderer = new SceneRenderer(compositor);
+    renderer = new SceneRenderer(compositor);
+    const r = renderer;
+    let layerError: unknown;
+    r.layers.onError = (_layerId, e) => (layerError ??= e);
     frames = new FrameSource(media);
 
     const c = compositor;
@@ -126,7 +130,11 @@ export async function renderExport(job: ExportJob, port: MessagePort, clip: Clip
       }
       c.upload(frame);
       frame.close();
-      renderer.draw(scene, workingFrameTime(job, index));
+      const time = workingFrameTime(job, index);
+      await r.prepare(scene, time, true);
+      // A video layer that can't be decoded fails the export rather than going missing from it.
+      if (layerError) throw layerError;
+      r.draw(scene, time);
       if (pending.length === SLOTS) await sendOne();
       c.startReadback(slot);
       pending.push(slot);
@@ -144,6 +152,7 @@ export async function renderExport(job: ExportJob, port: MessagePort, clip: Clip
   } finally {
     signal.removeEventListener('abort', stop);
     frames?.close();
+    renderer?.dispose();
     compositor?.dispose();
     // Nothing else will use this canvas, so its GPU context can go now rather than at garbage collection.
     compositor?.gl.getExtension('WEBGL_lose_context')?.loseContext();

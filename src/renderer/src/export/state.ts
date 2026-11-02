@@ -15,7 +15,7 @@ import { pauseEpisode } from '../player/playback.ts';
 import { projectStore } from '../project/store.ts';
 import { flatOf } from '../transcript/words.ts';
 import { notify } from '../ui/prompts.ts';
-import { assetsOf, loadImages, MissingFilesError } from '../render/scene-renderer.ts';
+import { assetsOf, checkVideoFiles, loadImages, MissingFilesError } from '../render/scene-renderer.ts';
 import { renderExport } from './export-job.ts';
 
 export type ExportState =
@@ -71,7 +71,7 @@ export async function exportClip(clip: Clip, source: Source): Promise<void> {
 
   // A layer's file gone missing would fail the export after the save dialog; better to say so first.
   try {
-    await loadImages(assets, { strict: true });
+    await Promise.all([loadImages(assets, { strict: true }), checkVideoFiles(assets)]);
   } catch (e) {
     const detail = e instanceof Error ? e.message : String(e);
     notify('error', e instanceof MissingFilesError ? i18n.t('export.missingFiles', { names: e.names.join(', ') }) : i18n.t('errors.unexpected', { detail }));
