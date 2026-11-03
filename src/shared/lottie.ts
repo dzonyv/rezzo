@@ -23,6 +23,12 @@ export const lottieInfoSchema = z.object({
 });
 export type LottieInfo = z.infer<typeof lottieInfoSchema>;
 
+/**
+ * Whether a file's bytes are a zip, as a .lottie package is. Told by its
+ * content, not its name, so a renamed file still reads.
+ */
+export const isZip = (bytes: Uint8Array): boolean => bytes[0] === 0x50 && bytes[1] === 0x4b && bytes[2] === 0x03 && bytes[3] === 0x04;
+
 const positive = (v: unknown): v is number => typeof v === 'number' && Number.isFinite(v) && v > 0;
 
 /**

@@ -200,7 +200,15 @@ uniform sampler2D uTex;
 uniform vec2 uSize;
 const vec3 K = vec3(0.2126, 0.7152, 0.0722);
 vec3 at(vec2 uv) { return textureLod(uTex, uv, 0.0).rgb; }
-float hash(vec2 p) { return fract(sin(dot(p, vec2(12.9898, 78.233))) * 43758.5453); }
+// Integer hashing (PCG), exact for any input on every GPU, unlike sin()-based hashes,
+// which lose precision once their input grows (a seed late in a long clip).
+uint pcg(uint v) {
+  uint s = v * 747796405u + 2891336453u;
+  uint w = ((s >> ((s >> 28u) + 4u)) ^ s) * 277803737u;
+  return (w >> 22u) ^ w;
+}
+/** A repeatable pseudo-random value in 0..1 for three whole numbers. */
+float hash(uvec3 p) { return float(pcg(p.x ^ pcg(p.y ^ pcg(p.z)))) / 4294967295.0; }
 `;
 
 /** Zoom about the centre, a shift (share of the output) and a turn (clockwise): where each output pixel comes from. */
@@ -261,8 +269,8 @@ uniform float uAmount;
 uniform float uSeed;
 void main() {
   vec2 uv = gl_FragCoord.xy / uSize;
-  float band = floor(uv.y * 28.0);
-  float shift = hash(vec2(band, uSeed)) > 1.0 - 0.35 * uAmount ? (hash(vec2(uSeed, band)) - 0.5) * 0.12 * uAmount : 0.0;
+  uvec3 band = uvec3(uint(uv.y * 28.0), uint(uSeed), 0u);
+  float shift = hash(band) > 1.0 - 0.35 * uAmount ? (hash(band + uvec3(0u, 0u, 1u)) - 0.5) * 0.12 * uAmount : 0.0;
   vec2 p = uv + vec2(shift, 0.0);
   float split = 0.012 * uAmount;
   o = vec4(at(p + vec2(split, 0.0)).r, at(p).g, at(p - vec2(split, 0.0)).b, 1.0);
@@ -275,7 +283,7 @@ uniform float uGrain;
 uniform float uSeed;
 void main() {
   vec3 c = at(gl_FragCoord.xy / uSize);
-  float n = hash(floor(gl_FragCoord.xy / uGrain) + uSeed * 17.31) - 0.5;
+  float n = hash(uvec3(uvec2(gl_FragCoord.xy / uGrain), uint(uSeed))) - 0.5;
   o = vec4(clamp(c + n * 0.35 * uAmount, 0.0, 1.0), 1.0);
 }`;
 

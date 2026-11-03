@@ -430,7 +430,9 @@
       "percent": "{{value}} %",
       "degrees": "{{value}}°",
       "seconds": "{{value}} s",
-      "times": "{{value}}×"
+      "times": "{{value}}×",
+      "perSecond": "{{value}}/s",
+      "pixels": "{{value}} px"
     },
     "preparing": "Pripremam video",
     "changeVideo": "Promeni video…",
@@ -491,13 +493,6 @@
       "amount": "Količina",
       "speed": "Brzina",
       "size": "Veličina"
-    },
-    "units": {
-      "percent": "{{value}} %",
-      "times": "{{value}}×",
-      "seconds": "{{value}} s",
-      "perSecond": "{{value}}/s",
-      "pixels": "{{value}} px"
     }
   }
 }

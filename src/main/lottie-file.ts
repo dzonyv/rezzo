@@ -6,7 +6,7 @@
  */
 import { readFile } from 'node:fs/promises';
 import { inflateRawSync } from 'node:zlib';
-import { lottieInfo, type LottieInfo } from '../shared/lottie.ts';
+import { isZip, lottieInfo, type LottieInfo } from '../shared/lottie.ts';
 
 const END_OF_DIRECTORY = 0x06054b50;
 const DIRECTORY_ENTRY = 0x02014b50;
@@ -75,7 +75,8 @@ function packagedAnimation(zip: Buffer): unknown {
 export async function readLottieInfo(file: string): Promise<LottieInfo | 'external-images' | null> {
   try {
     const bytes = await readFile(file);
-    const packaged = file.toLowerCase().endsWith('.lottie');
+    // A package is told by its content, as the page does (render/lottie.ts), so a renamed file still reads.
+    const packaged = isZip(bytes);
     // TextDecoder drops a byte order mark, which some editors save JSON with.
     const json = packaged ? packagedAnimation(bytes) : (JSON.parse(new TextDecoder().decode(bytes)) as unknown);
     return lottieInfo(json, { packaged });

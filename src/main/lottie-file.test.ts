@@ -51,6 +51,12 @@ describe('Lottie files', () => {
     expect(await readLottieInfo(file)).toEqual(info);
   });
 
+  it('tells a package from JSON by its content, not its name', async () => {
+    const renamed = path.join(dir, 'renamed.json');
+    await writeFile(renamed, zip({ 'manifest.json': '{}', 'a/only.json': JSON.stringify(animation) }));
+    expect(await readLottieInfo(renamed)).toEqual(info);
+  });
+
   it('rejects files that are not animations', async () => {
     const text = path.join(dir, 'notes.json');
     await writeFile(text, '{"hello": "world"}');

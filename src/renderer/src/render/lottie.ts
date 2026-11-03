@@ -12,44 +12,35 @@ import { DotLottie } from '@lottiefiles/dotlottie-web';
 import wasmUrl from '@lottiefiles/dotlottie-web/dotlottie-player.wasm?url';
 import type { AssetFile, LottieAsset } from '../../../shared/assets.ts';
 import type { Size } from '../../../shared/framing.ts';
+import { isZip } from '../../../shared/lottie.ts';
 import type { SceneOp } from '../../../shared/scene.ts';
 import type { Compositor } from './compositor.ts';
+import { FileCache } from './file-cache.ts';
 
 // The player's WebAssembly comes with the app, never from a CDN.
 DotLottie.setWasmUrl(new URL(wasmUrl, document.baseURI).href);
 
+/** An animation that hasn't loaded after this long counts as failed. */
+const LOAD_TIMEOUT_MS = 20_000;
+
 /** An animation as the player takes it: a .lottie package's bytes, or the JSON's text. */
 export type LottieData = ArrayBuffer | string;
 
-const cache = new Map<string, Promise<LottieData>>();
-const key = (file: AssetFile) => `${file.fingerprint}:${file.path}`;
-
-/**
- * The asset's animation; rejects when the file isn't there any more, even
- * if it was read before, as for images (render/images.ts).
- */
-export async function loadLottie(asset: LottieAsset): Promise<LottieData> {
-  if ((await window.rezzo.invoke('asset:check', asset)) === 'missing') throw new Error(`${asset.path} is missing`);
-  const k = key(asset);
-  let loading = cache.get(k);
-  if (!loading) {
-    loading = window.rezzo.invoke('asset:url', asset).then(async (url) => {
-      const response = await fetch(url);
-      if (!response.ok) throw new Error(`reading the animation failed: ${response.status}`);
-      return asset.path.toLowerCase().endsWith('.lottie') ? response.arrayBuffer() : response.text();
-    });
-    // A failure isn't kept: the file may be back (or found) next time.
-    loading.catch(() => cache.delete(k));
-    cache.set(k, loading);
-  }
-  return loading;
+/** Reads an animation: a zip (whatever the file is called) is a .lottie package, anything else JSON. */
+async function readLottie(url: string): Promise<LottieData> {
+  const response = await fetch(url);
+  if (!response.ok) throw new Error(`reading the animation failed: ${response.status}`);
+  const bytes = await response.arrayBuffer();
+  return isZip(new Uint8Array(bytes)) ? bytes : new TextDecoder().decode(bytes);
 }
+
+const animations = new FileCache<LottieData>(readLottie);
+
+/** The asset's animation; rejects when the file isn't there any more (see FileCache.load). */
+export const loadLottie = (asset: LottieAsset): Promise<LottieData> => animations.load(asset);
 
 /** Lets go of every animation except those of `files` (the open project's assets). */
-export function keepOnlyLotties(files: readonly AssetFile[]): void {
-  const wanted = new Set(files.map(key));
-  for (const k of cache.keys()) if (!wanted.has(k)) cache.delete(k);
-}
+export const keepOnlyLotties = (files: readonly AssetFile[]): void => animations.keepOnly(files);
 
 interface Player {
   assetId: string;
@@ -115,23 +106,28 @@ export class LottieLayers {
       if (op.type !== 'lottie') continue;
       const player = this.players.get(op.layerId);
       if (!player?.loaded) continue;
-      showing.add(op.layerId);
-      const { width, height } = op.size;
-      const shown = `${op.frame}|${width}x${height}`;
-      if (player.shown === shown) continue;
-      if (player.surface.width !== width || player.surface.height !== height) {
-        player.surface.width = width;
-        player.surface.height = height;
-        player.dot.resize();
-      }
-      player.dot.setFrame(op.frame);
-      const pixels = player.dot.buffer;
-      if (!pixels || pixels.byteLength !== width * height * 4) continue;
-      this.compositor.uploadLayerPixels(op.layerId, pixels, width, height);
+      const shown = `${op.frame}|${op.size.width}x${op.size.height}`;
+      // A frame that didn't render leaves the layer out, rather than an older frame stretched to this size.
+      if (player.shown !== shown && !this.render(op.layerId, player, op.frame, op.size)) continue;
       player.shown = shown;
+      showing.add(op.layerId);
     }
     this.compositor.keepLayerPixels(showing);
     for (const [id, player] of this.players) if (!showing.has(id)) player.shown = '';
+  }
+
+  /** Renders the player's frame at `size` into the compositor; false if it came out at another size. */
+  private render(layerId: string, player: Player, frame: number, { width, height }: Size): boolean {
+    if (player.surface.width !== width || player.surface.height !== height) {
+      player.surface.width = width;
+      player.surface.height = height;
+      player.dot.resize();
+    }
+    player.dot.setFrame(frame);
+    const pixels = player.dot.buffer;
+    if (!pixels || pixels.byteLength !== width * height * 4) return false;
+    this.compositor.uploadLayerPixels(layerId, pixels, width, height);
+    return true;
   }
 
   dispose(): void {
@@ -152,11 +148,17 @@ export class LottieLayers {
     });
     const player: Player = { assetId, dot, surface, ready: Promise.resolve(), loaded: false, shown: '' };
     player.ready = new Promise<void>((resolve, reject) => {
+      // The preview and the export wait for this; one that never settles would stop them for good.
+      const timer = setTimeout(() => reject(new Error('the animation took too long to load')), LOAD_TIMEOUT_MS);
       dot.addEventListener('load', () => {
+        clearTimeout(timer);
         player.loaded = true;
         resolve();
       });
-      dot.addEventListener('loadError', ({ error }) => reject(error));
+      dot.addEventListener('loadError', ({ error }) => {
+        clearTimeout(timer);
+        reject(error);
+      });
     });
     player.ready.catch((e: unknown) => {
       if (this.players.get(layerId) === player) this.onError?.(layerId, e);

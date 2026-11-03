@@ -284,6 +284,9 @@ export type TimedLayer = PlacedLayer | EffectLayer;
 export const isPlaced = (layer: Layer): layer is PlacedLayer => layer.kind === 'image' || layer.kind === 'overlay' || layer.kind === 'lottie';
 export const isTimed = (layer: Layer): layer is TimedLayer => isPlaced(layer) || layer.kind === 'effect';
 
+/** The keyframes a layer's keyframe controls work on: a placed layer's transform, an effect's intensity. */
+export const keyframesOf = (layer: TimedLayer): Animated<unknown> => (layer.kind === 'effect' ? layer.intensity : layer.transform);
+
 /** The kind of asset each placed layer shows. */
 export const ASSET_KIND_OF = { image: 'image', overlay: 'video', lottie: 'lottie' } as const satisfies Record<PlacedLayer['kind'], Asset['kind']>;
 

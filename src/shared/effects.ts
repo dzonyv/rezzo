@@ -72,6 +72,9 @@ export function defaultParams(effect: EffectName): Record<string, number> {
   return Object.fromEntries(Object.entries(defs).map(([key, def]) => [key, def.value]));
 }
 
+/** Every effect's starting settings, made once rather than on every frame. */
+const DEFAULTS = Object.fromEntries(EFFECT_NAMES.map((name) => [name, defaultParams(name)])) as Record<EffectName, Record<string, number>>;
+
 /** Whether `params` has exactly the effect's settings, each in its range. */
 export function paramsValid(effect: EffectName, params: Record<string, number>): boolean {
   const defs: Record<string, ParamDef> = EFFECTS[effect].params;
@@ -118,8 +121,8 @@ const NO_GRADE = { brightness: 0, contrast: 0, saturation: 0, temperature: 0 };
 export function effectPassAt(layer: EffectTiming, t: number): EffectPass | null {
   const k = clamp01(valueAt(layer.intensity, t));
   if (k <= 0) return null;
-  const defaults = defaultParams(layer.effect);
-  const param = (key: string) => layer.params[key] ?? defaults[key] ?? 0;
+  // A project file always has every setting (paramsValid); a layer made in code may not.
+  const param = (key: string) => layer.params[key] ?? DEFAULTS[layer.effect][key] ?? 0;
   const total = Math.max(layer.end - layer.start, 1e-6);
   const since = Math.max(0, t - layer.start);
   const p = clamp01(since / total);

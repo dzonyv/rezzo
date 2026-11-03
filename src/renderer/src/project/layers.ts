@@ -15,7 +15,7 @@ import { lottieSeconds, type LottieInfo } from '../../../shared/lottie.ts';
 import { clampTransform, DEFAULT_MOTION, type Motion, type Transform } from '../../../shared/motion.ts';
 import { videoLayersOverLimit } from '../../../shared/overlay-files.ts';
 import {
-  isPlaced, isTimed, MAX_LOTTIE_SPEED, MIN_LOTTIE_SPEED, type Animated, type Clip, type EffectLayer, type Layer, type LottieLayer, type OverlayLayer,
+  isPlaced, isTimed, keyframesOf, MAX_LOTTIE_SPEED, MIN_LOTTIE_SPEED, type Animated, type Clip, type EffectLayer, type Layer, type LottieLayer, type OverlayLayer,
   type PlacedLayer, type Project, type TimedLayer,
 } from '../../../shared/project.ts';
 import { sourceRate } from './framing.ts';
@@ -127,11 +127,7 @@ export function replaceImage(clipId: string, layerId: string, file: AssetFile, s
   });
 }
 
-/** The keyframes a layer's keyframe buttons work on: a placed layer's transform, an effect's intensity. */
-function keysOf(layer: Draft<TimedLayer>): Draft<Animated<unknown>> {
-  return layer.kind === 'effect' ? layer.intensity : layer.transform;
-}
-
+/** Replaces the keyframes keyframesOf(layer) names. */
 function setKeysOf(layer: Draft<TimedLayer>, keys: Animated<unknown>): void {
   if (layer.kind === 'effect') layer.intensity = keys as Animated<number>;
   else layer.transform = keys as typeof layer.transform;
@@ -151,9 +147,9 @@ export function moveLayer(clipId: string, layerId: string, start: number): void 
     if (shift === 0 && length === frameAt(layer.end, rate) - from) return;
     layer.start = timeOfFrame(to, rate);
     layer.end = timeOfFrame(to + length, rate);
-    for (const key of keysOf(layer)) key.t = Math.max(0, key.t + shift);
+    for (const key of keyframesOf(layer)) key.t = Math.max(0, key.t + shift);
     // Keyframes left before a trimmed start can be pushed together at 0; the last of them wins.
-    setKeysOf(layer, keysOf(layer).filter((k, i, keys) => i === keys.length - 1 || keys[i + 1]!.t > k.t));
+    setKeysOf(layer, keyframesOf(layer).filter((k, i, keys) => i === keys.length - 1 || keys[i + 1]!.t > k.t));
   });
 }
 
@@ -217,18 +213,18 @@ export function setTransform(clipId: string, layerId: string, time: number, patc
 export function addLayerKey(clipId: string, layerId: string, time: number): void {
   editLayer(clipId, layerId, 'history.addKeyframe', (layer) => {
     const t = insideLayer(layer, time);
-    const keys = keysOf(layer);
+    const keys = keyframesOf(layer);
     setKeysOf(layer, setKey(keys, t, valueAt(keys, t), sourceRate()));
   });
 }
 
 export function deleteLayerKey(clipId: string, layerId: string, index: number): void {
-  editLayer(clipId, layerId, 'history.deleteKeyframe', (layer) => setKeysOf(layer, removeKey(keysOf(layer), index)));
+  editLayer(clipId, layerId, 'history.deleteKeyframe', (layer) => setKeysOf(layer, removeKey(keyframesOf(layer), index)));
 }
 
 export function setLayerKeySmooth(clipId: string, layerId: string, index: number, smooth: boolean): void {
   editLayer(clipId, layerId, 'history.smoothKeyframe', (layer) => {
-    const key = keysOf(layer)[index];
+    const key = keyframesOf(layer)[index];
     if (key) key.ease = smooth ? 'smooth' : 'cut';
   });
 }

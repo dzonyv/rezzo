@@ -47,39 +47,20 @@ export function assetsOf(clip: Clip, assets: readonly Asset[]): Asset[] {
   return assets.filter((a) => ids.has(a.id));
 }
 
-/**
- * Loads the pictures of the image assets among `assets`. With `strict` (the export) a file that
- * can't be read is an error; otherwise (the preview) it's left out and
- * reported through `onMissing`.
- */
-export async function loadImages(assets: readonly Asset[], { strict = false, onMissing }: { strict?: boolean; onMissing?: (asset: Asset) => void } = {}): Promise<Map<string, LayerImage>> {
-  const images = new Map<string, LayerImage>();
-  const missing: string[] = [];
-  await Promise.all(
-    assets.filter((a): a is ImageAsset => a.kind === 'image').map(async (asset) => {
-      try {
-        images.set(asset.id, await loadImage(asset));
-      } catch {
-        missing.push(asset.name);
-        onMissing?.(asset);
-      }
-    }),
-  );
-  if (strict && missing.length > 0) throw new MissingFilesError(missing.sort());
-  return images;
+interface LoadOptions {
+  /** A file that can't be read is an error (the export), rather than left out and reported through `onMissing` (the preview). */
+  strict?: boolean;
+  onMissing?: (asset: Asset) => void;
 }
 
-/**
- * Reads the animations among `assets`; like loadImages, `strict` makes a
- * file that can't be read an error, otherwise it's left out and reported.
- */
-export async function loadLotties(assets: readonly Asset[], { strict = false, onMissing }: { strict?: boolean; onMissing?: (asset: Asset) => void } = {}): Promise<Map<string, LottieData>> {
-  const lotties = new Map<string, LottieData>();
+/** Reads the assets of one kind among `assets` with `load`, by asset id. */
+async function loadFiles<A extends Asset, T>(assets: readonly A[], load: (asset: A) => Promise<T>, { strict = false, onMissing }: LoadOptions): Promise<Map<string, T>> {
+  const loaded = new Map<string, T>();
   const missing: string[] = [];
   await Promise.all(
-    assets.filter((a): a is LottieAsset => a.kind === 'lottie').map(async (asset) => {
+    assets.map(async (asset) => {
       try {
-        lotties.set(asset.id, await loadLottie(asset));
+        loaded.set(asset.id, await load(asset));
       } catch {
         missing.push(asset.name);
         onMissing?.(asset);
@@ -87,8 +68,16 @@ export async function loadLotties(assets: readonly Asset[], { strict = false, on
     }),
   );
   if (strict && missing.length > 0) throw new MissingFilesError(missing.sort());
-  return lotties;
+  return loaded;
 }
+
+/** Loads the pictures of the image assets among `assets` (see LoadOptions). */
+export const loadImages = (assets: readonly Asset[], options: LoadOptions = {}): Promise<Map<string, LayerImage>> =>
+  loadFiles(assets.filter((a): a is ImageAsset => a.kind === 'image'), loadImage, options);
+
+/** Reads the animations among `assets` (see LoadOptions). */
+export const loadLotties = (assets: readonly Asset[], options: LoadOptions = {}): Promise<Map<string, LottieData>> =>
+  loadFiles(assets.filter((a): a is LottieAsset => a.kind === 'lottie'), loadLottie, options);
 
 /**
  * The working files of the clip's video layers at `rate`, made now if

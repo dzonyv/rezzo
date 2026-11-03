@@ -430,7 +430,9 @@
       "percent": "{{value}}%",
       "degrees": "{{value}}°",
       "seconds": "{{value}} s",
-      "times": "{{value}}×"
+      "times": "{{value}}×",
+      "perSecond": "{{value}}/s",
+      "pixels": "{{value}} px"
     },
     "preparing": "Preparing the video",
     "changeVideo": "Change video…",
@@ -491,13 +493,6 @@
       "amount": "Amount",
       "speed": "Speed",
       "size": "Size"
-    },
-    "units": {
-      "percent": "{{value}}%",
-      "times": "{{value}}×",
-      "seconds": "{{value}} s",
-      "perSecond": "{{value}}/s",
-      "pixels": "{{value}} px"
     }
   }
 }

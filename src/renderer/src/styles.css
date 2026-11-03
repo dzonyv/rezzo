@@ -1571,6 +1571,7 @@ button.icon {
 }
 
 .layer-bar.effect {
+  background: var(--group);
   color: #15151a;
 }
 
@@ -1592,10 +1593,6 @@ button.icon {
 .layer-bar.effect.stylized,
 .effect-group-name.stylized {
   --group: #9fc75a;
-}
-
-.layer-bar.effect {
-  background: var(--group);
 }
 
 /* The effect library: the groups two by two, each a column of effects; narrow enough for the smallest window. */

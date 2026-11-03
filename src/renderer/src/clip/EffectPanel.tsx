@@ -76,7 +76,7 @@ export function EffectPanel({ clipId, layer, time, rate }: Props) {
             {...gesture(INTENSITY)}
             onChange={(e) => setIntensity(clipId, layer.id, time, Number(e.target.value))}
           />
-          <output>{t('effects.units.percent', { value: Math.round(intensity * 100) })}</output>
+          <output>{t('layers.units.percent', { value: Math.round(intensity * 100) })}</output>
         </label>
       </div>
 
@@ -116,7 +116,7 @@ export function EffectPanel({ clipId, layer, time, rate }: Props) {
                   {...gesture(SETTINGS)}
                   onChange={(e) => setEffectParam(clipId, layer.id, param, Number(e.target.value))}
                 />
-                <output>{param === 'release' && value === 0 ? t('effects.hold') : t(`effects.units.${shown.unit}`, { value: shown.value })}</output>
+                <output>{param === 'release' && value === 0 ? t('effects.hold') : t(`layers.units.${shown.unit}`, { value: shown.value })}</output>
               </label>
             );
           })}
