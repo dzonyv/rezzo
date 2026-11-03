@@ -15,10 +15,10 @@ import { chromaKeySchema } from './chroma-key.ts';
 import { EFFECT_NAMES, paramsValid } from './effects.ts';
 import { fps, frameAt, timeOfFrame, workingFrameRate } from './frames.ts';
 import { motionSchema, transformSchema } from './motion.ts';
-import { speakerCountSchema } from './voices.ts';
+import { speakerCountSchema, speakerPickSchema, voiceEditSchema } from './voices.ts';
 
 /** Bumped when the file format changes in a way older files need migrating for. */
-export const PROJECT_FORMAT = 8;
+export const PROJECT_FORMAT = 9;
 export const PROJECT_EXTENSION = 'rezzo';
 
 export const TRANSCRIPT_LANGUAGES = ['sr', 'hr', 'bs'] as const;
@@ -339,6 +339,10 @@ export const projectSchema = z
     voices: z.object({
       /** How many people talk, or 'auto' to find out from the audio. */
       count: speakerCountSchema,
+      /** The user's corrections to the voices, oldest first. */
+      edits: z.array(voiceEditSchema),
+      /** Who the user said was talking, across all clips: one click teaches the whole episode. */
+      picks: z.array(speakerPickSchema),
     }),
   })
   .refine((p) => new Set(p.assets.map((a) => a.id)).size === p.assets.length, 'asset ids are unique')
@@ -349,7 +353,7 @@ export const projectSchema = z
 export type Project = z.infer<typeof projectSchema>;
 
 export function newProject(name: string, id: string = crypto.randomUUID()): Project {
-  return { format: PROJECT_FORMAT, id, name, source: null, transcript: null, clips: [], assets: [], voices: { count: 'auto' } };
+  return { format: PROJECT_FORMAT, id, name, source: null, transcript: null, clips: [], assets: [], voices: { count: 'auto', edits: [], picks: [] } };
 }
 
 /** The asset with this id, or undefined. */
@@ -372,6 +376,8 @@ const MIGRATIONS: Record<number, (old: Record<string, unknown>) => Record<string
   6: (old) => old,
   // Format 8 added the number of people talking, for telling voices apart.
   7: (old) => ({ ...old, voices: { count: 'auto' } }),
+  // Format 9 added corrections to the voices and clicks on who is talking.
+  8: (old) => ({ ...old, voices: { ...(old.voices as object), edits: [], picks: [] } }),
 };
 
 function imagesWithoutKey(clips: unknown): unknown {

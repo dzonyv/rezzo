@@ -93,7 +93,7 @@ afterAll(async () => {
 describe('voices', () => {
   it('tells the voices apart once there is a transcript, and keeps the result in the cache', async () => {
     await expect.poll(() => voiceRows().count(), { timeout: 30_000 }).toBeGreaterThan(0);
-    await expect(voiceRows().first().textContent()).resolves.toContain('Voice 1');
+    await expect(voiceRows().first().getByRole('textbox').getAttribute('placeholder')).resolves.toBe('Voice 1');
     const project = await saved();
     expect(existsSync(path.join(dir, 'local', 'cache', project.source!.fingerprint, `voices.v${VOICES_VERSION}.json`))).toBe(true);
   });

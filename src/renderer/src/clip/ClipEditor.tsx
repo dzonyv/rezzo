@@ -22,6 +22,7 @@ import { ClipTimeline } from './ClipTimeline.tsx';
 import { FramingOverlay, propertyFor, regionFor, zoomed } from './FramingOverlay.tsx';
 import { LayerOverlay } from './LayerOverlay.tsx';
 import { PeopleOverlay } from './PeopleOverlay.tsx';
+import { WhoTalks } from './WhoTalks.tsx';
 import { EffectPanel } from './EffectPanel.tsx';
 import { LayerPanel } from './LayerPanel.tsx';
 import { currentPlayer, seekClip, toggleClip, useClipPlayback } from './playback.ts';
@@ -168,6 +169,7 @@ export function ClipEditor({ clip, source }: { clip: Clip; source: Source }) {
         </button>
         <AddLayerMenu clipId={clip.id} time={time} />
       </div>
+      {showPeople && <WhoTalks time={time} />}
       <ClipTimeline clip={clip} assets={assets} keys={keys} pages={pages} selectedId={selectedLayer?.id ?? null} time={time} />
       {transcript && <WordStrip clip={clip} transcript={transcript} time={time} rate={rate} captions={captions !== null} />}
 

@@ -369,6 +369,14 @@ button.link:hover {
   align-items: center;
 }
 
+.voice-list input {
+  width: 120px;
+}
+
+.voices-panel > button {
+  margin-top: 8px;
+}
+
 .voice-chip {
   width: 10px;
   height: 10px;
@@ -1022,7 +1030,25 @@ button.icon {
   bottom: 3px;
   border-radius: 2px;
   opacity: 0.8;
-  pointer-events: none;
+}
+
+/* A shot with several people where nobody has said who talks. */
+.clip-timeline .unknown-speaker {
+  position: absolute;
+  bottom: 0;
+  height: 2px;
+  background: repeating-linear-gradient(90deg, var(--text) 0 4px, transparent 4px 8px);
+}
+
+.clip-timeline .speaker-pick {
+  position: absolute;
+  top: 50%;
+  width: 6px;
+  height: 6px;
+  margin: -3px 0 0 -3px;
+  border-radius: 50%;
+  background: #fff;
+  box-shadow: 0 0 0 1px #000;
 }
 
 .clip-timeline .key {
@@ -1240,9 +1266,24 @@ button.icon {
 }
 
 .people-overlay .person {
+  --person: #4aa3df;
   position: absolute;
-  border: 2px solid #4aa3df;
+  padding: 0;
+  border: 2px solid var(--person);
   border-radius: 4px;
+  background: none;
+  cursor: pointer;
+  pointer-events: auto;
+}
+
+.people-overlay .person:disabled {
+  opacity: 1;
+  cursor: default;
+  pointer-events: none;
+}
+
+.people-overlay .person.talking {
+  border-width: 3px;
 }
 
 .people-overlay .person span {
@@ -1251,7 +1292,7 @@ button.icon {
   bottom: 100%;
   padding: 0 4px;
   border-radius: 3px 3px 0 0;
-  background: #4aa3df;
+  background: var(--person);
   color: #fff;
   font-size: 10px;
   line-height: 14px;
@@ -1723,4 +1764,56 @@ button.icon {
   font-size: 11px;
   font-weight: 600;
   color: var(--text-dim);
+}
+
+/* Two lines high whatever it says, so the timeline below stays put during playback. */
+.who-talks {
+  display: flex;
+  gap: 6px;
+  align-items: center;
+  min-height: 36px;
+  margin-bottom: 8px;
+}
+
+.who-talks button {
+  flex: none;
+}
+
+.who-talks button[aria-pressed='true'] {
+  outline: 2px solid var(--accent);
+}
+
+.turn-menu {
+  position: fixed;
+  z-index: 30;
+  display: flex;
+  flex-direction: column;
+  min-width: 170px;
+  padding: 4px;
+  border: 1px solid var(--border);
+  border-radius: 6px;
+  background: var(--surface-2);
+  box-shadow: 0 4px 16px rgb(0 0 0 / 40%);
+}
+
+.turn-menu h4 {
+  margin: 4px 8px 2px;
+  color: var(--text-dim);
+  font-size: 11px;
+  font-weight: normal;
+}
+
+.turn-menu button {
+  display: flex;
+  gap: 6px;
+  align-items: center;
+  padding: 4px 8px;
+  border: 0;
+  background: none;
+  color: inherit;
+  text-align: left;
+}
+
+.turn-menu button:hover {
+  background: var(--surface);
 }

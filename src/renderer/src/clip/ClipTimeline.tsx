@@ -6,13 +6,16 @@ import { EFFECTS } from '../../../shared/effects.ts';
 import { ASSET_KIND_OF, isTimed, keyframesOf, videoLayerOf, type Animated, type Clip, type TimedLayer } from '../../../shared/project.ts';
 import { moveLayer, reorderLayer, trimLayer } from '../project/layers.ts';
 import { videoLayersOverLimit } from '../../../shared/overlay-files.ts';
-import { projectStore } from '../project/store.ts';
+import { projectStore, useProject } from '../project/store.ts';
+import type { VoiceTurn } from '../../../shared/voices.ts';
 import { useAnalysis } from '../analysis/store.ts';
-import { useVoices } from '../project/voices.ts';
+import { useHeardVoices } from '../project/voices.ts';
 import { useOverlayFile } from '../render/overlay-files.ts';
-import { voiceColor } from '../voice-colors.ts';
+import { voiceColor, voiceLabel } from '../voice-colors.ts';
 import { pauseClip, seekClip } from './playback.ts';
+import { useStretches } from './speakers.ts';
 import { selectLayer } from './state.ts';
+import { VoiceTurnMenu } from './VoiceTurnMenu.tsx';
 
 interface Props {
   clip: Clip;
@@ -38,8 +41,10 @@ type Drag =
  * picture (the top row is drawn on top), the captions' pages, and the
  * source video with its layouts (coloured bands) and the keyframes of the
  * framing being edited, with the camera cuts the analysis found. Below it,
- * who talks when (the episode's voices). Press and drag on empty space to scrub; drag a
+ * who talks when (the episode's voices), where the user said who it is, and
+ * where nobody knows yet. Press and drag on empty space to scrub; drag a
  * layer to move it in time and its ends to trim it. Ctrl+scroll zooms.
+ * Right-click a turn to correct it.
  */
 export function ClipTimeline({ clip, assets, keys, pages, selectedId, time }: Props) {
   const { t } = useTranslation();
@@ -47,6 +52,7 @@ export function ClipTimeline({ clip, assets, keys, pages, selectedId, time }: Pr
   const track = useRef<HTMLDivElement>(null);
   const drag = useRef<Drag | null>(null);
   const [zoom, setZoom] = useState(1);
+  const [turnMenu, setTurnMenu] = useState<{ turn: VoiceTurn; at: number; x: number; y: number } | null>(null);
   const length = clip.end - clip.start;
   const pct = (seconds: number) => ((Math.min(Math.max(seconds, clip.start), clip.end) - clip.start) / length) * 100;
   const at = (seconds: number) => `${pct(seconds)}%`;
@@ -61,9 +67,14 @@ export function ClipTimeline({ clip, assets, keys, pages, selectedId, time }: Pr
   const perPixel = () => length / track.current!.getBoundingClientRect().width;
 
   const shots = useAnalysis((s) => s.analysis?.shots);
-  const turns = useVoices((s) => s.voices?.turns);
+  const heard = useHeardVoices();
+  const turns = heard?.turns;
+  const picks = useProject((s) => s.project?.voices.picks) ?? [];
+  const stretches = useStretches();
   const cuts = (shots ?? []).slice(1).map((s) => s.start).filter((c) => c > clip.start && c < clip.end);
-  const clipTurns = (turns ?? []).filter((v) => v.end > clip.start && v.start < clip.end);
+  const inClip = (from: number, to: number) => to > clip.start && from < clip.end;
+  const clipTurns = (turns ?? []).filter((v) => inClip(v.start, v.end));
+  const labelOf = (voice: number) => voiceLabel(t, heard?.voices.find((v) => v.id === voice) ?? { id: voice, name: null });
 
   const layout = videoLayerOf(clip).layout;
   const bands = layout.map((k, i) => ({ from: Math.max(k.t, clip.start), to: layout[i + 1]?.t ?? clip.end, layout: k.value }));
@@ -268,13 +279,33 @@ export function ClipTimeline({ clip, assets, keys, pages, selectedId, time }: Pr
           {turns && (
             <div className="timeline-row voices" aria-label={t('voices.title')}>
               {clipTurns.map((v) => (
-                <div key={v.start} className="voice-turn" style={{ ...span(v.start, v.end), background: voiceColor(v.voice) }} title={t('voices.voice', { n: v.voice + 1 })} />
+                <div
+                  key={v.start}
+                  className="voice-turn"
+                  style={{ ...span(v.start, v.end), background: voiceColor(v.voice) }}
+                  title={t('voices.turnHelp', { voice: labelOf(v.voice) })}
+                  onContextMenu={(e) => {
+                    e.preventDefault();
+                    setTurnMenu({ turn: v, at: timeAt(e.clientX), x: e.clientX, y: e.clientY });
+                  }}
+                />
               ))}
+              {stretches
+                .filter((s) => s.target.kind === 'group' && inClip(s.start, s.end))
+                .map((s) => (
+                  <div key={s.start} className="unknown-speaker" style={span(s.start, s.end)} title={t('speakers.why.group')} />
+                ))}
+              {picks
+                .filter((p) => p.t >= clip.start && p.t <= clip.end)
+                .map((p) => (
+                  <div key={p.t} className="speaker-pick" style={{ left: at(p.t) }} title={t('speakers.picked')} />
+                ))}
             </div>
           )}
           <div className="playhead" style={{ left: at(time) }} />
         </div>
       </div>
+      {turnMenu && heard && <VoiceTurnMenu {...turnMenu} voices={heard.voices} onClose={() => setTurnMenu(null)} />}
     </div>
   );
 }
