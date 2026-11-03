@@ -7,7 +7,10 @@ import { ASSET_KIND_OF, isTimed, keyframesOf, videoLayerOf, type Animated, type 
 import { moveLayer, reorderLayer, trimLayer } from '../project/layers.ts';
 import { videoLayersOverLimit } from '../../../shared/overlay-files.ts';
 import { projectStore } from '../project/store.ts';
+import { useAnalysis } from '../analysis/store.ts';
+import { useVoices } from '../project/voices.ts';
 import { useOverlayFile } from '../render/overlay-files.ts';
+import { voiceColor } from '../voice-colors.ts';
 import { pauseClip, seekClip } from './playback.ts';
 import { selectLayer } from './state.ts';
 
@@ -34,7 +37,8 @@ type Drag =
  * The clip from start to end, one row per layer: the layers over the
  * picture (the top row is drawn on top), the captions' pages, and the
  * source video with its layouts (coloured bands) and the keyframes of the
- * framing being edited. Press and drag on empty space to scrub; drag a
+ * framing being edited, with the camera cuts the analysis found. Below it,
+ * who talks when (the episode's voices). Press and drag on empty space to scrub; drag a
  * layer to move it in time and its ends to trim it. Ctrl+scroll zooms.
  */
 export function ClipTimeline({ clip, assets, keys, pages, selectedId, time }: Props) {
@@ -55,6 +59,11 @@ export function ClipTimeline({ clip, assets, keys, pages, selectedId, time }: Pr
   };
   /** Seconds that one screen pixel covers. */
   const perPixel = () => length / track.current!.getBoundingClientRect().width;
+
+  const analysis = useAnalysis((s) => s);
+  const turns = useVoices((s) => (s.status === 'ready' ? s.voices?.turns : undefined));
+  const cuts = (analysis.analysis?.shots ?? []).slice(1).map((s) => s.start).filter((c) => c > clip.start && c < clip.end);
+  const clipTurns = (turns ?? []).filter((v) => v.end > clip.start && v.start < clip.end);
 
   const layout = videoLayerOf(clip).layout;
   const bands = layout.map((k, i) => ({ from: Math.max(k.t, clip.start), to: layout[i + 1]?.t ?? clip.end, layout: k.value }));
@@ -187,6 +196,11 @@ export function ClipTimeline({ clip, assets, keys, pages, selectedId, time }: Pr
             {t('layers.video')}
           </button>
         </div>
+        {turns && (
+          <div className="timeline-label voices">
+            <span className="name">{t('voices.title')}</span>
+          </div>
+        )}
       </div>
 
       <div ref={scroller} className="timeline-scroll" title={t('layers.zoomHelp')}>
@@ -245,8 +259,21 @@ export function ClipTimeline({ clip, assets, keys, pages, selectedId, time }: Pr
               .map((b) => (
                 <div key={b.from} className={`band ${b.layout}`} style={span(b.from, b.to)} title={t(`clipEditor.layouts.${b.layout}`)} />
               ))}
+            {cuts.map((c) => (
+              <div key={c} className="cut" style={{ left: at(c) }} title={t('analysis.cut')} />
+            ))}
+            {analysis.status === 'running' && (
+              <div className="analysis-progress" role="progressbar" aria-label={t('analysis.running')} aria-valuenow={Math.round(analysis.progress * 100)} style={{ width: `${analysis.progress * 100}%` }} />
+            )}
             {keyMarks(keys)}
           </div>
+          {turns && (
+            <div className="timeline-row voices" aria-label={t('voices.title')}>
+              {clipTurns.map((v) => (
+                <div key={v.start} className="voice-turn" style={{ ...span(v.start, v.end), background: voiceColor(v.voice) }} title={t('voices.voice', { n: v.voice + 1 })} />
+              ))}
+            </div>
+          )}
           <div className="playhead" style={{ left: at(time) }} />
         </div>
       </div>

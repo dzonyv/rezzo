@@ -1,5 +1,5 @@
 {
-  "$comment": "Third-party binaries and models the app uses. FFmpeg, sherpa-onnx and the speaker embedding model ship inside the installer (fetched into vendor/ for development); whisper.cpp and the model are downloaded by the app the first time you transcribe. Pinned URLs, sizes and checksums.",
+  "$comment": "Third-party binaries and models the app uses. FFmpeg, sherpa-onnx, the speaker embedding model and the MediaPipe models ship inside the installer (fetched into vendor/ for development); whisper.cpp and the model are downloaded by the app the first time you transcribe. Pinned URLs, sizes and checksums.",
   "items": [
     {
       "id": "ffmpeg",
@@ -32,6 +32,26 @@
       "sha256": "aa3cfc16963a10586a9393f5035d6d6b57e98d358b347f80c2a30bf4f00ceba2",
       "license": "Apache-2.0",
       "source": "https://github.com/modelscope/3D-Speaker"
+    },
+    {
+      "id": "pose-landmarker-full",
+      "kind": "bundled",
+      "name": "MediaPipe Pose Landmarker full (float16, v1)",
+      "url": "https://storage.googleapis.com/mediapipe-models/pose_landmarker/pose_landmarker_full/float16/1/pose_landmarker_full.task",
+      "size": 9398198,
+      "sha256": "5134a3aad27a58b93da0088d431f366da362b44e3ccfbe3462b3827a839011b1",
+      "license": "Apache-2.0",
+      "source": "https://ai.google.dev/edge/mediapipe/solutions/vision/pose_landmarker"
+    },
+    {
+      "id": "face-landmarker",
+      "kind": "bundled",
+      "name": "MediaPipe Face Landmarker with blendshapes (float16, v1)",
+      "url": "https://storage.googleapis.com/mediapipe-models/face_landmarker/face_landmarker/float16/1/face_landmarker.task",
+      "size": 3758596,
+      "sha256": "64184e229b263107bc2b804c6625db1341ff2bb731874b0bcc2fe6544e0bc9ff",
+      "license": "Apache-2.0",
+      "source": "https://ai.google.dev/edge/mediapipe/solutions/vision/face_landmarker"
     },
     {
       "id": "whisper-cuda",

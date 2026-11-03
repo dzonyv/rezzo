@@ -49,6 +49,17 @@ export function allowMedia(file: string): string {
   return mediaUrl(file);
 }
 
+/** The file behind a URL this module handed out, or null for any other URL. */
+export function allowedFileOf(url: string): string | null {
+  try {
+    const u = new URL(url);
+    const file = u.protocol === `${MEDIA_SCHEME}:` ? u.searchParams.get('path') : null;
+    return file && allowed.has(key(file)) ? file : null;
+  } catch {
+    return null;
+  }
+}
+
 export function mediaUrl(file: string): string {
   return `${MEDIA_SCHEME}://file/?path=${encodeURIComponent(file)}`;
 }

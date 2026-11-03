@@ -29,6 +29,15 @@ extraResources:
     to: tools/voice-embeddings
     filter:
       - '*.onnx'
+  # MediaPipe's models for finding people (src/main/analysis.ts).
+  - from: vendor/tools/pose-landmarker-full
+    to: tools/pose-landmarker-full
+    filter:
+      - '*.task'
+  - from: vendor/tools/face-landmarker
+    to: tools/face-landmarker
+    filter:
+      - '*.task'
   - from: LICENSE
     to: licenses/LICENSE
   - from: THIRD_PARTY_NOTICES.md

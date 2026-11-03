@@ -3,6 +3,7 @@
  * sandboxed and reaches the rest of the app only through `window.rezzo`,
  * which the preload script builds from these channel lists.
  */
+import type { ClipAnalysis } from './analysis.ts';
 import type { Asset, AssetFile, AssetKind, AssetStatus, VideoAsset, VideoInfo } from './assets.ts';
 import type { LottieInfo } from './lottie.ts';
 import type { OverlayLayout } from './overlay-files.ts';
@@ -165,6 +166,12 @@ export interface InvokeApi {
   /** The page no longer needs that overlay:prepare; it resolves as "cancelled". */
   'overlay:cancel': (requestId: string) => void;
 
+  /** URLs of MediaPipe's models, for the clip analysis. */
+  'analysis:models': () => { pose: string; face: string };
+  /** The cached analysis of the working file at this URL (from clip:prepare), or null. */
+  'analysis:load': (workingUrl: string) => ClipAnalysis | null;
+  'analysis:save': (workingUrl: string, analysis: ClipAnalysis) => void;
+
   /**
    * Asks where to save, then exports the clip; resolves when the file is
    * written. Progress of the working file comes as export:prepare-progress,
@@ -237,6 +244,9 @@ export const INVOKE_CHANNELS = {
   'clip:prepare': true,
   'overlay:prepare': true,
   'overlay:cancel': true,
+  'analysis:models': true,
+  'analysis:load': true,
+  'analysis:save': true,
   'export:start': true,
   'export:cancel': true,
   'export:reveal': true,

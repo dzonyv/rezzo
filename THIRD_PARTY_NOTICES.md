@@ -50,6 +50,11 @@ Lottie animations are drawn by dotLottie Web 0.81.0 (`@lottiefiles/dotlottie-web
 - ThorVG (MIT), https://github.com/thorvg/thorvg, including its WebP decoder, which is based on libwebp (BSD-3-Clause)
 - Rust crates under MIT or Apache-2.0 (dual-licensed): miniz_oxide 0.8.9 (also Zlib), hashbrown 0.17.1, dlmalloc 0.2.13, once_cell 1.21.4, tinyrlibc 0.5.1, console_error_panic_hook 0.1.7
 
+## Finding people
+
+- MediaPipe Tasks Vision 1.1.1 (`@mediapipe/tasks-vision`, Apache-2.0, Copyright Google LLC, https://github.com/google-ai-edge/mediapipe). Its JavaScript is compiled into the app's code, and its WebAssembly (`vision_wasm_internal.wasm` with its loader) ships next to it.
+- MediaPipe's Pose Landmarker (full) and Face Landmarker models (Apache-2.0, https://ai.google.dev/edge/mediapipe/solutions/vision/pose_landmarker), in `tools/pose-landmarker-full` and `tools/face-landmarker`.
+
 ## Telling voices apart
 
 - sherpa-onnx 2.0.1 (Apache-2.0, the k2-fsa project), https://github.com/k2-fsa/sherpa-onnx. The prebuilt Node addon for Windows x64 from the npm package `sherpa-onnx-win-x64` ships in `tools/sherpa-onnx`, with the ONNX Runtime 1.28.2 DLLs it needs (MIT, Copyright (c) Microsoft Corporation, https://github.com/microsoft/onnxruntime).

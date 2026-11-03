@@ -14,6 +14,7 @@ import {
 } from './project-files.ts';
 import { getSettings, updateSettings } from './settings.ts';
 import { cancelTranscription, startTranscription, transcriptionStatus } from './transcription.ts';
+import { analysisModels, loadAnalysis, saveAnalysis } from './analysis.ts';
 import { cancelVoices, startVoices } from './voices.ts';
 import { stopWorker } from './worker-host.ts';
 import { projectSchema } from '../shared/project.ts';
@@ -73,6 +74,10 @@ function registerHandlers(): void {
   handle('clip:prepare', ({ window }, source, range) => prepareClip(window.webContents, source, range));
   handle('overlay:prepare', ({ window }, asset, range, rate, requestId) => prepareOverlay(window.webContents, asset, range, rate, requestId));
   handle('overlay:cancel', (_ctx, requestId) => cancelOverlay(requestId));
+
+  handle('analysis:models', () => analysisModels());
+  handle('analysis:load', (_ctx, url) => loadAnalysis(url));
+  handle('analysis:save', (_ctx, url, analysis) => saveAnalysis(url, analysis));
 
   handle('export:start', ({ window }, source, clip, assets) => startExport(window, source, clip, assets));
   handle('export:cancel', () => cancelExport());

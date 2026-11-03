@@ -10,6 +10,7 @@ import { markMissing } from '../project/assets.ts';
 import { useProject } from '../project/store.ts';
 import { loadCaptionScene, type CaptionScene } from '../render/captions.ts';
 import { ClipPlayer, type DrawAt, type LayerSound, type PrepareAt } from '../render/clip-player.ts';
+import { analyse } from '../analysis/store.ts';
 import { Compositor, type LayerImage } from '../render/compositor.ts';
 import { forgetOverlayFile, overlayFilesStore, prepareOverlayFiles, readyFiles, retryFailedOverlayFiles, WorkingFileGoneError, type OverlayFile } from '../render/overlay-files.ts';
 import { layerSounds } from '../render/overlay-sound.ts';
@@ -162,6 +163,8 @@ export function ClipPreview({ clip, source, children }: { clip: Clip; source: So
           player.setSounds(sounds.current);
           setPlayer(player);
           clipPlaybackStore.setState({ status: 'ready' });
+          // Cuts and people for the timeline and the "show people" view; in the background.
+          void analyse(result);
         } catch (e) {
           if (!cancelled) clipPlaybackStore.setState({ status: 'failed', error: String(e) });
         }

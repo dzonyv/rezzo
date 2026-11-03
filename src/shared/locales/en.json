@@ -507,5 +507,12 @@
       "audio": "Reading the audio… {{percent}}%",
       "voices": "Telling voices apart… {{percent}}%"
     }
+  },
+  "analysis": {
+    "cut": "Camera cut",
+    "running": "Finding cuts and people…",
+    "person": "Person {{n}}",
+    "showPeople": "Show people",
+    "showPeopleHelp": "Draws the heads the analysis found in this shot"
   }
 }

@@ -507,5 +507,12 @@
       "audio": "Čitam zvuk… {{percent}}%",
       "voices": "Razdvajam glasove… {{percent}}%"
     }
+  },
+  "analysis": {
+    "cut": "Rez kamere",
+    "running": "Tražim rezove i ljude…",
+    "person": "Osoba {{n}}",
+    "showPeople": "Prikaži ljude",
+    "showPeopleHelp": "Označava glave koje je analiza našla u ovom kadru"
   }
 }

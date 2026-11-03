@@ -23,7 +23,7 @@ export const CUT_DIFF = 20;
 export const MIN_SHOT = 0.5;
 
 /** A detection within this many head sizes of a seat's mean position sits in it. */
-const SEAT_REACH = 1.2;
+const SEAT_REACH = 1.6;
 /** Share of a shot's analysed frames a seat must be found in to count. */
 const SEAT_MIN_SHARE = 0.15;
 /** Seconds either side that smoothing averages over. */
