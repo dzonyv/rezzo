@@ -49,7 +49,8 @@ async function readTranscript(file: string): Promise<Transcript | null> {
   }
 }
 
-async function extractAudio(ctx: JobContext, req: TranscribeRequest): Promise<string> {
+/** The episode's audio as 16 kHz mono, kept in its cache folder. Also used to tell voices apart. */
+export async function extractAudio(ctx: JobContext, req: Pick<TranscribeRequest, 'sourcePath' | 'duration' | 'cacheDir'>): Promise<string> {
   const wav = path.join(req.cacheDir, 'audio-16k.wav');
   if (await exists(wav)) return wav;
   const part = path.join(req.cacheDir, 'audio-16k.part.wav');

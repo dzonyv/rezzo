@@ -10,6 +10,7 @@ import { fingerprint } from './fingerprint.ts';
 import { makePreview } from './preview.ts';
 import { probe, probeVideo } from './probe.ts';
 import { transcribe } from './transcribe.ts';
+import { diarize } from './voices.ts';
 import { makeOverlayFile, makeWorkingFile } from './working.ts';
 import { install } from '../../node/tools/download.ts';
 import { tool } from '../../node/tools/manifest.ts';
@@ -31,6 +32,7 @@ const handlers: Handlers = {
   fingerprint: (_ctx, file) => fingerprint(file),
   installTool: (ctx, id, dir) => install(tool(id), dir, { onProgress: ctx.progress, signal: ctx.signal }),
   transcribe: (ctx, request) => transcribe(ctx, request),
+  diarize: (ctx, request) => diarize(ctx, request),
   makePreview: (ctx, request) => makePreview(ctx, request),
   makeWorkingFile: (ctx, request) => makeWorkingFile(ctx, request),
   makeOverlayFile: (ctx, request) => makeOverlayFile(ctx, request),

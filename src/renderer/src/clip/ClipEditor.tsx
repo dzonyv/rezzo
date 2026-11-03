@@ -21,6 +21,7 @@ import { ClipPreview } from './ClipPreview.tsx';
 import { ClipTimeline } from './ClipTimeline.tsx';
 import { FramingOverlay, propertyFor, regionFor, zoomed } from './FramingOverlay.tsx';
 import { LayerOverlay } from './LayerOverlay.tsx';
+import { PeopleOverlay } from './PeopleOverlay.tsx';
 import { EffectPanel } from './EffectPanel.tsx';
 import { LayerPanel } from './LayerPanel.tsx';
 import { currentPlayer, seekClip, toggleClip, useClipPlayback } from './playback.ts';
@@ -38,6 +39,7 @@ export function ClipEditor({ clip, source }: { clip: Clip; source: Source }) {
   const { t } = useTranslation();
   const store = projectStore.getState();
   const [half, setHalf] = useState<'top' | 'bottom'>('top');
+  const [showPeople, setShowPeople] = useState(false);
   const status = useClipPlayback((s) => s.status);
   const playing = useClipPlayback((s) => s.playing);
   const sourceSize = useClipPlayback((s) => s.sourceSize);
@@ -150,6 +152,7 @@ export function ClipEditor({ clip, source }: { clip: Clip; source: Source }) {
       <ClipPreview clip={clip} source={source}>
         <FramingOverlay clipId={clip.id} layout={layout} half={half} onHalf={setHalf} time={time} sourceSize={sourceSize} />
         <LayerOverlay clip={clip} assets={assets} selectedId={selectedLayer?.id ?? null} time={time} />
+        {showPeople && <PeopleOverlay layer={layer} time={time} sourceSize={sourceSize} />}
         {captions && <CaptionOverlay clipId={clip.id} layer={captions} time={time} />}
       </ClipPreview>
 
@@ -160,6 +163,9 @@ export function ClipEditor({ clip, source }: { clip: Clip; source: Source }) {
         <span className="time">
           {t('clipEditor.time', { current: formatClipTime(time - clip.start), total: formatClipTime(clip.end - clip.start) })}
         </span>
+        <button type="button" aria-pressed={showPeople} title={t('analysis.showPeopleHelp')} onClick={() => setShowPeople((v) => !v)}>
+          {t('analysis.showPeople')}
+        </button>
         <AddLayerMenu clipId={clip.id} time={time} />
       </div>
       <ClipTimeline clip={clip} assets={assets} keys={keys} pages={pages} selectedId={selectedLayer?.id ?? null} time={time} />

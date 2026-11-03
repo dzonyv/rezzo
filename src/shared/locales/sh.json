@@ -64,7 +64,8 @@
     "lottiePlayback": "puštanje animacije",
     "addEffect": "dodavanje efekta",
     "effectIntensity": "jačina efekta",
-    "effectSettings": "podešavanja efekta"
+    "effectSettings": "podešavanja efekta",
+    "speakerCount": "broj ljudi koji pričaju"
   },
   "files": {
     "project": "Rezzo projekat",
@@ -494,5 +495,24 @@
       "speed": "Brzina",
       "size": "Veličina"
     }
+  },
+  "voices": {
+    "title": "Glasovi",
+    "voice": "Glas {{n}}",
+    "count": "Koliko ljudi priča",
+    "countAuto": "Prepoznaj",
+    "failed": "Glasove nije bilo moguće razdvojiti: {{detail}}",
+    "retry": "Pokušaj ponovo",
+    "phase": {
+      "audio": "Čitam zvuk… {{percent}}%",
+      "voices": "Razdvajam glasove… {{percent}}%"
+    }
+  },
+  "analysis": {
+    "cut": "Rez kamere",
+    "running": "Tražim rezove i ljude…",
+    "person": "Osoba {{n}}",
+    "showPeople": "Prikaži ljude",
+    "showPeopleHelp": "Označava glave koje je analiza našla u ovom kadru"
   }
 }

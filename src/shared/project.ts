@@ -15,9 +15,10 @@ import { chromaKeySchema } from './chroma-key.ts';
 import { EFFECT_NAMES, paramsValid } from './effects.ts';
 import { fps, frameAt, timeOfFrame, workingFrameRate } from './frames.ts';
 import { motionSchema, transformSchema } from './motion.ts';
+import { speakerCountSchema } from './voices.ts';
 
 /** Bumped when the file format changes in a way older files need migrating for. */
-export const PROJECT_FORMAT = 7;
+export const PROJECT_FORMAT = 8;
 export const PROJECT_EXTENSION = 'rezzo';
 
 export const TRANSCRIPT_LANGUAGES = ['sr', 'hr', 'bs'] as const;
@@ -334,6 +335,11 @@ export const projectSchema = z
     clips: z.array(clipSchema),
     /** Files the clips' layers show; each layer names one by id. */
     assets: z.array(assetSchema),
+    /** Telling the episode's voices apart. */
+    voices: z.object({
+      /** How many people talk, or 'auto' to find out from the audio. */
+      count: speakerCountSchema,
+    }),
   })
   .refine((p) => new Set(p.assets.map((a) => a.id)).size === p.assets.length, 'asset ids are unique')
   .refine((p) => {
@@ -343,7 +349,7 @@ export const projectSchema = z
 export type Project = z.infer<typeof projectSchema>;
 
 export function newProject(name: string, id: string = crypto.randomUUID()): Project {
-  return { format: PROJECT_FORMAT, id, name, source: null, transcript: null, clips: [], assets: [] };
+  return { format: PROJECT_FORMAT, id, name, source: null, transcript: null, clips: [], assets: [], voices: { count: 'auto' } };
 }
 
 /** The asset with this id, or undefined. */
@@ -364,6 +370,8 @@ const MIGRATIONS: Record<number, (old: Record<string, unknown>) => Record<string
   5: (old) => ({ ...old, clips: imagesWithoutKey(old.clips) }),
   // Format 7 added Lottie animations and effects. Nothing to change.
   6: (old) => old,
+  // Format 8 added the number of people talking, for telling voices apart.
+  7: (old) => ({ ...old, voices: { count: 'auto' } }),
 };
 
 function imagesWithoutKey(clips: unknown): unknown {

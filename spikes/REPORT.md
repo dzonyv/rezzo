@@ -436,3 +436,131 @@ With `hardwareAcceleration: 'prefer-hardware'` (which Chromium treats as "GPU or
 - **Conversion:** a YUV filter graph (`extractplanes=a`, no RGBA round trip) and x264 with the working-file settings. VP8/VP9 files with `alpha_mode=1` are decoded with libvpx.
 - **Alpha detection:** `alpha_mode=1` on the stream, or an alpha channel in the first decoded frame's `pix_fmt`. The stream's `pix_fmt` alone misses HEVC with alpha.
 - GIF works, with on/off transparency; animated WebP, APNG, ProRes 4444, QuickTime Animation, PNG-in-MOV and HEVC with alpha all keep smooth alpha.
+
+## Phase 4 checks
+
+Before building speaker tracking I wanted to know three things: whether we can tell voices apart without Python, well enough to lean on; whether head tracks in a wide shot can be made stable; and whether the same person can be recognised in a close-up and in a wide two-shot. Everything here runs on the four Phase 0 clips. There's no full episode yet, so the hour-long timing uses repeated audio. Scripts are in `voices/` and `faces/track.ts`, `faces/appearance.ts`.
+
+### Telling voices apart (4a)
+
+[sherpa-onnx](https://github.com/k2-fsa/sherpa-onnx) 2.0.1 (`sherpa-onnx-node`, Apache-2.0) has a prebuilt Windows x64 addon. It loads in an Electron 45 utility process in about 0.3 s and diarizes clip B there in 6 s, same as in plain Node. The addon is N-API, so the Electron version doesn't matter.
+
+I tried two ways:
+
+- **sherpa's own pipeline:** pyannote segmentation 3.0 (MIT) finds the speech and the speaker changes, a speaker embedding model describes each piece, and sherpa clusters them.
+- **Pieces from the transcript:** whisper already knows where every word is. Words are joined into pieces, split at pauses of 0.3 s or more and at 3 s. sherpa only computes an embedding per piece, and we cluster them ourselves (average linkage on cosine distance). Pieces of at least 1 s decide the clusters; shorter ones join the nearest.
+
+Six embedding models were compared: 3D-Speaker CAM++ (VoxCeleb), CAM++ (Chinese and English, "advanced"), ERes2Net (VoxCeleb), all Apache-2.0; WeSpeaker ResNet34-LM and CAM++-LM, NeMo TitaNet-small, all CC BY 4.0.
+
+The reference:
+
+- clip D: the maintainer's transcript tagged A/M, aligned to whisper's words; 31 turns, many under 2 s;
+- clip C: the speaker labels;
+- clips A and B: one speaker wherever the transcript has words;
+- "all 5": the four clips joined, 266 s with five people talking, which stands in for a longer recording.
+
+The score is the share of speech, on 10 ms frames, given to the right voice when every voice maps to at most one person. 0.25 s around every reference boundary is left out. Speech that got no voice at all counts as wrong, and the share of it is in brackets.
+
+| Method, model, setting | Clip D (2 people) | All 5 | Clips A / B / C (1 person) | Voices found, D / all 5 | Speed |
+|---|---|---|---|---|---|
+| sherpa pipeline, CAM++ VoxCeleb, told the count | 64% | 48% | 88 / 97 / 97% | 2 / 5 | 12–20× |
+| sherpa pipeline, ERes2Net, told the count | 83% | 84% | | 2 / 5 | 7–9× |
+| sherpa pipeline, CAM++ zh-en, threshold 0.7 | 80% | 74% | | 3 / 10 | 17× |
+| **transcript pieces, CAM++ zh-en, threshold 0.7** | **93% (4% missed)** | **83% (7%)** | **94 / 88 / 89%** | **2 / 6** | **~100×** |
+| transcript pieces, CAM++ zh-en, told the count | 93% | 83% | 94 / 90 / 91% | 2 / 5 | ~100× |
+| transcript pieces, ERes2Net, threshold 0.7 | 93% | 64% | 94 / 90 / 61% | 2 / 9 | ~70× |
+
+What the numbers show:
+
+1. **sherpa's own pipeline fails on fast exchanges.** On clip D pyannote keeps one voice "on" for the first 56 s and puts the other one's short turns on top of it. Telling it the count doesn't help much (64–83%), and it is 5–10× slower because it runs the segmentation model over every second of audio.
+2. **The transcript does the segmentation better.** Pieces cut at pauses rarely span a speaker change. CAM++ zh-en then gets clip D right 93% of the time without being told how many people there are. Of the speech it did label, 97% is right; the 4% it missed is speech with no words in the transcript.
+3. **The threshold of 0.7 works without knowing the count.** It gives the right count on clip D and one voice too many on the joined file. A loud wide shot (clip C) and a 360p broadcast (clip B) split into two voices: 88–89% on the main one, and a merge brings them to 90–91%. Lower thresholds split everyone into many voices, higher ones (0.8) lump different people together, which is worse.
+4. **Piece size matters.** Pauses of 0.1–0.2 s make pieces too short to describe a voice; 0.3 s was best for every model.
+5. **It is fast.** An hour of audio in 1.6 s pieces takes 45 s with 4 threads (81× real time) and 64 s with 2, with other work running at the same time. That is about 780 MB of memory, 230 MB of it the hour of audio as float samples. Clustering 2250 pieces needs an O(n²) algorithm (not the naive one in the spike), about one second.
+
+### Heads in a wide shot
+
+`faces/track.ts` reruns tracking on the head boxes the face lab saved.
+
+**Tracker.** The new tracker:
+
+- matches heads by centre distance relative to head size instead of box overlap;
+- keeps a track for 2 s without detections;
+- joins tracks that end and start near each other;
+- drops tracks under 0.5 s;
+- smooths with a centred ±0.5 s window.
+
+On clip C it gives 13 tracks instead of 101, 3 of them longer than 5 s. That's still too many. The pose model misses the man on the left (in profile, with a cap) in about three frames out of four, so his track keeps breaking up.
+
+**Seats.** People in a podcast stay in their seats. Grouping every head detection in a shot by position, with the closest seat within 1.2 head sizes (1.6 in the app, see below) and a seat counting only if found in 15% of the shot's frames, gives:
+
+- clip C: exactly 2 seats (one found in 555 frames, the other in 106);
+- clip D: 1 seat in each close-up, 2 in the two-shot, and 3 in one shot that is a dissolve between two angles;
+- clips A and B: 1 seat in every shot.
+
+**Jitter.** Smoothing cuts frame-to-frame jitter from 2–10% of head size to 1–2%.
+
+### The same person across camera angles
+
+`faces/appearance.ts` describes each seat in clip D by the colours under the head (hue, saturation and brightness histograms, averaged over the shot). It then clusters the seats into two people, never joining two seats of the same shot.
+
+The results are 11 of 16 seats right, and 1 of 2 in the two-shot, which is the case that matters. The two men are told apart in close-ups by a dark and a light top. In the two-shot their heads are 38 px tall and the lower-third banner covers their chests. Same-person and different-person distances overlap (0.17 vs 0.25 on average). Clothing colour won't carry identity from a close-up into a wide shot on this footage. A face recognition model would, but the common ones (InsightFace) aren't licensed for redistribution.
+
+#### Decisions for Phase 4
+
+- **Voices come from the transcript**, not from sherpa's pipeline:
+  - pieces split at 0.3 s pauses and at 3 s;
+  - 3D-Speaker CAM++ zh-en embeddings (28 MB, Apache-2.0) through `sherpa-onnx-node`;
+  - average-linkage clustering at a cosine distance of 0.7, with a "number of people" setting that switches to a fixed count.
+
+  This has two practical effects. Diarization can only run after transcription, which it does anyway. The pyannote segmentation model isn't needed, so the bundle is about 50 MB (addon plus one model) instead of 70.
+- **Voices are reliable enough to be the main signal** in shots with several people: 93% on the one real two-person clip, against the 80% threshold set in the plan. The user can merge voices that got split, which is how a noisy recording usually goes wrong.
+- **People are seats, per shot**, not free-moving tracks. The tracker fills in the frames in between and smooths. A seat found in less than 15% of a shot is dropped.
+- **No identity across camera angles.**
+  - In a close-up the person shown is the one to follow (the director's cut).
+  - In a shot with several people, the link between a voice and a seat comes from the user's click and then holds for the rest of the episode.
+  - Until there is a click, a two-person shot falls back to Split.
+- Dissolves still need to be merged into one cut (clip D's 3-seat shot).
+
+### A whole episode
+
+The maintainer added one full episode: 42 minutes, 720p. Nearly all of the speech is one person; three other people talk for about 2 minutes between them. `voices/episode.ts` runs it the way the app will:
+
+1. 16 kHz audio.
+2. Transcript with large-v3-turbo q5_0 and DTW: 334 s on the GTX 1660, 4888 words.
+3. 924 pieces: embeddings in 20 s (125× real time), clustering in 0.1 s.
+
+| Threshold | 0.5 | 0.6 | 0.65–0.8 |
+|---|---|---|---|
+| Voices | 23 | 8 | 4 |
+| Voices with 30 s or more | 6 | 4 | 3 |
+
+At 0.7:
+
+- **The main speaker is one voice for the whole 42 minutes** (34:41 of speech). Over-splitting the main speaker was the thing most likely to go wrong over an hour.
+- **One of the other people** (1:02 of speech) is a voice of their own.
+- **The other two** share a third voice, about 1 minute in total.
+- A fourth voice has 3 s.
+
+The count holds still from 0.65 to 0.8: the next merge after 0.65 is at 0.85.
+
+This shows the threshold doesn't fall apart over an hour, and that the timing holds on real audio. It doesn't show two or more regular speakers over an hour, because this episode doesn't have them.
+
+### People and cuts in the app (4a)
+
+MediaPipe works in a Web Worker of the sandboxed renderer, with the GPU delegate on WebGL 2 for both Pose and the Face Landmarker. It has to be a classic worker. As a module, MediaPipe imports its WASM glue only once, and the second task fails with "ModuleFactory not set". A classic worker loads the glue again with `importScripts` for each task.
+
+The app decodes the working file with its own WebCodecs decoder. Every frame gets a 32×18 thumbnail for the cuts, and every third frame (10 per second) goes to the worker at up to 1920 px wide.
+
+| Clip | Working file | Analysis | Shots | Seats |
+|---|---|---|---|---|
+| C, wide shot | 64 s, 720p | 21 s | 1 | 2 (the man on the left found in 315 frames, against 106 in the spike's lab) |
+| D, multi-camera | 80 s, 480p | 27 s | 10 (each dissolve one cut, where the lab had 16) | 1 per close-up, 2 in the two-shot |
+
+Pose runs in VIDEO mode, which follows people from one frame to the next. Looking at each frame alone (IMAGE mode) found the man on the left in clip C in 100 frames instead of 315. VIDEO mode would also carry heads across a cut, though, so the page asks for a fresh Pose landmarker after every cut and at the start of every clip. That costs about 0.6 s per cut: clip D takes 27 s instead of 21.
+
+In the two-shot, the man on the left first came out as two seats. He leans, and his 32 px head moved 1.5 head sizes. A seat now reaches 1.6 head sizes instead of 1.2; two people sitting side by side are much further apart than that.
+
+#### Still open
+
+- An episode with two or more people talking throughout.

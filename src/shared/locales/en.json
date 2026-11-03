@@ -64,7 +64,8 @@
     "lottiePlayback": "animation playback",
     "addEffect": "add effect",
     "effectIntensity": "effect intensity",
-    "effectSettings": "effect settings"
+    "effectSettings": "effect settings",
+    "speakerCount": "number of people talking"
   },
   "files": {
     "project": "Rezzo project",
@@ -494,5 +495,24 @@
       "speed": "Speed",
       "size": "Size"
     }
+  },
+  "voices": {
+    "title": "Voices",
+    "voice": "Voice {{n}}",
+    "count": "People talking",
+    "countAuto": "Find out",
+    "failed": "Couldn't tell the voices apart: {{detail}}",
+    "retry": "Try again",
+    "phase": {
+      "audio": "Reading the audio… {{percent}}%",
+      "voices": "Telling voices apart… {{percent}}%"
+    }
+  },
+  "analysis": {
+    "cut": "Camera cut",
+    "running": "Finding cuts and people…",
+    "person": "Person {{n}}",
+    "showPeople": "Show people",
+    "showPeopleHelp": "Draws the heads the analysis found in this shot"
   }
 }

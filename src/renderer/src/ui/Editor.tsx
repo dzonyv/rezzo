@@ -9,6 +9,7 @@ import { ClipList } from './ClipList.tsx';
 import { ReplacementsDialog } from './ReplacementsDialog.tsx';
 import { SourcePanel } from './SourcePanel.tsx';
 import { TranscribePanel } from './TranscribePanel.tsx';
+import { VoicesPanel } from './VoicesPanel.tsx';
 
 export function Editor() {
   const { t } = useTranslation();
@@ -67,6 +68,7 @@ export function Editor() {
           {project?.source && <EpisodePlayer key={project.source.fingerprint} source={project.source} />}
           {project?.source && <SourcePanel source={project.source} />}
           {project?.source && !project.transcript && <TranscribePanel project={project} />}
+          {project?.source && project.transcript && <VoicesPanel project={project} />}
           {project?.source && project.transcript && <ClipList />}
         </div>
         {project?.source && project.transcript ? (

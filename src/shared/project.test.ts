@@ -224,6 +224,18 @@ describe('project files', () => {
     expect(parseProject(JSON.stringify({ ...withVideo(), format: 6 }))).toEqual(withVideo());
   });
 
+  it('upgrades a format 7 file, which had no speaker setting, to finding it out', () => {
+    const { voices: _, ...old } = withLottieAndEffect();
+    expect(parseProject(JSON.stringify({ ...old, format: 7 }))).toEqual(withLottieAndEffect());
+  });
+
+  it('keeps the number of people talking, within reason', () => {
+    const two = { ...withVideo(), voices: { count: 2 as const } };
+    expect(parseProject(serializeProject(two))).toEqual(two);
+    expect(code(() => parseProject(JSON.stringify({ ...two, voices: { count: 0 } })))).toBe('invalid');
+    expect(code(() => parseProject(JSON.stringify({ ...two, voices: { count: 2.5 } })))).toBe('invalid');
+  });
+
   it('rejects an effect setting out of its range, or one the effect does not have', () => {
     const tooMuch = withLottieAndEffect();
     const effect = tooMuch.clips[0]!.layers.at(-1)!;

@@ -72,6 +72,23 @@ node faces/summarize.ts      # detection rates, sizes, timings, cuts
 npm run faces:speakers       # active-speaker accuracy against speaker labels
 ```
 
+## Phase 4 checks: voices, seats, faces across shots
+
+```
+npm run fetch-tools -- voices   # pyannote segmentation + six speaker embedding models
+npm run voices:diarize          # sherpa-onnx's own diarization (segmentation + clustering)
+npm run voices:words            # pieces cut from the transcript at pauses, our own clustering
+npm run voices:words -- --gap 0.3 --max 3
+npm run voices:score            # both against the speaker labels, one table per audio file
+npm run voices:speed            # embeddings for an hour of audio, by thread count
+npm run voices:episode          # whole episodes from <phase4>/episodes.json: transcript, voices, labels to listen to
+npm run voices:electron -- <wav> <segmentation.onnx> <embedding.onnx>   # inside an Electron utility process
+npm run faces:track             # head tracks and seats from the face lab output (run faces:lab first)
+npm run faces:appearance        # clip D: same person in close-up and two-shot, by clothing colour
+```
+
+Runs, embeddings and scores land in `<media>/voices/`.
+
 ## Footage
 
 Real clips go in `D:\RezzoMedia\phase0\` (or wherever `REZZO_MEDIA` points), never in the repo. Transcripts, frames and debug videos made from them are written there too.

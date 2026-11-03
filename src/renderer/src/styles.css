@@ -337,6 +337,44 @@ button.link:hover {
   color: var(--text-dim);
 }
 
+.voices-panel {
+  margin: 0 16px 16px;
+  max-width: 560px;
+}
+
+.voices-panel h2 {
+  margin: 0 0 8px;
+  font-size: 15px;
+}
+
+.voices-panel label {
+  display: flex;
+  gap: 8px;
+  align-items: center;
+  margin-top: 8px;
+}
+
+.voice-list {
+  display: flex;
+  flex-wrap: wrap;
+  gap: 4px 16px;
+  margin: 0;
+  padding: 0;
+  list-style: none;
+}
+
+.voice-list li {
+  display: flex;
+  gap: 6px;
+  align-items: center;
+}
+
+.voice-chip {
+  width: 10px;
+  height: 10px;
+  border-radius: 50%;
+}
+
 .transcribe-panel {
   margin: 0 16px 16px;
   padding: 16px;
@@ -749,6 +787,11 @@ button.icon {
   min-width: 80px;
 }
 
+.transport button[aria-pressed='true'] {
+  border-color: var(--accent);
+  color: var(--accent);
+}
+
 .transport .time {
   font-variant-numeric: tabular-nums;
   color: var(--text-dim);
@@ -804,6 +847,7 @@ button.icon {
 .clip-timeline-box {
   --row: 22px;
   --video-row: 28px;
+  --voices-row: 14px;
   --row-gap: 3px;
   display: grid;
   grid-template-columns: auto minmax(0, 1fr);
@@ -945,6 +989,40 @@ button.icon {
 
 .clip-timeline .band.full {
   background: #4cc38a;
+}
+
+.clip-timeline .cut {
+  position: absolute;
+  top: 0;
+  bottom: 0;
+  width: 2px;
+  margin-left: -1px;
+  background: var(--text);
+  opacity: 0.6;
+  pointer-events: none;
+}
+
+.clip-timeline .analysis-progress {
+  position: absolute;
+  left: 0;
+  bottom: 0;
+  height: 3px;
+  background: var(--accent);
+  pointer-events: none;
+}
+
+.timeline-label.voices,
+.timeline-row.voices {
+  height: var(--voices-row);
+}
+
+.clip-timeline .voice-turn {
+  position: absolute;
+  top: 3px;
+  bottom: 3px;
+  border-radius: 2px;
+  opacity: 0.8;
+  pointer-events: none;
 }
 
 .clip-timeline .key {
@@ -1152,6 +1230,32 @@ button.icon {
 
 .replace-offer .spacer {
   flex: 1;
+}
+
+.people-overlay {
+  position: absolute;
+  inset: 0;
+  overflow: hidden;
+  pointer-events: none;
+}
+
+.people-overlay .person {
+  position: absolute;
+  border: 2px solid #4aa3df;
+  border-radius: 4px;
+}
+
+.people-overlay .person span {
+  position: absolute;
+  left: -2px;
+  bottom: 100%;
+  padding: 0 4px;
+  border-radius: 3px 3px 0 0;
+  background: #4aa3df;
+  color: #fff;
+  font-size: 10px;
+  line-height: 14px;
+  white-space: nowrap;
 }
 
 .layer-overlay {
