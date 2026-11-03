@@ -4,9 +4,7 @@
  * when huge, scaled down to MAX_IMAGE_SIDE on the longer side.
  */
 import { MAX_IMAGE_SIDE, type AssetFile, type ImageAsset } from '../../../shared/assets.ts';
-
-const cache = new Map<string, Promise<ImageBitmap>>();
-const key = (file: AssetFile) => `${file.fingerprint}:${file.path}`;
+import { FileCache } from './file-cache.ts';
 
 /** Decodes the image at `url`, turned the way its EXIF data says. */
 export async function decodeImage(url: string): Promise<ImageBitmap> {
@@ -27,39 +25,13 @@ export async function decodeImage(url: string): Promise<ImageBitmap> {
   return small;
 }
 
-/**
- * The asset's picture; rejects when the file isn't there any more (moved,
- * deleted), even if it was read before, so the preview shows what the
- * export and the next start of the app will.
- */
-export async function loadImage(asset: ImageAsset): Promise<ImageBitmap> {
-  if ((await window.rezzo.invoke('asset:check', asset)) === 'missing') throw new Error(`${asset.path} is missing`);
-  const k = key(asset);
-  let loading = cache.get(k);
-  if (!loading) {
-    loading = window.rezzo.invoke('asset:url', asset).then(decodeImage);
-    // A failure isn't kept: the file may be back (or found) next time.
-    loading.catch(() => cache.delete(k));
-    cache.set(k, loading);
-  }
-  return loading;
-}
+const images = new FileCache<ImageBitmap>(decodeImage, (image) => image.close());
 
-/**
- * Lets go of every image except those of `files` (the open project's
- * assets); a closed project keeps none. An image needed again later is read
- * from its file again.
- */
-export function keepOnlyImages(files: readonly AssetFile[]): void {
-  const wanted = new Set(files.map(key));
-  for (const [k, loading] of cache) {
-    if (wanted.has(k)) continue;
-    cache.delete(k);
-    loading.then((image) => image.close(), () => {});
-  }
-}
+/** The asset's picture; rejects when the file isn't there any more (see FileCache.load). */
+export const loadImage = (asset: ImageAsset): Promise<ImageBitmap> => images.load(asset);
+
+/** Lets go of every image except those of `files` (the open project's assets). */
+export const keepOnlyImages = (files: readonly AssetFile[]): void => images.keepOnly(files);
 
 /** Puts an image just decoded (when adding it) where loadImage will find it. */
-export function keepImage(file: AssetFile, image: ImageBitmap): void {
-  cache.set(key(file), Promise.resolve(image));
-}
+export const keepImage = (file: AssetFile, image: ImageBitmap): void => images.put(file, image);

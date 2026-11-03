@@ -5,7 +5,7 @@
  * the preview and the export put it in exactly the same place.
  */
 import { z } from 'zod';
-import { clamp01, easeInCubic, easeOutBack, easeOutBounce, easeOutCubic, smoothstep } from './easing.ts';
+import { clamp01, easeInCubic, easeOutBack, easeOutBounce, easeOutCubic, noise } from './easing.ts';
 import { valueAt } from './framing.ts';
 import type { Animated } from './project.ts';
 
@@ -87,20 +87,6 @@ const STEP: Record<Direction, { x: number; y: number }> = {
   up: { x: 0, y: -1 },
   down: { x: 0, y: 1 },
 };
-
-/** A repeatable pseudo-random value in -1..1 for an integer. */
-function hash(n: number): number {
-  const s = Math.sin(n * 127.1 + 311.7) * 43758.5453;
-  return (s - Math.floor(s)) * 2 - 1;
-}
-
-/** Smooth noise in -1..1 along `x`; `seed` gives independent curves. */
-function noise(x: number, seed: number): number {
-  const i = Math.floor(x);
-  const a = hash(i + seed * 7919);
-  const b = hash(i + 1 + seed * 7919);
-  return a + (b - a) * smoothstep(x - i);
-}
 
 export interface Timed {
   start: number;

@@ -1,5 +1,5 @@
 /**
- * Files the clips' layers show (images for now). Like the source video they
+ * Files the clips' layers show: images, videos and animations. Like the source video they
  * stay where they are: the project keeps the path and a fingerprint, and a
  * moved file is found again by asking for it and checking the fingerprint.
  */
@@ -9,9 +9,12 @@ import path from 'node:path';
 import { z } from 'zod';
 import type { AddAssetResult, LocateAssetResult } from '../shared/api.ts';
 import {
-  ASSET_KINDS, assetFileSchema, IMAGE_EXTENSIONS, MAX_IMAGE_BYTES, MAX_VIDEO_BYTES, VIDEO_EXTENSIONS, type AssetFile, type AssetKind, type AssetStatus,
+  ASSET_KINDS, assetFileSchema, IMAGE_EXTENSIONS, LOTTIE_EXTENSIONS, MAX_IMAGE_BYTES, MAX_VIDEO_BYTES, VIDEO_EXTENSIONS, type AssetFile, type AssetKind,
+  type AssetStatus,
 } from '../shared/assets.ts';
+import { MAX_LOTTIE_BYTES } from '../shared/lottie.ts';
 import { translate } from '../shared/translate.ts';
+import { readLottieInfo } from './lottie-file.ts';
 import { assetUrl, rememberAsset } from './media-protocol.ts';
 import { getSettings } from './settings.ts';
 import { callWorker } from './worker-host.ts';
@@ -20,6 +23,7 @@ const kindSchema = z.enum(ASSET_KINDS);
 const KINDS: Record<AssetKind, { extensions: readonly string[]; maxBytes: number; label: string }> = {
   image: { extensions: IMAGE_EXTENSIONS, maxBytes: MAX_IMAGE_BYTES, label: 'files.image' },
   video: { extensions: VIDEO_EXTENSIONS, maxBytes: MAX_VIDEO_BYTES, label: 'files.video' },
+  lottie: { extensions: LOTTIE_EXTENSIONS, maxBytes: MAX_LOTTIE_BYTES, label: 'files.lottie' },
 };
 
 async function chooseFile(win: BrowserWindow, kind: AssetKind): Promise<string | null> {
@@ -31,7 +35,7 @@ async function chooseFile(win: BrowserWindow, kind: AssetKind): Promise<string |
   return canceled ? null : (filePaths[0] ?? null);
 }
 
-/** Checks a file the user picked and fingerprints it; reads a video's streams too. */
+/** Checks a file the user picked and fingerprints it; reads a video's streams or an animation's JSON too. */
 async function inspectFile(file: string, kind: AssetKind): Promise<AddAssetResult> {
   const extension = path.extname(file).slice(1).toLowerCase();
   if (!KINDS[kind].extensions.includes(extension)) return { ok: false, error: 'unreadable' };
@@ -44,14 +48,16 @@ async function inspectFile(file: string, kind: AssetKind): Promise<AddAssetResul
     return { ok: false, error: 'unreadable' };
   }
   if (size > KINDS[kind].maxBytes) return { ok: false, error: 'too-large' };
-  const [fingerprint, video] = await Promise.all([
+  const [fingerprint, video, lottie] = await Promise.all([
     callWorker('fingerprint', [file]),
     kind === 'video' ? callWorker('probeVideo', [file]).catch(() => null) : undefined,
+    kind === 'lottie' ? readLottieInfo(file) : undefined,
   ]);
-  if (video === null) return { ok: false, error: 'unreadable' };
+  if (video === null || lottie === null) return { ok: false, error: 'unreadable' };
+  if (lottie === 'external-images') return { ok: false, error: 'external-images' };
   rememberAsset(file);
   const asset: AssetFile = { path: file, name: path.basename(file), size, fingerprint };
-  return { ok: true, file: asset, url: assetUrl(file), ...(video && { video }) };
+  return { ok: true, file: asset, url: assetUrl(file), ...(video && { video }), ...(lottie && { lottie }) };
 }
 
 /** Asks for a file of this kind. Null: the user cancelled. */

@@ -1,6 +1,7 @@
 /**
  * What a clip looks like at one moment, as a list of things to draw in
- * order: the framed source video, layers over it, the captions. The
+ * order: the framed source video, layers over it (pictures, and effects
+ * that change what's under them), the captions. The
  * preview and the export both draw from this list, so they can't differ;
  * the preview also uses it to find which layer is under the pointer.
  *
@@ -8,7 +9,9 @@
  */
 import type { Asset } from './assets.ts';
 import type { ChromaKey } from './chroma-key.ts';
+import { effectPassAt, type EffectPass } from './effects.ts';
 import { frameRecipe, OUTPUT, type FrameRecipe, type Size } from './framing.ts';
+import { lottieFrameAt, lottieRenderSize } from './lottie.ts';
 import { layerTransformAt, type Transform } from './motion.ts';
 import { ASSET_KIND_OF, videoLayerOf, type Clip, type OverlayLayer, type TimedLayer } from './project.ts';
 
@@ -26,6 +29,9 @@ export type SceneOp =
   | { type: 'image'; layerId: string; assetId: string; quad: Quad; opacity: number; key: ChromaKey | null }
   /** `time`: seconds into the video file (overlayTimeAt). */
   | { type: 'overlay'; layerId: string; assetId: string; quad: Quad; opacity: number; key: ChromaKey | null; time: number }
+  /** `frame`: the animation's frame (lottieFrameAt); `size`: what it's rendered at (lottieRenderSize). */
+  | { type: 'lottie'; layerId: string; assetId: string; quad: Quad; opacity: number; frame: number; size: Size }
+  | { type: 'effect'; layerId: string; pass: EffectPass }
   | { type: 'captions' };
 
 /** Whether a timed layer shows at source time `t`. */
@@ -93,14 +99,22 @@ export function sceneAt(clip: Clip, assets: readonly Asset[], t: number, source:
       ops.push({ type: 'video', recipe: frameRecipe(videoLayerOf(clip), t, source) });
     } else if (layer.kind === 'caption') {
       ops.push({ type: 'captions' });
-    } else if (showsAt(layer, t)) {
+    } else if (!showsAt(layer, t)) {
+      continue;
+    } else if (layer.kind === 'effect') {
+      const pass = effectPassAt(layer, t);
+      if (pass) ops.push({ type: 'effect', layerId: layer.id, pass });
+    } else {
       const asset = assets.find((a) => a.id === layer.assetId);
       if (asset?.kind !== ASSET_KIND_OF[layer.kind]) continue;
       const transform = layerTransformAt(layer, t);
       if (transform.opacity <= 0 || transform.scale <= 0) continue;
-      const op = { layerId: layer.id, assetId: asset.id, quad: quadOf(transform, asset), opacity: transform.opacity, key: layer.key };
-      if (layer.kind === 'image') ops.push({ type: 'image', ...op });
-      else if (asset.kind === 'video') ops.push({ type: 'overlay', ...op, time: overlayTimeAt(layer, asset.duration, t) });
+      const op = { layerId: layer.id, assetId: asset.id, quad: quadOf(transform, asset), opacity: transform.opacity };
+      if (layer.kind === 'image') ops.push({ type: 'image', ...op, key: layer.key });
+      else if (layer.kind === 'overlay' && asset.kind === 'video') ops.push({ type: 'overlay', ...op, key: layer.key, time: overlayTimeAt(layer, asset.duration, t) });
+      else if (layer.kind === 'lottie' && asset.kind === 'lottie') {
+        ops.push({ type: 'lottie', ...op, frame: lottieFrameAt(layer, asset, t), size: lottieRenderSize(asset, op.quad.w) });
+      }
     }
   }
   return ops;

@@ -21,6 +21,7 @@ import { ClipPreview } from './ClipPreview.tsx';
 import { ClipTimeline } from './ClipTimeline.tsx';
 import { FramingOverlay, propertyFor, regionFor, zoomed } from './FramingOverlay.tsx';
 import { LayerOverlay } from './LayerOverlay.tsx';
+import { EffectPanel } from './EffectPanel.tsx';
 import { LayerPanel } from './LayerPanel.tsx';
 import { currentPlayer, seekClip, toggleClip, useClipPlayback } from './playback.ts';
 import { clipUiStore, openClip, selectLayer, useSelectedLayerId } from './state.ts';
@@ -164,7 +165,9 @@ export function ClipEditor({ clip, source }: { clip: Clip; source: Source }) {
       <ClipTimeline clip={clip} assets={assets} keys={keys} pages={pages} selectedId={selectedLayer?.id ?? null} time={time} />
       {transcript && <WordStrip clip={clip} transcript={transcript} time={time} rate={rate} captions={captions !== null} />}
 
-      {selectedLayer ? (
+      {selectedLayer?.kind === 'effect' ? (
+        <EffectPanel clipId={clip.id} layer={selectedLayer} time={time} rate={rate} />
+      ) : selectedLayer ? (
         <LayerPanel
           clipId={clip.id}
           layer={selectedLayer}

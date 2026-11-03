@@ -7,11 +7,11 @@ import {
   type Transform,
 } from '../../../shared/motion.ts';
 import { MAX_VIDEO_LAYERS } from '../../../shared/overlay-files.ts';
-import { ASSET_KIND_OF, type TimedLayer } from '../../../shared/project.ts';
+import { ASSET_KIND_OF, MAX_LOTTIE_SPEED, MIN_LOTTIE_SPEED, type PlacedLayer } from '../../../shared/project.ts';
 import { changeLayerFile, locateAsset, useAssetMissing } from '../project/assets.ts';
 import {
-  addLayerKey, deleteLayer, deleteLayerKey, duplicateLayer, insideLayer, setChromaKey, setLayerKeySmooth, setLayerSound, setMotion, setTransform,
-  setVideoStart,
+  addLayerKey, deleteLayer, deleteLayerKey, duplicateLayer, insideLayer, setChromaKey, setLayerKeySmooth, setLayerSound, setLottiePlayback, setMotion,
+  setTransform, setVideoStart,
 } from '../project/layers.ts';
 import { projectStore, type EditLabel } from '../project/store.ts';
 import { startPicking, stopPicking, usePicking } from './eyedropper.ts';
@@ -19,7 +19,7 @@ import { selectLayer } from './state.ts';
 
 interface Props {
   clipId: string;
-  layer: TimedLayer;
+  layer: PlacedLayer;
   asset: Asset | undefined;
   /** Source seconds of the frame on screen; placement edits and keyframes land there. */
   time: number;
@@ -33,6 +33,14 @@ const ANIMATE: EditLabel = 'history.layerAnimation';
 const KEY: EditLabel = 'history.greenScreen';
 const SOUND: EditLabel = 'history.layerSound';
 const VIDEO_START: EditLabel = 'history.videoStart';
+const PLAYBACK: EditLabel = 'history.lottiePlayback';
+
+/** Per kind of file: the panel's title and the button that picks another file. */
+const TEXTS = {
+  image: { title: 'layers.title', change: 'layers.change' },
+  video: { title: 'layers.titleVideo', change: 'layers.changeVideo' },
+  lottie: { title: 'layers.titleLottie', change: 'layers.changeLottie' },
+} as const;
 
 /**
  * The placement sliders: which value, its usual range and step, and its
@@ -54,7 +62,7 @@ const PARTS = [
   { part: 'loop', kinds: LOOPS, names: 'loops', directed: 'kenBurns' },
 ] as const;
 
-/** The selected layer's settings: its file, placement, keyframes, animations, a video's sound and the green screen. */
+/** The selected layer's settings: its file, placement, keyframes, animations, a video's sound, an animation's playback and the green screen. */
 export function LayerPanel({ clipId, layer, asset, time, rate, overLimit }: Props) {
   const { t } = useTranslation();
   const missing = useAssetMissing(asset?.id);
@@ -150,8 +158,32 @@ export function LayerPanel({ clipId, layer, asset, time, rate, overLimit }: Prop
     );
   };
 
+  /** How fast an animation plays and whether it starts over. */
+  const lottie = () => {
+    if (layer.kind !== 'lottie') return null;
+    return (
+      <div className="layer-grid layer-section">
+        <h4>{t('layers.playback')}</h4>
+        {slider(
+          t('layers.speed'),
+          layer.speed,
+          { min: MIN_LOTTIE_SPEED, max: MAX_LOTTIE_SPEED, step: 0.05 },
+          t('layers.units.times', { value: layer.speed.toFixed(2) }),
+          PLAYBACK,
+          (speed) => setLottiePlayback(clipId, layer.id, { speed }),
+        )}
+        <label className="layer-check">
+          <input type="checkbox" checked={layer.loop} onChange={(e) => setLottiePlayback(clipId, layer.id, { loop: e.target.checked })} />
+          {t('layers.loopLottie')}
+        </label>
+        <p className="dim hint">{t('layers.lottieHelp')}</p>
+      </div>
+    );
+  };
+
   /** The green screen: on or off, its colour (typed, chosen or picked from the picture) and how it keys. */
   const greenScreen = () => {
+    if (layer.kind === 'lottie') return null;
     const key = layer.key;
     return (
       <div className="layer-grid layer-section">
@@ -189,7 +221,7 @@ export function LayerPanel({ clipId, layer, asset, time, rate, overLimit }: Prop
   return (
     <section className="layer-panel">
       <header>
-        <h3>{t(kind === 'video' ? 'layers.titleVideo' : 'layers.title', { name })}</h3>
+        <h3>{t(TEXTS[kind].title, { name })}</h3>
         <button type="button" onClick={() => selectLayer(null)}>
           {t('layers.deselect')}
         </button>
@@ -212,7 +244,7 @@ export function LayerPanel({ clipId, layer, asset, time, rate, overLimit }: Prop
 
       <div className="layer-row">
         <button type="button" onClick={() => void changeLayerFile(clipId, layer.id, kind)}>
-          {t(kind === 'video' ? 'layers.changeVideo' : 'layers.change')}
+          {t(TEXTS[kind].change)}
         </button>
         <button type="button" onClick={() => selectLayer(duplicateLayer(clipId, layer.id))}>
           {t('layers.duplicate')}
@@ -261,6 +293,7 @@ export function LayerPanel({ clipId, layer, asset, time, rate, overLimit }: Prop
       <div className="layer-grid">{PARTS.map(animation)}</div>
 
       {video()}
+      {lottie()}
       {greenScreen()}
     </section>
   );

@@ -2,7 +2,8 @@ import { useEffect, useRef, useState } from 'react';
 import { useTranslation } from 'react-i18next';
 import type { Asset } from '../../../shared/assets.ts';
 import type { CaptionPage } from '../../../shared/captions.ts';
-import { ASSET_KIND_OF, isTimed, videoLayerOf, type Animated, type Clip, type TimedLayer } from '../../../shared/project.ts';
+import { EFFECTS } from '../../../shared/effects.ts';
+import { ASSET_KIND_OF, isTimed, keyframesOf, videoLayerOf, type Animated, type Clip, type TimedLayer } from '../../../shared/project.ts';
 import { moveLayer, reorderLayer, trimLayer } from '../project/layers.ts';
 import { videoLayersOverLimit } from '../../../shared/overlay-files.ts';
 import { projectStore } from '../project/store.ts';
@@ -62,7 +63,10 @@ export function ClipTimeline({ clip, assets, keys, pages, selectedId, time }: Pr
   const raise = (id: string) => reorderLayer(clip.id, id, 'up');
   const lower = (id: string) => reorderLayer(clip.id, id, 'down');
   const overLimit = videoLayersOverLimit(clip);
-  const nameOf = (layer: TimedLayer) => assets.find((a) => a.id === layer.assetId)?.name ?? t(`layers.kinds.${ASSET_KIND_OF[layer.kind]}`);
+  const nameOf = (layer: TimedLayer) =>
+    layer.kind === 'effect' ? t(`effects.names.${layer.effect}`) : (assets.find((a) => a.id === layer.assetId)?.name ?? t(`layers.kinds.${ASSET_KIND_OF[layer.kind]}`));
+  /** Effects' bars have their group's colour. */
+  const barClass = (layer: TimedLayer) => (layer.kind === 'effect' ? `effect ${EFFECTS[layer.effect].group}` : layer.kind);
 
   /** Diamonds for keyframes inside the clip; pressing one goes to it. */
   const keyMarks = (marks: Animated<unknown>) =>
@@ -210,7 +214,7 @@ export function ClipTimeline({ clip, assets, keys, pages, selectedId, time }: Pr
             isTimed(layer) ? (
               <div key={layer.id} className="timeline-row">
                 <div
-                  className={`layer-bar ${layer.kind}${layer.id === selectedId ? ' selected' : ''}${overLimit.has(layer.id) ? ' over-limit' : ''}`}
+                  className={`layer-bar ${barClass(layer)}${layer.id === selectedId ? ' selected' : ''}${overLimit.has(layer.id) ? ' over-limit' : ''}`}
                   style={span(layer.start, layer.end)}
                   role="button"
                   aria-label={t('layers.moveBar', { name: nameOf(layer) })}
@@ -222,7 +226,7 @@ export function ClipTimeline({ clip, assets, keys, pages, selectedId, time }: Pr
                   <div className="edge start" role="separator" aria-label={t('layers.startHandle', { name: nameOf(layer) })} onPointerDown={(e) => startLayerDrag(e, layer, 'start')} />
                   <div className="edge end" role="separator" aria-label={t('layers.endHandle', { name: nameOf(layer) })} onPointerDown={(e) => startLayerDrag(e, layer, 'end')} />
                 </div>
-                {layer.id === selectedId && layer.transform.length > 1 && keyMarks(layer.transform)}
+                {layer.id === selectedId && keyframesOf(layer).length > 1 && keyMarks(keyframesOf(layer))}
               </div>
             ) : (
               <div key={layer.id} className="timeline-row captions">

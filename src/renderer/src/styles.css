@@ -1564,3 +1564,59 @@ button.icon {
 .layer-bar.over-limit {
   background: repeating-linear-gradient(135deg, #3f86c9 0 6px, #2b5a87 6px 12px);
 }
+
+/* Lottie animations, and effects coloured by their group. */
+.layer-bar.lottie {
+  background: #2f9e8f;
+}
+
+.layer-bar.effect {
+  background: var(--group);
+  color: #15151a;
+}
+
+.layer-bar.effect.camera,
+.effect-group-name.camera {
+  --group: #e0b341;
+}
+
+.layer-bar.effect.flash,
+.effect-group-name.flash {
+  --group: #d9d9e0;
+}
+
+.layer-bar.effect.color,
+.effect-group-name.color {
+  --group: #e46f9c;
+}
+
+.layer-bar.effect.stylized,
+.effect-group-name.stylized {
+  --group: #9fc75a;
+}
+
+/* The effect library: the groups two by two, each a column of effects; narrow enough for the smallest window. */
+.effect-library {
+  display: grid;
+  grid-template-columns: repeat(2, minmax(130px, auto));
+  gap: 2px 8px;
+}
+
+.effect-library .back {
+  grid-column: 1 / -1;
+  color: var(--text-dim);
+}
+
+.effect-group {
+  display: flex;
+  flex-direction: column;
+}
+
+.effect-group-name {
+  margin: 4px 0 2px;
+  padding: 0 8px 2px;
+  border-bottom: 2px solid var(--group);
+  font-size: 11px;
+  font-weight: 600;
+  color: var(--text-dim);
+}

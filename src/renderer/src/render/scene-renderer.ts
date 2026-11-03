@@ -1,19 +1,21 @@
 /**
  * Draws a clip at a moment: works out the scene (shared/scene.ts), paints
- * the captions for that moment and hands both to the compositor. The
+ * the captions and renders the animations for that moment and hands them
+ * to the compositor. The
  * preview and the export each have one, fed the same Scene, so they draw
  * the same frame for the same time.
  */
-import type { Asset, ImageAsset } from '../../../shared/assets.ts';
+import type { Asset, ImageAsset, LottieAsset } from '../../../shared/assets.ts';
 import { OUTPUT } from '../../../shared/framing.ts';
 import type { FrameRate } from '../../../shared/frames.ts';
-import { captionLayerOf, timedLayers, type Clip, type Word } from '../../../shared/project.ts';
+import { captionLayerOf, placedLayers, type Clip, type Word } from '../../../shared/project.ts';
 import { videoLayersOf } from '../../../shared/overlay-files.ts';
 import { sceneAt } from '../../../shared/scene.ts';
 import { CaptionPainter, loadCaptionScene, type CaptionScene } from './captions.ts';
 import type { Compositor, LayerImage } from './compositor.ts';
 import { loadImage } from './images.ts';
 import { LayerFrames } from './layer-frames.ts';
+import { loadLottie, LottieLayers, type LottieData } from './lottie.ts';
 import { requestOverlayFile, type OverlayFile } from './overlay-files.ts';
 
 /** Everything a clip needs drawn, with its fonts and images already loaded. */
@@ -25,6 +27,8 @@ export interface Scene {
   images: ReadonlyMap<string, LayerImage>;
   /** Video layers' working files by layer id; a layer without one isn't drawn. */
   overlays: ReadonlyMap<string, OverlayFile>;
+  /** Animations by asset id; a layer whose animation is missing isn't drawn. */
+  lotties: ReadonlyMap<string, LottieData>;
 }
 
 /** Files a clip's layers show that couldn't be read. */
@@ -39,22 +43,24 @@ export class MissingFilesError extends Error {
 
 /** The assets the clip's layers use. */
 export function assetsOf(clip: Clip, assets: readonly Asset[]): Asset[] {
-  const ids = new Set(timedLayers(clip).map((l) => l.assetId));
+  const ids = new Set(placedLayers(clip).map((l) => l.assetId));
   return assets.filter((a) => ids.has(a.id));
 }
 
-/**
- * Loads the pictures of the image assets among `assets`. With `strict` (the export) a file that
- * can't be read is an error; otherwise (the preview) it's left out and
- * reported through `onMissing`.
- */
-export async function loadImages(assets: readonly Asset[], { strict = false, onMissing }: { strict?: boolean; onMissing?: (asset: Asset) => void } = {}): Promise<Map<string, LayerImage>> {
-  const images = new Map<string, LayerImage>();
+interface LoadOptions {
+  /** A file that can't be read is an error (the export), rather than left out and reported through `onMissing` (the preview). */
+  strict?: boolean;
+  onMissing?: (asset: Asset) => void;
+}
+
+/** Reads the assets of one kind among `assets` with `load`, by asset id. */
+async function loadFiles<A extends Asset, T>(assets: readonly A[], load: (asset: A) => Promise<T>, { strict = false, onMissing }: LoadOptions): Promise<Map<string, T>> {
+  const loaded = new Map<string, T>();
   const missing: string[] = [];
   await Promise.all(
-    assets.filter((a): a is ImageAsset => a.kind === 'image').map(async (asset) => {
+    assets.map(async (asset) => {
       try {
-        images.set(asset.id, await loadImage(asset));
+        loaded.set(asset.id, await load(asset));
       } catch {
         missing.push(asset.name);
         onMissing?.(asset);
@@ -62,8 +68,16 @@ export async function loadImages(assets: readonly Asset[], { strict = false, onM
     }),
   );
   if (strict && missing.length > 0) throw new MissingFilesError(missing.sort());
-  return images;
+  return loaded;
 }
+
+/** Loads the pictures of the image assets among `assets` (see LoadOptions). */
+export const loadImages = (assets: readonly Asset[], options: LoadOptions = {}): Promise<Map<string, LayerImage>> =>
+  loadFiles(assets.filter((a): a is ImageAsset => a.kind === 'image'), loadImage, options);
+
+/** Reads the animations among `assets` (see LoadOptions). */
+export const loadLotties = (assets: readonly Asset[], options: LoadOptions = {}): Promise<Map<string, LottieData>> =>
+  loadFiles(assets.filter((a): a is LottieAsset => a.kind === 'lottie'), loadLottie, options);
 
 /**
  * The working files of the clip's video layers at `rate`, made now if
@@ -92,39 +106,47 @@ export async function checkVideoFiles(assets: readonly Asset[]): Promise<void> {
   if (missing.length > 0) throw new MissingFilesError(missing.sort());
 }
 
-/** A Scene for the export: every font, picture and video layer's file loaded, or an error. */
+/** A Scene for the export: every font, picture, animation and video layer's file loaded, or an error. */
 export async function loadScene(clip: Clip, assets: readonly Asset[], words: readonly Word[], rate: FrameRate): Promise<Scene> {
-  const [captions, images, overlays] = await Promise.all([
+  const [captions, images, lotties, overlays] = await Promise.all([
     loadCaptionScene(captionLayerOf(clip), words, clip),
     loadImages(assetsOf(clip, assets), { strict: true }),
+    loadLotties(assetsOf(clip, assets), { strict: true }),
     loadOverlayFiles(clip, assets, rate),
   ]);
-  return { clip, assets, captions, images, overlays };
+  return { clip, assets, captions, images, overlays, lotties };
 }
 
 export class SceneRenderer {
   readonly compositor: Compositor;
   /** Video layers' decoders; their errors come out here. */
   readonly layers: LayerFrames;
+  /** Lottie layers' players; their errors come out here. */
+  readonly lotties: LottieLayers;
   private readonly painter = new CaptionPainter();
 
   constructor(compositor: Compositor) {
     this.compositor = compositor;
     this.layers = new LayerFrames(compositor);
+    this.lotties = new LottieLayers(compositor);
   }
 
   /**
-   * Decodes what `draw(scene, t)` will need that takes time: the video
-   * layers' frames. `sequential` while playing forward. Resolves true when
-   * a frame changed, so a paused preview knows to draw again.
+   * Gets what `draw(scene, t)` will need that takes time: the video
+   * layers' frames decoded, the animations loaded. `sequential` while
+   * playing forward. Resolves true when something changed, so a paused
+   * preview knows to draw again.
    */
-  prepare(scene: Scene, t: number, sequential: boolean): Promise<boolean> {
+  async prepare(scene: Scene, t: number, sequential: boolean): Promise<boolean> {
     const ops = sceneAt(scene.clip, scene.assets, t, this.compositor.sourceSize ?? OUTPUT);
-    return this.layers.prepare(ops, scene.overlays, sequential);
+    const keep = new Set(scene.clip.layers.map((l) => l.id));
+    const changed = await Promise.all([this.layers.prepare(ops, scene.overlays, sequential), this.lotties.prepare(ops, scene.lotties, keep)]);
+    return changed.some(Boolean);
   }
 
   dispose(): void {
     this.layers.dispose();
+    this.lotties.dispose();
   }
 
   /** Draws `scene` at source time `t` into the compositor, over the source frame it has. */
@@ -132,6 +154,7 @@ export class SceneRenderer {
     const size = this.compositor.sourceSize;
     if (!size) return;
     const ops = sceneAt(scene.clip, scene.assets, t, size);
+    this.lotties.draw(ops);
     this.compositor.render(ops, scene.images, scene.captions && this.painter.paint(scene.captions, t));
   }
 }

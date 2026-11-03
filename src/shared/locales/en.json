@@ -58,7 +58,13 @@
     "replaceVideo": "change video",
     "layerSound": "video sound",
     "videoStart": "video start",
-    "greenScreen": "green screen"
+    "greenScreen": "green screen",
+    "addLottie": "add animation",
+    "replaceLottie": "change animation",
+    "lottiePlayback": "animation playback",
+    "addEffect": "add effect",
+    "effectIntensity": "effect intensity",
+    "effectSettings": "effect settings"
   },
   "files": {
     "project": "Rezzo project",
@@ -66,7 +72,8 @@
     "all": "All files",
     "mp4": "MP4 video",
     "font": "Font file",
-    "image": "Image"
+    "image": "Image",
+    "lottie": "Lottie animation"
   },
   "unsaved": {
     "title": "Save changes to “{{name}}”?",
@@ -339,7 +346,9 @@
     "addHelp": "Add a layer over the picture, from the playhead on",
     "kinds": {
       "image": "Image",
-      "video": "Video"
+      "video": "Video",
+      "lottie": "Animation",
+      "effect": "Effect"
     },
     "video": "Video",
     "captions": "Captions",
@@ -409,12 +418,21 @@
         "unreadable": "That file isn't a video Rezzo can read.",
         "too-large": "That video is too large."
       },
-      "tooManyVideos": "At most {{count}} videos can show at the same moment. Make room on the timeline first."
+      "tooManyVideos": "At most {{count}} videos can show at the same moment. Make room on the timeline first.",
+      "lottie": {
+        "unreadable": "That file isn't a Lottie animation Rezzo can read.",
+        "too-large": "That animation is too large (over 50 MB).",
+        "external-images": "That animation shows image files kept next to it. Export it with the images inside, or as a .lottie file, and try again.",
+        "play": "The animation couldn't be loaded: {{detail}}"
+      }
     },
     "units": {
       "percent": "{{value}}%",
       "degrees": "{{value}}°",
-      "seconds": "{{value}} s"
+      "seconds": "{{value}} s",
+      "times": "{{value}}×",
+      "perSecond": "{{value}}/s",
+      "pixels": "{{value}} px"
     },
     "preparing": "Preparing the video",
     "changeVideo": "Change video…",
@@ -432,6 +450,49 @@
     "similarity": "Similarity",
     "smoothness": "Softness",
     "spill": "Remove tint",
-    "titleVideo": "Video: {{name}}"
+    "titleVideo": "Video: {{name}}",
+    "titleLottie": "Animation: {{name}}",
+    "changeLottie": "Change animation…",
+    "playback": "Playback",
+    "speed": "Speed",
+    "loopLottie": "Start over at the end",
+    "lottieHelp": "Without starting over, the last frame stays up once the animation ends."
+  },
+  "effects": {
+    "title": "Effect: {{name}}",
+    "intensity": "Intensity",
+    "help": "An effect changes everything under it on the timeline, captions included if it sits above them. Keyframes on the intensity bring it in and out.",
+    "hold": "Holds to the end",
+    "groups": {
+      "camera": "Camera",
+      "flash": "Flash and fades",
+      "color": "Colour",
+      "stylized": "Stylised"
+    },
+    "names": {
+      "zoomPunch": "Zoom punch",
+      "shake": "Shake",
+      "slowZoom": "Slow zoom",
+      "flash": "White flash",
+      "fadeOut": "Fade to black",
+      "fadeIn": "Fade from black",
+      "brightness": "Brightness",
+      "contrast": "Contrast",
+      "saturation": "Saturation",
+      "temperature": "Temperature",
+      "blackWhite": "Black and white",
+      "blur": "Blur",
+      "vignette": "Vignette",
+      "glitch": "Glitch",
+      "grain": "Film grain"
+    },
+    "params": {
+      "zoom": "Zoom",
+      "punch": "Punch-in",
+      "release": "Back at the end",
+      "amount": "Amount",
+      "speed": "Speed",
+      "size": "Size"
+    }
   }
 }

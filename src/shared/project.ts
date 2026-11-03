@@ -12,11 +12,12 @@ import { z } from 'zod';
 import { assetSchema, type Asset } from './assets.ts';
 import { captionStyleSchema } from './caption-style.ts';
 import { chromaKeySchema } from './chroma-key.ts';
+import { EFFECT_NAMES, paramsValid } from './effects.ts';
 import { fps, frameAt, timeOfFrame, workingFrameRate } from './frames.ts';
 import { motionSchema, transformSchema } from './motion.ts';
 
 /** Bumped when the file format changes in a way older files need migrating for. */
-export const PROJECT_FORMAT = 6;
+export const PROJECT_FORMAT = 7;
 export const PROJECT_EXTENSION = 'rezzo';
 
 export const TRANSCRIPT_LANGUAGES = ['sr', 'hr', 'bs'] as const;
@@ -234,19 +235,60 @@ export const overlayLayerSchema = imageLayerSchema.extend({
 });
 export type OverlayLayer = z.infer<typeof overlayLayerSchema>;
 
+/** Slowest and fastest a Lottie animation can play, as a factor of its own speed. */
+export const MIN_LOTTIE_SPEED = 0.1;
+export const MAX_LOTTIE_SPEED = 4;
+
+/**
+ * A Lottie animation over the picture, placed and animated like an image.
+ * It plays from its first frame at the layer's `start`, `speed` times as
+ * fast as it was made; past its end it starts over when `loop` is on,
+ * otherwise its last frame stays up (shared/lottie.ts, lottieFrameAt).
+ */
+export const lottieLayerSchema = imageLayerSchema.omit({ key: true }).extend({
+  kind: z.literal('lottie'),
+  speed: z.number().min(MIN_LOTTIE_SPEED).max(MAX_LOTTIE_SPEED),
+  loop: z.boolean(),
+});
+export type LottieLayer = z.infer<typeof lottieLayerSchema>;
+
+/**
+ * An effect from the library (shared/effects.ts) from `start` to `end`. It
+ * changes everything drawn under it, as much as `intensity` (0..1, with
+ * keyframes) says; `params` are the effect's own settings.
+ */
+export const effectLayerSchema = z.object({
+  id: z.uuid(),
+  kind: z.literal('effect'),
+  effect: z.enum(EFFECT_NAMES),
+  start: seconds,
+  end: seconds,
+  intensity: animated(unit),
+  params: z.record(z.string(), z.number().finite()),
+});
+export type EffectLayer = z.infer<typeof effectLayerSchema>;
+
 /**
  * Everything in a clip is a layer, drawn in the order of `layers`: the
- * source video first, then the rest over it. Phase 3 adds more kinds.
+ * source video first, then the rest over it.
  */
-export const layerSchema = z.discriminatedUnion('kind', [videoLayerSchema, captionLayerSchema, imageLayerSchema, overlayLayerSchema]);
+export const layerSchema = z.discriminatedUnion('kind', [
+  videoLayerSchema, captionLayerSchema, imageLayerSchema, overlayLayerSchema, lottieLayerSchema, effectLayerSchema,
+]);
 export type Layer = z.infer<typeof layerSchema>;
+/** Layers that show a file, placed and animated over the picture. */
+export type PlacedLayer = ImageLayer | OverlayLayer | LottieLayer;
 /** Layers that show for part of the clip and can be moved around in it. */
-export type TimedLayer = ImageLayer | OverlayLayer;
+export type TimedLayer = PlacedLayer | EffectLayer;
 
-export const isTimed = (layer: Layer): layer is TimedLayer => layer.kind === 'image' || layer.kind === 'overlay';
+export const isPlaced = (layer: Layer): layer is PlacedLayer => layer.kind === 'image' || layer.kind === 'overlay' || layer.kind === 'lottie';
+export const isTimed = (layer: Layer): layer is TimedLayer => isPlaced(layer) || layer.kind === 'effect';
 
-/** The kind of asset each timed layer shows. */
-export const ASSET_KIND_OF = { image: 'image', overlay: 'video' } as const satisfies Record<TimedLayer['kind'], Asset['kind']>;
+/** The keyframes a layer's keyframe controls work on: a placed layer's transform, an effect's intensity. */
+export const keyframesOf = (layer: TimedLayer): Animated<unknown> => (layer.kind === 'effect' ? layer.intensity : layer.transform);
+
+/** The kind of asset each placed layer shows. */
+export const ASSET_KIND_OF = { image: 'image', overlay: 'video', lottie: 'lottie' } as const satisfies Record<PlacedLayer['kind'], Asset['kind']>;
 
 export const clipSchema = z
   .object({
@@ -260,6 +302,7 @@ export const clipSchema = z
   .refine((c) => c.layers[0]?.kind === 'video' && c.layers.filter((l) => l.kind === 'video').length === 1, 'a clip has one video layer, at the bottom')
   .refine((c) => c.layers.filter((l) => l.kind === 'caption').length <= 1, 'a clip has at most one caption layer')
   .refine((c) => c.layers.every((l) => !isTimed(l) || l.end > l.start), 'a layer ends after it starts')
+  .refine((c) => c.layers.every((l) => l.kind !== 'effect' || paramsValid(l.effect, l.params)), "an effect has its own settings, each in range")
   .refine((c) => c.end - c.start <= MAX_CLIP_SECONDS + 1e-6, `a clip is at most ${MAX_CLIP_SECONDS} s long`);
 export type Clip = z.infer<typeof clipSchema>;
 
@@ -278,6 +321,9 @@ export function captionLayerOf(clip: Clip): CaptionLayer | null {
 /** The clip's layers that show for part of it, bottom first. */
 export const timedLayers = (clip: Clip): TimedLayer[] => clip.layers.filter(isTimed);
 
+/** The clip's layers that show a file, bottom first. */
+export const placedLayers = (clip: Pick<Clip, 'layers'>): PlacedLayer[] => clip.layers.filter(isPlaced);
+
 export const projectSchema = z
   .object({
     format: z.literal(PROJECT_FORMAT),
@@ -292,7 +338,7 @@ export const projectSchema = z
   .refine((p) => new Set(p.assets.map((a) => a.id)).size === p.assets.length, 'asset ids are unique')
   .refine((p) => {
     const kinds = new Map(p.assets.map((a) => [a.id, a.kind]));
-    return p.clips.every((c) => c.layers.every((l) => !isTimed(l) || kinds.get(l.assetId) === ASSET_KIND_OF[l.kind]));
+    return p.clips.every((c) => c.layers.every((l) => !isPlaced(l) || kinds.get(l.assetId) === ASSET_KIND_OF[l.kind]));
   }, "every layer uses one of the project's assets, of the right kind");
 export type Project = z.infer<typeof projectSchema>;
 
@@ -316,6 +362,8 @@ const MIGRATIONS: Record<number, (old: Record<string, unknown>) => Record<string
   4: (old) => ({ ...old, assets: [] }),
   // Format 6 added video layers, and green screen on images.
   5: (old) => ({ ...old, clips: imagesWithoutKey(old.clips) }),
+  // Format 7 added Lottie animations and effects. Nothing to change.
+  6: (old) => old,
 };
 
 function imagesWithoutKey(clips: unknown): unknown {
