@@ -522,7 +522,31 @@ The results are 11 of 16 seats right, and 1 of 2 in the two-shot, which is the c
   - Until there is a click, a two-person shot falls back to Split.
 - Dissolves still need to be merged into one cut (clip D's 3-seat shot).
 
+### A whole episode
+
+The maintainer added one full episode: 42 minutes, 720p. Nearly all of the speech is one person; three other people talk for about 2 minutes between them. `voices/episode.ts` runs it the way the app will:
+
+1. 16 kHz audio.
+2. Transcript with large-v3-turbo q5_0 and DTW: 334 s on the GTX 1660, 4888 words.
+3. 924 pieces: embeddings in 20 s (125× real time), clustering in 0.1 s.
+
+| Threshold | 0.5 | 0.6 | 0.65–0.8 |
+|---|---|---|---|
+| Voices | 23 | 8 | 4 |
+| Voices with 30 s or more | 6 | 4 | 3 |
+
+At 0.7:
+
+- **The main speaker is one voice for the whole 42 minutes** (34:41 of speech). Over-splitting the main speaker was the thing most likely to go wrong over an hour.
+- **One of the other people** (1:02 of speech) is a voice of their own.
+- **The other two** share a third voice, about 1 minute in total.
+- A fourth voice has 3 s.
+
+The count holds still from 0.65 to 0.8: the next merge after 0.65 is at 0.85.
+
+This shows the threshold doesn't fall apart over an hour, and that the timing holds on real audio. It doesn't show two or more regular speakers over an hour, because this episode doesn't have them.
+
 #### Still open
 
-- A full episode: does the threshold of 0.7 still find the right number of voices over an hour? The timing above is on repeated audio.
+- An episode with two or more people talking throughout.
 - MediaPipe in a Web Worker of the sandboxed renderer, with the GPU delegate. Phase 0 ran it in a renderer with Node access; this gets checked first thing in 4a.3.

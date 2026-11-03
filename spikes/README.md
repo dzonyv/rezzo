@@ -81,6 +81,7 @@ npm run voices:words            # pieces cut from the transcript at pauses, our 
 npm run voices:words -- --gap 0.3 --max 3
 npm run voices:score            # both against the speaker labels, one table per audio file
 npm run voices:speed            # embeddings for an hour of audio, by thread count
+npm run voices:episode          # whole episodes from <phase4>/episodes.json: transcript, voices, labels to listen to
 npm run voices:electron -- <wav> <segmentation.onnx> <embedding.onnx>   # inside an Electron utility process
 npm run faces:track             # head tracks and seats from the face lab output (run faces:lab first)
 npm run faces:appearance        # clip D: same person in close-up and two-shot, by clothing colour

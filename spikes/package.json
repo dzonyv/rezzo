@@ -32,7 +32,8 @@
     "voices:words": "node voices/words.ts",
     "voices:score": "node voices/score.ts",
     "voices:speed": "node voices/speed.ts",
-    "voices:electron": "electron voices/utility/main.cjs"
+    "voices:electron": "electron voices/utility/main.cjs",
+    "voices:episode": "node voices/episode.ts"
   },
   "devDependencies": {
     "@mediapipe/tasks-vision": "^1.1.1",
