@@ -11,6 +11,9 @@ import { centreOf, sizeOf, type Box } from './heads.ts';
 /** Bumped when the result would come out differently, so old caches are redone. */
 export const ANALYSIS_VERSION = 1;
 
+/** Where a working file's analysis is kept: right beside it, so it goes when the file goes. */
+export const analysisFileOf = (workingFile: string): string => `${workingFile}.analysis.v${ANALYSIS_VERSION}.json`;
+
 /** Frames per second the people analysis runs at (pose is ~15 ms a frame). */
 export const ANALYSIS_FPS = 10;
 

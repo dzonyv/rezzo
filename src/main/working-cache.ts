@@ -5,6 +5,7 @@
 import { readdir, rm, stat, utimes } from 'node:fs/promises';
 import path from 'node:path';
 import type { FrameRate } from '../shared/frames.ts';
+import { analysisFileOf } from '../shared/analysis.ts';
 import { parseWorkingFileName, spanCovers, type WorkingSpan } from '../shared/working.ts';
 
 export interface CachedFile {
@@ -45,5 +46,6 @@ export async function prune(dir: string, version: number, keep: number): Promise
     (d): d is { file: string; at: number } => d.at !== undefined,
   );
   dated.sort((a, b) => b.at - a.at);
-  await Promise.all(dated.slice(keep).map(({ file }) => rm(file, { force: true })));
+  // The clip analysis made from a working file goes with it.
+  await Promise.all(dated.slice(keep).flatMap(({ file }) => [rm(file, { force: true }), rm(analysisFileOf(file), { force: true })]));
 }

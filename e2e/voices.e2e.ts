@@ -14,6 +14,7 @@ import { promisify } from 'node:util';
 import type { ElectronApplication, Page } from 'playwright-core';
 import { afterAll, beforeAll, describe, expect, it } from 'vitest';
 import type { Project, Segment } from '../src/shared/project.ts';
+import { VOICES_VERSION } from '../src/shared/voices.ts';
 import { answerOpenDialog, answerSaveDialog, ffmpegExe, launchApp, stopApp } from './helpers.ts';
 
 const run = promisify(execFile);
@@ -94,7 +95,7 @@ describe('voices', () => {
     await expect.poll(() => voiceRows().count(), { timeout: 30_000 }).toBeGreaterThan(0);
     await expect(voiceRows().first().textContent()).resolves.toContain('Voice 1');
     const project = await saved();
-    expect(existsSync(path.join(dir, 'local', 'cache', project.source!.fingerprint, 'voices.v1.json'))).toBe(true);
+    expect(existsSync(path.join(dir, 'local', 'cache', project.source!.fingerprint, `voices.v${VOICES_VERSION}.json`))).toBe(true);
   });
 
   it('uses the number of people the user gives, as one undo step', async () => {

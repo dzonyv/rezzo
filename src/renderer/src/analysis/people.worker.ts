@@ -23,25 +23,36 @@ const CROP_SIZE = 256;
 
 let pose: PoseLandmarker | undefined;
 let face: FaceLandmarker | undefined;
+/** Makes a fresh Pose landmarker, with nothing tracked yet. */
+let makePose: (() => Promise<PoseLandmarker>) | undefined;
 const crop = new OffscreenCanvas(CROP_SIZE, CROP_SIZE);
 const cropContext = crop.getContext('2d')!;
-/** VIDEO mode needs timestamps that always go up, across clips too. */
+/** VIDEO mode needs timestamps that always go up. */
 let clock = 0;
+/** Messages are handled one at a time, in order, even when one has to wait. */
+let queue: Promise<void> = Promise.resolve();
 
 async function init(msg: Extract<PeopleRequest, { type: 'init' }>): Promise<'GPU' | 'CPU'> {
   const fileset = { wasmLoaderPath: msg.wasmLoader, wasmBinaryPath: msg.wasmBinary };
   const make = async (delegate: 'GPU' | 'CPU') => {
     pose?.close();
     face?.close();
-    pose = await PoseLandmarker.createFromOptions(fileset, {
-      baseOptions: { modelAssetBuffer: new Uint8Array(msg.pose), delegate },
-      canvas: delegate === 'GPU' ? new OffscreenCanvas(1, 1) : undefined,
-      runningMode: 'VIDEO',
-      numPoses: 4,
-      minPoseDetectionConfidence: 0.5,
-      minPosePresenceConfidence: 0.5,
-      minTrackingConfidence: 0.5,
-    });
+    const poseModel = new Uint8Array(msg.pose);
+    // VIDEO mode follows people from frame to frame, which finds a man in
+    // profile in a wide shot three times as often as looking at each frame
+    // alone (Phase 4 checks). It would also carry heads across a cut, so the
+    // page asks for a fresh one at every cut and every new clip.
+    makePose = () =>
+      PoseLandmarker.createFromOptions(fileset, {
+        baseOptions: { modelAssetBuffer: poseModel, delegate },
+        canvas: delegate === 'GPU' ? new OffscreenCanvas(1, 1) : undefined,
+        runningMode: 'VIDEO',
+        numPoses: 4,
+        minPoseDetectionConfidence: 0.5,
+        minPosePresenceConfidence: 0.5,
+        minTrackingConfidence: 0.5,
+      });
+    pose = await makePose();
     face = await FaceLandmarker.createFromOptions(fileset, {
       baseOptions: { modelAssetBuffer: new Uint8Array(msg.face), delegate },
       canvas: delegate === 'GPU' ? new OffscreenCanvas(1, 1) : undefined,
@@ -88,11 +99,17 @@ scope.onmessage = (e) => {
     );
     return;
   }
-  try {
-    scope.postMessage({ type: 'heads', id: msg.id, heads: heads(msg.bitmap) });
-  } catch (err) {
-    scope.postMessage({ type: 'error', message: String(err) });
-  } finally {
-    msg.bitmap.close();
-  }
+  queue = queue.then(async () => {
+    try {
+      if (msg.fresh && makePose) {
+        pose?.close();
+        pose = await makePose();
+      }
+      scope.postMessage({ type: 'heads', id: msg.id, heads: heads(msg.bitmap) });
+    } catch (err) {
+      scope.postMessage({ type: 'error', id: msg.id, message: String(err) });
+    } finally {
+      msg.bitmap.close();
+    }
+  });
 };

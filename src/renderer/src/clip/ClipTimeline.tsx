@@ -60,9 +60,9 @@ export function ClipTimeline({ clip, assets, keys, pages, selectedId, time }: Pr
   /** Seconds that one screen pixel covers. */
   const perPixel = () => length / track.current!.getBoundingClientRect().width;
 
-  const analysis = useAnalysis((s) => s);
-  const turns = useVoices((s) => (s.status === 'ready' ? s.voices?.turns : undefined));
-  const cuts = (analysis.analysis?.shots ?? []).slice(1).map((s) => s.start).filter((c) => c > clip.start && c < clip.end);
+  const shots = useAnalysis((s) => s.analysis?.shots);
+  const turns = useVoices((s) => s.voices?.turns);
+  const cuts = (shots ?? []).slice(1).map((s) => s.start).filter((c) => c > clip.start && c < clip.end);
   const clipTurns = (turns ?? []).filter((v) => v.end > clip.start && v.start < clip.end);
 
   const layout = videoLayerOf(clip).layout;
@@ -262,9 +262,7 @@ export function ClipTimeline({ clip, assets, keys, pages, selectedId, time }: Pr
             {cuts.map((c) => (
               <div key={c} className="cut" style={{ left: at(c) }} title={t('analysis.cut')} />
             ))}
-            {analysis.status === 'running' && (
-              <div className="analysis-progress" role="progressbar" aria-label={t('analysis.running')} aria-valuenow={Math.round(analysis.progress * 100)} style={{ width: `${analysis.progress * 100}%` }} />
-            )}
+            <AnalysisProgress />
             {keyMarks(keys)}
           </div>
           {turns && (
@@ -279,6 +277,15 @@ export function ClipTimeline({ clip, assets, keys, pages, selectedId, time }: Pr
       </div>
     </div>
   );
+}
+
+/** How far the clip analysis is, along the bottom of the video row; its own component so progress only redraws this. */
+function AnalysisProgress() {
+  const { t } = useTranslation();
+  const running = useAnalysis((s) => s.status === 'running');
+  const progress = useAnalysis((s) => s.progress);
+  if (!running) return null;
+  return <div className="analysis-progress" role="progressbar" aria-label={t('analysis.running')} aria-valuenow={Math.round(progress * 100)} style={{ width: `${progress * 100}%` }} />;
 }
 
 /** How far a video layer's working file is, filling its bar from the left; nothing once it's ready. */

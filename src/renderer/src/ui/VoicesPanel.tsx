@@ -32,7 +32,8 @@ export function VoicesPanel({ project }: { project: Project }) {
           </button>
         </div>
       )}
-      {status === 'ready' && voices && (
+      {/* The last result stays up while a new one is worked out. */}
+      {voices && (
         <ul className="voice-list">
           {talkTimes(voices).map((seconds, v) => (
             <li key={v}>

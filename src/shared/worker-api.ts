@@ -31,8 +31,6 @@ export interface VoicesRequest {
   /** The transcript's words joined into pieces (shared/voices.ts piecesOf). */
   pieces: Span[];
   count: SpeakerCount;
-  /** The transcript's createdAt; a new transcript makes the cached result stale. */
-  transcriptAt: string;
   /** sherpa-onnx's Node addon and the speaker embedding model. */
   addonFile: string;
   modelFile: string;

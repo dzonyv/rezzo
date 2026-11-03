@@ -52,7 +52,6 @@ export async function startVoices(sender: WebContents, request: unknown): Promis
         cacheDir: path.join(cacheDir(), source.fingerprint),
         pieces: piecesOf(words),
         count,
-        transcriptAt: transcript.createdAt,
         addonFile: sherpaAddonFile(),
         modelFile: voiceModelFile(),
       }],

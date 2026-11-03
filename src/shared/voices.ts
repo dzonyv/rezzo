@@ -10,7 +10,7 @@
 import { z } from 'zod';
 
 /** Bumped when the result would come out differently, so old caches are redone. */
-export const VOICES_VERSION = 1;
+export const VOICES_VERSION = 2;
 
 /** A pause this long ends a piece; speaker changes rarely happen without one. */
 export const PIECE_GAP = 0.3;
@@ -40,8 +40,8 @@ export type VoiceTurn = z.infer<typeof voiceTurnSchema>;
 
 export const episodeVoicesSchema = z.object({
   version: z.literal(VOICES_VERSION),
-  /** What it was made from, so a changed transcript or setting makes it stale. */
-  transcriptAt: z.iso.datetime(),
+  /** A hash of what it was made from (the pieces, the model, the count), so any change makes it stale. */
+  key: z.string(),
   count: speakerCountSchema,
   voices: z.number().int().nonnegative(),
   turns: z.array(voiceTurnSchema),

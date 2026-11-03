@@ -555,7 +555,9 @@ The app decodes the working file with its own WebCodecs decoder. Every frame get
 | Clip | Working file | Analysis | Shots | Seats |
 |---|---|---|---|---|
 | C, wide shot | 64 s, 720p | 21 s | 1 | 2 (the man on the left found in 315 frames, against 106 in the spike's lab) |
-| D, multi-camera | 80 s, 480p | 22 s | 10 (each dissolve one cut, where the lab had 16) | 1 per close-up, 2 in the two-shot |
+| D, multi-camera | 80 s, 480p | 27 s | 10 (each dissolve one cut, where the lab had 16) | 1 per close-up, 2 in the two-shot |
+
+Pose runs in VIDEO mode, which follows people from one frame to the next. Looking at each frame alone (IMAGE mode) found the man on the left in clip C in 100 frames instead of 315. VIDEO mode would also carry heads across a cut, though, so the page asks for a fresh Pose landmarker after every cut and at the start of every clip. That costs about 0.6 s per cut: clip D takes 27 s instead of 21.
 
 In the two-shot, the man on the left first came out as two seats. He leans, and his 32 px head moved 1.5 head sizes. A seat now reaches 1.6 head sizes instead of 1.2; two people sitting side by side are much further apart than that.
 

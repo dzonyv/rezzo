@@ -1,10 +1,11 @@
 /**
  * The episode's voices, told apart in the background once there is a
- * transcript, and again when the transcript or the number of people
- * changes. The result comes from the cache, not the project.
+ * transcript, and again when the transcript, its words or the number of
+ * people change. The result comes from the cache, not the project.
  */
 import { useStore } from 'zustand';
 import { createStore } from 'zustand/vanilla';
+import type { VoicesResult } from '../../../shared/api.ts';
 import type { Project } from '../../../shared/project.ts';
 import type { EpisodeVoices, SpeakerCount } from '../../../shared/voices.ts';
 import type { VoicesProgress } from '../../../shared/worker-api.ts';
@@ -39,12 +40,17 @@ async function run(project: Project): Promise<void> {
   if (!project.source || !project.transcript) return;
   const id = ++runs;
   voicesStore.setState({ projectId: project.id, status: 'running', progress: null, detail: null });
-  const result = await window.rezzo.invoke('voices:start', {
-    projectId: project.id,
-    source: project.source,
-    transcript: project.transcript,
-    count: project.voices.count,
-  });
+  let result: VoicesResult;
+  try {
+    result = await window.rezzo.invoke('voices:start', {
+      projectId: project.id,
+      source: project.source,
+      transcript: project.transcript,
+      count: project.voices.count,
+    });
+  } catch (e) {
+    result = { ok: false, error: 'failed', detail: e instanceof Error ? e.message : String(e) };
+  }
   if (id !== runs) return;
   if (result.ok) voicesStore.setState({ status: 'ready', progress: null, voices: result.voices });
   else if (result.error === 'failed') voicesStore.setState({ status: 'failed', progress: null, detail: result.detail });
@@ -57,21 +63,35 @@ export function retryVoices(): void {
   if (project) void run(project);
 }
 
-/** What the result depends on. */
+/** Edited words wait this long, so a burst of edits makes one run. */
+const EDIT_SETTLE_MS = 2000;
+
+/** What the result depends on, besides the words themselves. */
 const inputsOf = (p: Project | null) => (p?.source && p.transcript ? `${p.id}|${p.source.fingerprint}|${p.transcript.createdAt}|${p.voices.count}` : null);
+
+let settle: ReturnType<typeof setTimeout> | undefined;
 
 projectStore.subscribe((s, prev) => {
   const now = inputsOf(s.project);
-  if (now === inputsOf(prev.project)) return;
+  const before = inputsOf(prev.project);
+  const wordsEdited = now !== null && now === before && s.project?.transcript?.segments !== prev.project?.transcript?.segments;
+  if (now === before && !wordsEdited) return;
+  clearTimeout(settle);
   if (now === null || !s.project) {
     if (voicesStore.getState().status === 'running') void window.rezzo.invoke('voices:cancel');
     runs++;
     voicesStore.setState(idle);
     return;
   }
+  const project = s.project;
+  if (wordsEdited) {
+    // The worker only redoes the pieces the edit changed; the old result shows until then.
+    settle = setTimeout(() => void run(projectStore.getState().project ?? project), EDIT_SETTLE_MS);
+    return;
+  }
   // A different project shows nothing from the last one while it runs.
-  if (s.project.id !== voicesStore.getState().projectId) voicesStore.setState({ ...idle, projectId: s.project.id });
-  void run(s.project);
+  if (project.id !== voicesStore.getState().projectId) voicesStore.setState({ ...idle, projectId: project.id });
+  void run(project);
 });
 
 export function setSpeakerCount(count: SpeakerCount): void {
