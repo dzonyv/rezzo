@@ -50,6 +50,11 @@ Lottie animations are drawn by dotLottie Web 0.81.0 (`@lottiefiles/dotlottie-web
 - ThorVG (MIT), https://github.com/thorvg/thorvg, including its WebP decoder, which is based on libwebp (BSD-3-Clause)
 - Rust crates under MIT or Apache-2.0 (dual-licensed): miniz_oxide 0.8.9 (also Zlib), hashbrown 0.17.1, dlmalloc 0.2.13, once_cell 1.21.4, tinyrlibc 0.5.1, console_error_panic_hook 0.1.7
 
+## Telling voices apart
+
+- sherpa-onnx 2.0.1 (Apache-2.0, the k2-fsa project), https://github.com/k2-fsa/sherpa-onnx. The prebuilt Node addon for Windows x64 from the npm package `sherpa-onnx-win-x64` ships in `tools/sherpa-onnx`, with the ONNX Runtime 1.28.2 DLLs it needs (MIT, Copyright (c) Microsoft Corporation, https://github.com/microsoft/onnxruntime).
+- The 3D-Speaker CAM++ speaker embedding model (`3dspeaker_speech_campplus_sv_zh_en_16k-common_advanced`, Apache-2.0, the 3D-Speaker project, https://github.com/modelscope/3D-Speaker), as converted to ONNX by the sherpa-onnx project. It ships in `tools/voice-embeddings`.
+
 ## Downloaded on first use, not included
 
 The first time you transcribe, Rezzo downloads these into `%LOCALAPPDATA%\Rezzo\tools`. They aren't part of the installer.

@@ -19,6 +19,16 @@ extraResources:
       - '*/bin/*.dll'
       - '!*/bin/ffplay.exe'
       - '*/LICENSE.txt'
+  # sherpa-onnx's Node addon and its DLLs, loaded by the media worker (src/main/voices.ts).
+  - from: vendor/tools/sherpa-onnx/package
+    to: tools/sherpa-onnx/package
+    filter:
+      - '*.node'
+      - '*.dll'
+  - from: vendor/tools/voice-embeddings
+    to: tools/voice-embeddings
+    filter:
+      - '*.onnx'
   - from: LICENSE
     to: licenses/LICENSE
   - from: THIRD_PARTY_NOTICES.md

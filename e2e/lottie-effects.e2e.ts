@@ -13,7 +13,7 @@ import { promisify } from 'node:util';
 import type { ElectronApplication, Page } from 'playwright-core';
 import { afterAll, beforeAll, describe, expect, it } from 'vitest';
 import { defaultVideoLayer } from '../src/shared/framing.ts';
-import type { Project } from '../src/shared/project.ts';
+import { PROJECT_FORMAT, type Project } from '../src/shared/project.ts';
 import { answerOpenDialog, answerSaveDialog, ffmpegExe, launchApp, makeNumberedVideo, stopApp } from './helpers.ts';
 import { zip } from './zip.ts';
 
@@ -193,7 +193,7 @@ describe('Lottie layers', () => {
 
   it('keeps the animation in the saved project', async () => {
     const project = await saved();
-    expect(project.format).toBe(7);
+    expect(project.format).toBe(PROJECT_FORMAT);
     expect(project.assets).toMatchObject([{ kind: 'lottie', name: 'bar.json', width: 200, height: 200, frameRate: 30, frames: 60 }]);
     expect(project.clips[0]!.layers.map((l) => l.kind)).toEqual(['video', 'lottie']);
   });

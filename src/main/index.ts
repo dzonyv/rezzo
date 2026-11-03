@@ -14,6 +14,7 @@ import {
 } from './project-files.ts';
 import { getSettings, updateSettings } from './settings.ts';
 import { cancelTranscription, startTranscription, transcriptionStatus } from './transcription.ts';
+import { cancelVoices, startVoices } from './voices.ts';
 import { stopWorker } from './worker-host.ts';
 import { projectSchema } from '../shared/project.ts';
 
@@ -65,6 +66,9 @@ function registerHandlers(): void {
   handle('transcribe:status', () => transcriptionStatus());
   handle('transcribe:start', ({ window }, request) => startTranscription(window.webContents, request));
   handle('transcribe:cancel', () => cancelTranscription());
+
+  handle('voices:start', ({ window }, request) => startVoices(window.webContents, request));
+  handle('voices:cancel', () => cancelVoices());
 
   handle('clip:prepare', ({ window }, source, range) => prepareClip(window.webContents, source, range));
   handle('overlay:prepare', ({ window }, asset, range, rate, requestId) => prepareOverlay(window.webContents, asset, range, rate, requestId));

@@ -337,6 +337,44 @@ button.link:hover {
   color: var(--text-dim);
 }
 
+.voices-panel {
+  margin: 0 16px 16px;
+  max-width: 560px;
+}
+
+.voices-panel h2 {
+  margin: 0 0 8px;
+  font-size: 15px;
+}
+
+.voices-panel label {
+  display: flex;
+  gap: 8px;
+  align-items: center;
+  margin-top: 8px;
+}
+
+.voice-list {
+  display: flex;
+  flex-wrap: wrap;
+  gap: 4px 16px;
+  margin: 0;
+  padding: 0;
+  list-style: none;
+}
+
+.voice-list li {
+  display: flex;
+  gap: 6px;
+  align-items: center;
+}
+
+.voice-chip {
+  width: 10px;
+  height: 10px;
+  border-radius: 50%;
+}
+
 .transcribe-panel {
   margin: 0 16px 16px;
   padding: 16px;

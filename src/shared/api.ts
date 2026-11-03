@@ -10,7 +10,8 @@ import type { CustomFont } from './fonts.ts';
 import type { FrameRate } from './frames.ts';
 import type { Clip, Project, ProjectFormatError, Source, Transcript, TranscriptLanguage } from './project.ts';
 import type { Settings } from './settings.ts';
-import type { Encoder, TranscribeProgress } from './worker-api.ts';
+import type { EpisodeVoices, SpeakerCount } from './voices.ts';
+import type { Encoder, TranscribeProgress, VoicesProgress } from './worker-api.ts';
 
 export type OpenResult =
   | { ok: true; path: string; project: Project }
@@ -36,6 +37,11 @@ export type TranscribeResult =
   | { ok: true; transcript: Transcript }
   | { ok: false; error: 'cancelled' | 'no-audio' }
   | { ok: false; error: 'download-failed' | 'whisper-failed'; detail: string };
+
+export type VoicesResult =
+  | { ok: true; voices: EpisodeVoices }
+  | { ok: false; error: 'cancelled' | 'no-audio' }
+  | { ok: false; error: 'failed'; detail: string };
 
 /** A clip's working file: where to load it from and the stretch of the source it holds. */
 export type PrepareResult =
@@ -137,6 +143,14 @@ export interface InvokeApi {
   'transcribe:cancel': () => void;
 
   /**
+   * Tells the episode's voices apart from the transcript (or finds the result
+   * in the cache); progress comes as voices:progress events. A newer call
+   * cancels an older one.
+   */
+  'voices:start': (request: { projectId: string; source: Source; transcript: Transcript; count: SpeakerCount }) => VoicesResult;
+  'voices:cancel': () => void;
+
+  /**
    * Makes (or finds in the cache) a working file holding this range of the
    * source; progress as clip:prepare-progress. A newer call from the same
    * window cancels an older one.
@@ -186,6 +200,7 @@ export interface EventApi {
   /** The user tried to close the window; the renderer decides what happens. */
   'app:close-requested': null;
   'transcribe:progress': { projectId: string; progress: TranscribeProgress };
+  'voices:progress': { projectId: string; progress: VoicesProgress };
   'episode:preview-progress': { fingerprint: string; fraction: number };
   'clip:prepare-progress': { fraction: number };
   'overlay:prepare-progress': { requestId: string; fraction: number };
@@ -217,6 +232,8 @@ export const INVOKE_CHANNELS = {
   'transcribe:status': true,
   'transcribe:start': true,
   'transcribe:cancel': true,
+  'voices:start': true,
+  'voices:cancel': true,
   'clip:prepare': true,
   'overlay:prepare': true,
   'overlay:cancel': true,
@@ -237,6 +254,7 @@ export const EVENT_CHANNELS = {
   'settings:changed': true,
   'app:close-requested': true,
   'transcribe:progress': true,
+  'voices:progress': true,
   'episode:preview-progress': true,
   'clip:prepare-progress': true,
   'overlay:prepare-progress': true,

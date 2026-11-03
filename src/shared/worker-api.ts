@@ -6,6 +6,7 @@
 import type { VideoInfo } from './assets.ts';
 import type { FrameRate } from './frames.ts';
 import type { Source, Transcript, TranscriptLanguage } from './project.ts';
+import type { EpisodeVoices, SpeakerCount, Span } from './voices.ts';
 
 /** What ffprobe tells us about a file; the rest of `Source` is added by the caller. */
 export type ProbeResult = Omit<Source, 'path' | 'size' | 'fingerprint'>;
@@ -19,6 +20,21 @@ export interface TranscribeRequest {
   /** Folder whisper.cpp was unpacked into. */
   whisperDir: string;
   modelId: string;
+  modelFile: string;
+}
+
+export interface VoicesRequest {
+  sourcePath: string;
+  duration: number;
+  /** Cache folder for this source (keyed by its fingerprint). */
+  cacheDir: string;
+  /** The transcript's words joined into pieces (shared/voices.ts piecesOf). */
+  pieces: Span[];
+  count: SpeakerCount;
+  /** The transcript's createdAt; a new transcript makes the cached result stale. */
+  transcriptAt: string;
+  /** sherpa-onnx's Node addon and the speaker embedding model. */
+  addonFile: string;
   modelFile: string;
 }
 
@@ -104,6 +120,9 @@ export type TranscribeProgress =
   | { phase: 'download'; received: number; total: number }
   | { phase: 'audio' | 'transcribe'; fraction: number };
 
+/** Where telling voices apart is: the audio comes first if the cache lost it. */
+export type VoicesProgress = { phase: 'audio' | 'voices'; fraction: number };
+
 export interface WorkerMethods {
   /** Reads streams and duration. Fails with code "unreadable" or "no-video". */
   probe(file: string): ProbeResult;
@@ -115,6 +134,8 @@ export interface WorkerMethods {
   installTool(id: string, dir: string): void;
   /** Reports TranscribeProgress. Fails with code "whisper-failed" or "cancelled". */
   transcribe(request: TranscribeRequest): Transcript;
+  /** Reports VoicesProgress. Fails with code "voices-failed" or "cancelled". */
+  diarize(request: VoicesRequest): EpisodeVoices;
   /** Writes a 480p H.264 copy of the source to `out` unless it exists; reports 0..1. */
   makePreview(request: { sourcePath: string; duration: number; out: string }): void;
   /** Writes a working file to `request.out` unless it exists; reports 0..1. */

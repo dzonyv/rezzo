@@ -1,5 +1,5 @@
 {
-  "$comment": "Third-party binaries and models the app uses. FFmpeg ships inside the installer (fetched into vendor/ for development); whisper.cpp and the model are downloaded by the app the first time you transcribe. Pinned URLs, sizes and checksums.",
+  "$comment": "Third-party binaries and models the app uses. FFmpeg, sherpa-onnx and the speaker embedding model ship inside the installer (fetched into vendor/ for development); whisper.cpp and the model are downloaded by the app the first time you transcribe. Pinned URLs, sizes and checksums.",
   "items": [
     {
       "id": "ffmpeg",
@@ -11,6 +11,27 @@
       "extract": true,
       "license": "GPL-3.0-or-later (gpl variant: includes x264/x265; built without --enable-nonfree)",
       "source": "https://github.com/BtbN/FFmpeg-Builds"
+    },
+    {
+      "id": "sherpa-onnx",
+      "kind": "bundled",
+      "name": "sherpa-onnx 2.0.1 Node addon for Windows x64 (npm sherpa-onnx-win-x64), with ONNX Runtime",
+      "url": "https://registry.npmjs.org/sherpa-onnx-win-x64/-/sherpa-onnx-win-x64-2.0.1.tgz",
+      "size": 8779375,
+      "sha256": "217cec234c6026dbfd2b9c06523507180796fe4227c7cc9d11cfe218260a2519",
+      "extract": true,
+      "license": "Apache-2.0 (sherpa-onnx); MIT (ONNX Runtime)",
+      "source": "https://github.com/k2-fsa/sherpa-onnx"
+    },
+    {
+      "id": "voice-embeddings",
+      "kind": "bundled",
+      "name": "3D-Speaker CAM++ speaker embeddings, Chinese and English (advanced), ONNX export by sherpa-onnx",
+      "url": "https://github.com/k2-fsa/sherpa-onnx/releases/download/speaker-recongition-models/3dspeaker_speech_campplus_sv_zh_en_16k-common_advanced.onnx",
+      "size": 28281164,
+      "sha256": "aa3cfc16963a10586a9393f5035d6d6b57e98d358b347f80c2a30bf4f00ceba2",
+      "license": "Apache-2.0",
+      "source": "https://github.com/modelscope/3D-Speaker"
     },
     {
       "id": "whisper-cuda",
