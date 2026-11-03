@@ -33,6 +33,8 @@ export type Target =
 export interface Stretch {
   start: number;
   end: number;
+  /** Which of the analysis's shots it's in. */
+  shot: number;
   /** Whose turn it is; null in a pause, and where it makes no difference. */
   voice: number | null;
   target: Target;
@@ -126,14 +128,14 @@ export function stretchesOf(analysis: ClipAnalysis, turns: readonly VoiceTurn[],
   const places = placesOf(turns, picks);
   return analysis.shots.flatMap((shot, s): Stretch[] => {
     const seats = analysis.seats.filter((seat) => seat.shot === s);
-    if (seats.length === 0) return [{ ...shot, voice: null, pick: null, target: { kind: 'none' } }];
-    if (seats.length === 1) return [{ ...shot, voice: null, pick: null, target: { kind: 'seat', seat: seats[0]!.id, why: 'alone' } }];
+    if (seats.length === 0) return [{ ...shot, shot: s, voice: null, pick: null, target: { kind: 'none' } }];
+    if (seats.length === 1) return [{ ...shot, shot: s, voice: null, pick: null, target: { kind: 'seat', seat: seats[0]!.id, why: 'alone' } }];
 
     const parts = stretchesOfShot(shot, turns).map((part) => {
       const pick = picks.findLast((p) => p.t >= part.start && p.t < part.end);
       const seat = pick && seatAt(seats, pick, analysis);
-      if (pick && seat) return { ...part, pick, target: { kind: 'seat', seat: seat.id, why: 'pick' } as Target };
-      return { ...part, pick: null, target: part.voice === null ? null : targetOfVoice(seats, places, part.voice, analysis) };
+      if (pick && seat) return { ...part, shot: s, pick, target: { kind: 'seat', seat: seat.id, why: 'pick' } as Target };
+      return { ...part, shot: s, pick: null, target: part.voice === null ? null : targetOfVoice(seats, places, part.voice, analysis) };
     });
     return parts.map((part, i) => ({ ...part, target: part.target ?? heldTarget(parts, i) }));
   });
@@ -143,3 +145,19 @@ export function stretchesOf(analysis: ClipAnalysis, turns: readonly VoiceTurn[],
 export function stretchAt(stretches: readonly Stretch[], t: number): Stretch | null {
   return stretches.find((s) => t < s.end) ?? stretches.at(-1) ?? null;
 }
+
+/**
+ * The stretch a click at `t` is about. Mostly the one at `t`, but a pause
+ * that opens a shot has nobody before it to be about: the click means the
+ * turn to come. That's where the playhead sits when a clip opens.
+ */
+export function clickedStretch(stretches: readonly Stretch[], t: number): Stretch | null {
+  const stretch = stretchAt(stretches, t);
+  if (!stretch || stretch.voice !== null) return stretch;
+  const i = stretches.indexOf(stretch);
+  const next = stretches[i + 1];
+  return stretches[i - 1]?.shot !== stretch.shot && next?.shot === stretch.shot && next.voice !== null ? next : stretch;
+}
+
+/** Whether the user picked this seat for this stretch, so a click takes that back. */
+export const isPicked = (stretch: Stretch, seat: number): boolean => stretch.pick !== null && stretch.target.kind === 'seat' && stretch.target.seat === seat;

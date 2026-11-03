@@ -1,6 +1,6 @@
 import { useTranslation } from 'react-i18next';
 import { shotIndexAt } from '../../../shared/analysis.ts';
-import { stretchAt } from '../../../shared/speakers.ts';
+import { clickedStretch, isPicked, stretchAt } from '../../../shared/speakers.ts';
 import { useAnalysis } from '../analysis/store.ts';
 import { sayWhoTalks } from './say-who-talks.ts';
 import { useStretches } from './speakers.ts';
@@ -15,7 +15,8 @@ export function WhoTalks({ time }: { time: number }) {
   const analysis = useAnalysis((s) => s.analysis);
   const stretches = useStretches();
   const stretch = stretchAt(stretches, time);
-  if (!analysis || !stretch) return null;
+  const clicked = clickedStretch(stretches, time);
+  if (!analysis || !stretch || !clicked) return null;
 
   const { target } = stretch;
   const shot = shotIndexAt(analysis.shots, time);
@@ -28,8 +29,8 @@ export function WhoTalks({ time }: { time: number }) {
             key={seat.id}
             type="button"
             aria-pressed={target.kind === 'seat' && target.seat === seat.id}
-            title={t(stretch.pick && target.kind === 'seat' && target.seat === seat.id ? 'speakers.unpick' : 'speakers.pick')}
-            onClick={() => sayWhoTalks(stretch, seat, analysis, time)}
+            title={t(isPicked(clicked, seat.id) ? 'speakers.unpick' : 'speakers.pick')}
+            onClick={() => sayWhoTalks(clicked, seat, analysis, time)}
           >
             {t('analysis.person', { n: n + 1 })}
           </button>

@@ -1073,6 +1073,20 @@ button.icon {
   pointer-events: none;
 }
 
+.auto-frame {
+  display: flex;
+  flex-wrap: wrap;
+  gap: 6px 10px;
+  align-items: center;
+  margin-bottom: 10px;
+}
+
+.auto-frame label {
+  display: flex;
+  gap: 6px;
+  align-items: center;
+}
+
 .layouts {
   display: flex;
 }

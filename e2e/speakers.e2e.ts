@@ -12,8 +12,8 @@ import type { ElectronApplication, Page } from 'playwright-core';
 import { afterAll, beforeAll, describe, expect, it } from 'vitest';
 import { ANALYSIS_VERSION, type ClipAnalysis, type Seat } from '../src/shared/analysis.ts';
 import { clipFromWords } from '../src/shared/clips.ts';
-import type { Project, Segment } from '../src/shared/project.ts';
-import { answerOpenDialog, answerSaveDialog, ffmpegExe, launchApp, stopApp } from './helpers.ts';
+import type { Project } from '../src/shared/project.ts';
+import { answerOpenDialog, answerSaveDialog, ffmpegExe, launchApp, seekTimeline, segmentOf, stopApp, until } from './helpers.ts';
 
 const run = promisify(execFile);
 
@@ -24,19 +24,6 @@ let dir: string;
 let app: ElectronApplication | undefined;
 let page: Page;
 let file: string;
-
-function segment(start: number, end: number): Segment {
-  const words = Array.from({ length: Math.round((end - start) / 0.5) }, (_, i) => ({ text: `reč${i}`, start: start + i * 0.5, end: start + i * 0.5 + 0.4, p: 0.9 }));
-  return { start, end: words.at(-1)!.end, words };
-}
-
-async function until(check: () => Promise<boolean>, timeoutMs = 10_000): Promise<void> {
-  const end = Date.now() + timeoutMs;
-  while (!(await check())) {
-    if (Date.now() > end) throw new Error('timed out');
-    await new Promise((r) => setTimeout(r, 100));
-  }
-}
 
 async function saved(): Promise<Project> {
   await page.keyboard.press('Control+S');
@@ -54,13 +41,7 @@ const why = () => page.locator('.who-talks .dim').textContent();
 const turns = () => page.locator('.clip-timeline .voice-turn');
 const undo = () => page.getByRole('button', { name: 'Undo', exact: true }).click();
 
-/** Puts the playhead `seconds` into the 12 s clip by pressing on the timeline. */
-async function seek(seconds: number): Promise<void> {
-  const timeline = page.locator('.clip-timeline');
-  await timeline.scrollIntoViewIfNeeded();
-  const box = (await timeline.boundingBox())!;
-  await timeline.click({ position: { x: (box.width * seconds) / 12, y: box.height - 4 } });
-}
+const seek = (seconds: number) => seekTimeline(page, seconds, 12);
 
 beforeAll(async () => {
   dir = await mkdtemp(path.join(tmpdir(), 'rezzo-e2e-'));
@@ -85,7 +66,7 @@ beforeAll(async () => {
   await page.getByRole('button', { name: 'Close project' }).click();
 
   const project = JSON.parse(await readFile(file, 'utf8')) as Project;
-  const segments = [segment(0.2, 2.2), segment(2.8, 4.8), segment(6.3, 8.3), segment(8.9, 10.9)];
+  const segments = [segmentOf(0.2, 2.2), segmentOf(2.8, 4.8), segmentOf(6.3, 8.3), segmentOf(8.9, 10.9)];
   project.transcript = { language: 'sr', model: 'test', createdAt: new Date().toISOString(), startShift: -0.1, segments };
   project.voices.count = 2;
   project.clips = [{ ...clipFromWords(segments.flatMap((s) => s.words), project.source!), start: 0, end: 12 }];

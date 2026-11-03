@@ -195,6 +195,7 @@ describe('clips', () => {
   });
 
   it('moves the end of a word by dragging it in the word strip, as one undo step', async () => {
+    await page.locator('.word-strip').scrollIntoViewIfNeeded();
     const danas = (await page.locator('.word-strip .word', { hasText: 'Danas' }).boundingBox())!;
     const pricamo = (await page.locator('.word-strip .word', { hasText: 'pričamo' }).boundingBox())!;
     const perSecond = (pricamo.x - danas.x) / 0.5;

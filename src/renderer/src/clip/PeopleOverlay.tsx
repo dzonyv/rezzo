@@ -3,7 +3,7 @@ import { seatBoxAt, shotIndexAt } from '../../../shared/analysis.ts';
 import { frameRecipe, OUTPUT, type Size } from '../../../shared/framing.ts';
 import type { Box } from '../../../shared/heads.ts';
 import type { VideoLayer } from '../../../shared/project.ts';
-import { stretchAt } from '../../../shared/speakers.ts';
+import { clickedStretch, isPicked, stretchAt } from '../../../shared/speakers.ts';
 import { voiceAt } from '../../../shared/voices.ts';
 import { useAnalysis } from '../analysis/store.ts';
 import { useHeardVoices } from '../project/voices.ts';
@@ -37,6 +37,7 @@ export function PeopleOverlay({ layer, time, sourceSize }: Props) {
   const shot = shotIndexAt(analysis.shots, time);
   const seats = analysis.seats.filter((s) => s.shot === shot);
   const stretch = stretchAt(stretches, time);
+  const clicked = clickedStretch(stretches, time);
   const target = stretch?.target.kind === 'seat' ? stretch.target : null;
   const talkingNow = heard ? voiceAt(heard.turns, time) : null;
   const voice = heard?.voices.find((v) => v.id === talkingNow);
@@ -49,7 +50,7 @@ export function PeopleOverlay({ layer, time, sourceSize }: Props) {
       {seats.flatMap((seat, n) => {
         const box = toUnit(seatBoxAt(seat, time));
         const talking = target?.seat === seat.id;
-        const picked = talking && stretch?.pick;
+        const picked = clicked !== null && isPicked(clicked, seat.id);
         const label = talking && voice ? voiceLabel(t, voice) : t('analysis.person', { n: n + 1 });
         return draws.map((d, i) => {
           const x0 = Math.max(box.x, d.src.x);
@@ -74,7 +75,7 @@ export function PeopleOverlay({ layer, time, sourceSize }: Props) {
                 height: `${((oy(y1) - oy(y0)) / OUTPUT.height) * 100}%`,
                 ...(talking && voice ? ({ '--person': voiceColor(voice.id) } as React.CSSProperties) : {}),
               }}
-              onClick={() => stretch && sayWhoTalks(stretch, seat, analysis, time)}
+              onClick={() => clicked && sayWhoTalks(clicked, seat, analysis, time)}
             >
               <span>{label}</span>
             </button>,

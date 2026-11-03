@@ -71,7 +71,8 @@
     "correctTurn": "ispravka poteza",
     "splitTurn": "deljenje poteza",
     "forgetVoiceEdits": "poništavanje svih ispravki glasova",
-    "pickSpeaker": "izbor ko govori"
+    "pickSpeaker": "izbor ko govori",
+    "autoFrame": "automatski kadar"
   },
   "files": {
     "project": "Rezzo projekat",
@@ -544,6 +545,25 @@
       "group": "Ne zna se ko govori: klikni na osobu",
       "none": "Nema nikog u kadru",
       "held": "Niko ne govori: kadar ostaje na ovoj osobi"
+    }
+  },
+  "autoFrame": {
+    "title": "Automatsko kadriranje",
+    "button": "Automatski kadar",
+    "buttonHelp": "Kadrira ceo klip prema tome ko govori, umesto postojećeg kadriranja i rasporeda",
+    "shot": "Ovaj kadar",
+    "shotHelp": "Ponovo kadrira samo kadar na poziciji reprodukcije, a ostatak klipa ne dira",
+    "waiting": "Čeka analizu klipa i glasove",
+    "width": "Širina",
+    "widths": {
+      "tight": "Uzak",
+      "medium": "Srednji",
+      "wide": "Širok"
+    },
+    "change": "Novi govornik",
+    "changes": {
+      "cut": "Rez",
+      "pan": "Pan"
     }
   }
 }

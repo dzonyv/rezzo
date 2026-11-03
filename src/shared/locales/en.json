@@ -71,7 +71,8 @@
     "correctTurn": "correct a turn",
     "splitTurn": "split a turn",
     "forgetVoiceEdits": "undo all voice corrections",
-    "pickSpeaker": "say who talks"
+    "pickSpeaker": "say who talks",
+    "autoFrame": "auto frame"
   },
   "files": {
     "project": "Rezzo project",
@@ -544,6 +545,25 @@
       "group": "Can't tell who talks: click the person",
       "none": "Nobody in the shot",
       "held": "Nobody talks: staying on this person"
+    }
+  },
+  "autoFrame": {
+    "title": "Automatic framing",
+    "button": "Auto frame",
+    "buttonHelp": "Frames the whole clip from who talks, in place of its framing and layouts",
+    "shot": "This shot",
+    "shotHelp": "Frames only the shot at the playhead again, and leaves the rest of the clip alone",
+    "waiting": "Waits for the clip analysis and the voices",
+    "width": "Width",
+    "widths": {
+      "tight": "Tight",
+      "medium": "Medium",
+      "wide": "Wide"
+    },
+    "change": "New speaker",
+    "changes": {
+      "cut": "Cut",
+      "pan": "Pan"
     }
   }
 }

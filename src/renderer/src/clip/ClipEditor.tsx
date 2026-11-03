@@ -15,6 +15,7 @@ import { retimeWord } from '../project/transcript.ts';
 import { flatOf, refOf, wordAt } from '../transcript/words.ts';
 import { isTypingTarget } from '../ui/focus.ts';
 import { AddLayerMenu } from './AddLayerMenu.tsx';
+import { AutoFramePanel } from './AutoFramePanel.tsx';
 import { CaptionOverlay } from './CaptionOverlay.tsx';
 import { CaptionPanel } from './CaptionPanel.tsx';
 import { ClipPreview } from './ClipPreview.tsx';
@@ -194,6 +195,7 @@ export function ClipEditor({ clip, source }: { clip: Clip; source: Source }) {
   function pictureSettings() {
     return (
       <>
+      <AutoFramePanel clip={clip} time={time} />
       <div className="layouts" role="group" aria-label={t('clipEditor.layout')}>
         {LAYOUTS.map((l) => (
           <button
