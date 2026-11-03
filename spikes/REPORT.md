@@ -492,7 +492,7 @@ What the numbers show:
 
 On clip C it gives 13 tracks instead of 101, 3 of them longer than 5 s. That's still too many. The pose model misses the man on the left (in profile, with a cap) in about three frames out of four, so his track keeps breaking up.
 
-**Seats.** People in a podcast stay in their seats. Grouping every head detection in a shot by position, with the closest seat within 1.2 head sizes and a seat counting only if found in 15% of the shot's frames, gives:
+**Seats.** People in a podcast stay in their seats. Grouping every head detection in a shot by position, with the closest seat within 1.2 head sizes (1.6 in the app, see below) and a seat counting only if found in 15% of the shot's frames, gives:
 
 - clip C: exactly 2 seats (one found in 555 frames, the other in 106);
 - clip D: 1 seat in each close-up, 2 in the two-shot, and 3 in one shot that is a dissolve between two angles;
@@ -546,7 +546,19 @@ The count holds still from 0.65 to 0.8: the next merge after 0.65 is at 0.85.
 
 This shows the threshold doesn't fall apart over an hour, and that the timing holds on real audio. It doesn't show two or more regular speakers over an hour, because this episode doesn't have them.
 
+### People and cuts in the app (4a)
+
+MediaPipe works in a Web Worker of the sandboxed renderer, with the GPU delegate on WebGL 2 for both Pose and the Face Landmarker. It has to be a classic worker. As a module, MediaPipe imports its WASM glue only once, and the second task fails with "ModuleFactory not set". A classic worker loads the glue again with `importScripts` for each task.
+
+The app decodes the working file with its own WebCodecs decoder. Every frame gets a 32×18 thumbnail for the cuts, and every third frame (10 per second) goes to the worker at up to 1920 px wide.
+
+| Clip | Working file | Analysis | Shots | Seats |
+|---|---|---|---|---|
+| C, wide shot | 64 s, 720p | 21 s | 1 | 2 (the man on the left found in 315 frames, against 106 in the spike's lab) |
+| D, multi-camera | 80 s, 480p | 22 s | 10 (each dissolve one cut, where the lab had 16) | 1 per close-up, 2 in the two-shot |
+
+In the two-shot, the man on the left first came out as two seats. He leans, and his 32 px head moved 1.5 head sizes. A seat now reaches 1.6 head sizes instead of 1.2; two people sitting side by side are much further apart than that.
+
 #### Still open
 
 - An episode with two or more people talking throughout.
-- MediaPipe in a Web Worker of the sandboxed renderer, with the GPU delegate. Phase 0 ran it in a renderer with Node access; this gets checked first thing in 4a.3.
