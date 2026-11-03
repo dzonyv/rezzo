@@ -1,7 +1,7 @@
 {
   "name": "rezzo-spikes",
   "private": true,
-  "description": "Phase 0 technical spikes for Rezzo. Throwaway code: measures, not product.",
+  "description": "Technical spikes for Rezzo. Throwaway code: measures, not product.",
   "license": "GPL-3.0-only",
   "type": "module",
   "engines": {
@@ -20,12 +20,19 @@
     "whisper:metrics": "node whisper/metrics.ts",
     "faces:lab": "node faces/lab/build.ts && electron faces/lab/dist/main.cjs",
     "faces:speakers": "node faces/speakers.ts",
+    "faces:track": "node faces/track.ts",
+    "faces:appearance": "node faces/appearance.ts",
     "ipc:working": "node ipc/make-working.ts",
     "ipc:lab": "node ipc/build.ts && electron ipc/dist/main.cjs",
     "layers:formats": "node layers/formats.ts",
     "layers:stacked": "node layers/stacked.ts",
     "layers:convert": "node layers/convert-speed.ts",
-    "layers:lab": "node layers/lab/build.ts && electron layers/lab/dist/main.cjs"
+    "layers:lab": "node layers/lab/build.ts && electron layers/lab/dist/main.cjs",
+    "voices:diarize": "node voices/diarize.ts",
+    "voices:words": "node voices/words.ts",
+    "voices:score": "node voices/score.ts",
+    "voices:speed": "node voices/speed.ts",
+    "voices:electron": "electron voices/utility/main.cjs"
   },
   "devDependencies": {
     "@mediapipe/tasks-vision": "^1.1.1",
@@ -33,6 +40,7 @@
     "electron": "^45.1.0",
     "esbuild": "^0.28.2",
     "mp4box": "^2.5.0",
+    "sherpa-onnx-node": "2.0.1",
     "typescript": "^7.0.2"
   }
 }
