@@ -561,6 +561,20 @@ Pose runs in VIDEO mode, which follows people from one frame to the next. Lookin
 
 In the two-shot, the man on the left first came out as two seats. He leans, and his 32 px head moved 1.5 head sizes. A seat now reaches 1.6 head sizes instead of 1.2; two people sitting side by side are much further apart than that.
 
+### Who to look at (4b)
+
+`faces/who.ts` runs the app's `stretchesOf` on the analysis of clips C and D, with voices from the transcript pieces, and scores the shots with several people against the speaker labels. A click is simulated in the first turn of a voice that falls in such a shot.
+
+| Clip | Speech in such shots | No click | One click | One click per voice | Head size | Mouth measured |
+|---|---|---|---|---|---|---|
+| C, wide shot | 52 s | undecided 100% | right 96% | right 100% (2 clicks) | 31 and 55 px | 0% of the speech |
+| D, the two-shot | 5 s | undecided 100% | right 100% | right 100% (2 clicks) | 33 and 38 px | 0% of the speech |
+
+- **A click is what decides these shots.** Nothing else knows who is who, and one click carries over to the rest of the clip.
+- **This is thin evidence.** Nearly all of the speech in clip C is one person, split into two voices, and clip D's two-shot is 5 s. Neither shows a real back-and-forth in a wide shot over minutes.
+- **Lips are out of 4b.** The plan had them as a tie-breaker in shots with several people, but in both clips the heads are too small for the Face Landmarker: not one turn had enough mouth measurements to compare. In close-ups they aren't needed, since there's one person to look at.
+
 #### Still open
 
 - An episode with two or more people talking throughout.
+- A wide shot with a real back-and-forth, to count how many clicks it takes.
