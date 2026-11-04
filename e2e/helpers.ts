@@ -25,6 +25,17 @@ export async function until(check: () => Promise<boolean>, timeoutMs = 10_000): 
   }
 }
 
+/**
+ * Waits for the open clip's analysis to finish. While MediaPipe starts up
+ * it keeps the GPU busy: reading the preview back stalls for most of a second
+ * here, and for much longer on a machine with no GPU. Anything that measures
+ * time waits for this first.
+ */
+export async function analysisDone(page: Page): Promise<void> {
+  type Analysis = typeof globalThis & { __rezzoAnalysis: { state(): { status: string } } };
+  await until(async () => /ready|failed/.test(await page.evaluate(() => (globalThis as Analysis).__rezzoAnalysis.state().status)), 100_000);
+}
+
 /** A transcript segment of words 0.5 s apart from `start` to `end`. */
 export function segmentOf(start: number, end: number): Segment {
   const words = Array.from({ length: Math.round((end - start) / 0.5) }, (_, i) => ({ text: `reč${i}`, start: start + i * 0.5, end: start + i * 0.5 + 0.4, p: 0.9 }));
