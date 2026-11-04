@@ -24,7 +24,7 @@ import { defaultVideoLayer } from '../src/shared/framing.ts';
 import { DEFAULT_MOTION } from '../src/shared/motion.ts';
 import type { OverlayLayer, Project } from '../src/shared/project.ts';
 import { fingerprint } from '../src/workers/media/fingerprint.ts';
-import { answerOpenDialog, answerSaveDialog, ffmpegExe, launchApp, makeNumberedVideo, stopApp } from './helpers.ts';
+import { analysisDone, answerOpenDialog, answerSaveDialog, ffmpegExe, launchApp, makeNumberedVideo, stopApp } from './helpers.ts';
 
 const run = promisify(execFile);
 
@@ -179,6 +179,7 @@ beforeAll(async () => {
   await writeFile(file, JSON.stringify(project));
   await page.getByRole('button', { name: /numbered/ }).click();
   await page.locator('.clip-list li', { hasText: 'Video' }).getByRole('button', { name: 'Video' }).click();
+  await analysisDone(page);
   // The video layers' files are made in the background; the keyed square shows once "green" is drawn.
   await until(async () => isRed(await pixel(SQUARE_X, GREEN_ROW)), 30_000);
 });

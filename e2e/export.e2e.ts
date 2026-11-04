@@ -17,6 +17,7 @@ import { newCaptionLayer } from '../src/shared/captions.ts';
 import { defaultVideoLayer } from '../src/shared/framing.ts';
 import type { Clip, Project } from '../src/shared/project.ts';
 import {
+  analysisDone,
   answerOpenDialog, answerSaveDialog, ffmpegExe, ffprobeExe, launchApp, makeNumberedVideo, NUMBER_BIT_WIDTH, NUMBER_STRIP_HEIGHT, renamedFont,
   stopApp,
 } from './helpers.ts';
@@ -220,6 +221,7 @@ describe('export', () => {
 
   it('looks like the preview', async () => {
     await page.locator('.clip-list li', { hasText: 'Kratki' }).getByRole('button', { name: 'Kratki' }).click();
+    await analysisDone(page);
     // The preview shows the clip's first frame once it's ready.
     const rows = [100, fullRow, 960, 1500];
     let preview: number[][] = [];

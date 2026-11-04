@@ -14,7 +14,7 @@ import type { ElectronApplication, Page } from 'playwright-core';
 import { afterAll, beforeAll, describe, expect, it } from 'vitest';
 import { defaultVideoLayer } from '../src/shared/framing.ts';
 import { PROJECT_FORMAT, type Project } from '../src/shared/project.ts';
-import { answerOpenDialog, answerSaveDialog, ffmpegExe, launchApp, makeNumberedVideo, stopApp } from './helpers.ts';
+import { analysisDone, answerOpenDialog, answerSaveDialog, ffmpegExe, launchApp, makeNumberedVideo, stopApp } from './helpers.ts';
 import { zip } from './zip.ts';
 
 const run = promisify(execFile);
@@ -162,6 +162,7 @@ beforeAll(async () => {
   await writeFile(file, JSON.stringify(project));
   await page.getByRole('button', { name: /numbered/ }).click();
   await page.locator('.clip-list li', { hasText: 'Efekti' }).getByRole('button', { name: 'Efekti' }).click();
+  await analysisDone(page);
   await until(async () => isGrey(await pixel(OUTSIDE_X)), 20_000);
 });
 
