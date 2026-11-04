@@ -590,6 +590,20 @@ In the two-shot, the man on the left first came out as two seats. He leans, and 
 - **The width setting does little on these clips.** The median zoom on clip C is 1.88, 1.88 and 1.83 for Tight, Medium and Wide, held back by the 5× limit. On clip D it is 1 for all three, because a 9:16 crop of a 480p close-up is already as tight as asked. It should matter more on sharper sources, which these clips can't show.
 - **In the picture isn't the same as well framed.** The numbers show nobody gets lost; only watching the result shows whether it looks right.
 
+### The preview while the analysis runs
+
+On CI the clip tests failed because reading the preview back stalled while the analysis started. So I measured it in the app on clips C and D, on the GTX 1660, with the clip playing: gaps between animation frames over 60 ms, and how long reading a row of the preview took (clip D only).
+
+| Situation | Gaps over 60 ms | Longest read of the preview |
+|---|---|---|
+| First analysis on a new install | 4–6, 1.5–2 s in all | up to 0.9 s |
+| First clip after restarting the app | 0 | 12 ms |
+
+- **It happens once.** All the gaps come in the seconds before the first detection. That fits MediaPipe compiling its GPU shaders, which the disk cache then saves, though I didn't prove that separately. A driver update may bring it back; I didn't check.
+- **Camera cuts don't stall the preview.** Clip D has 10 shots, and after the start there was no gap over 60 ms, even with a fresh Pose landmarker at each cut.
+- **CI is always a new install**, and it has no GPU, so it gets this on every run. The clip tests now wait for the analysis to finish.
+- **Starting earlier didn't help.** I tried starting MediaPipe when the clip opens, with a warm-up detection, and not rebuilding Pose when nobody was being followed. The stall stayed at about 2 s and the analysis got 1–2 s shorter, because the working file is ready too soon for the two to overlap. Starting it when a project opens might hide the stall, but everyone would then pay in GPU and memory to save 2 s once per install, so I left it.
+
 #### Still open
 
 - An episode with two or more people talking throughout.
