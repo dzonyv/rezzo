@@ -561,6 +561,37 @@ Pose runs in VIDEO mode, which follows people from one frame to the next. Lookin
 
 In the two-shot, the man on the left first came out as two seats. He leans, and his 32 px head moved 1.5 head sizes. A seat now reaches 1.6 head sizes instead of 1.2; two people sitting side by side are much further apart than that.
 
+### Who to look at (4b)
+
+`faces/who.ts` runs the app's `stretchesOf` on the analysis of clips C and D, with voices from the transcript pieces, and scores the shots with several people against the speaker labels. A click is simulated in the first turn of a voice that falls in such a shot.
+
+| Clip | Speech in such shots | No click | One click | One click per voice | Head size | Mouth measured |
+|---|---|---|---|---|---|---|
+| C, wide shot | 52 s | undecided 100% | right 96% | right 100% (2 clicks) | 31 and 55 px | 0% of the speech |
+| D, the two-shot | 5 s | undecided 100% | right 100% | right 100% (2 clicks) | 33 and 38 px | 0% of the speech |
+
+- **A click is what decides these shots.** Nothing else knows who is who, and one click carries over to the rest of the clip.
+- **This is thin evidence.** Nearly all of the speech in clip C is one person, split into two voices, and clip D's two-shot is 5 s. Neither shows a real back-and-forth in a wide shot over minutes.
+- **Lips are out of 4b.** The plan had them as a tie-breaker in shots with several people, but in both clips the heads are too small for the Face Landmarker: not one turn had enough mouth measurements to compare. In close-ups they aren't needed, since there's one person to look at.
+
+### Automatic framing (4c)
+
+`faces/frame.ts` runs `autoFrame` on the same analysis, voices and simulated clicks. It counts how often the head of the person talking is in the picture, in shots with several people.
+
+| Clip | Clicks | Person talking in the picture | Keyframes per minute | Layouts |
+|---|---|---|---|---|
+| C, wide shot | 2 | 100% | 15 | Follow throughout |
+| C, wide shot | 0 | 100% | 21 | Split throughout |
+| D, multi-camera | 2 | 100% | 28 | Follow, Split in the two-shot, Follow |
+| D, multi-camera | 0 | 100% | 28 | Follow, Split in the two-shot, Follow |
+
+- **Keyframes go at the ends of a move.** Smooth keyframes stop at each key, so a path simplified the usual way (Ramer–Douglas–Peucker) gave a stop-and-go move, 13 keys for one lean. A key where the camera starts moving and one where it stops plays back as one motion.
+- **Wide shots run out of pixels.** In clip C's 720p wide shot a head of 31 px asks for a crop about 100 px wide, more than 10× blown up. Zoom now stops at 5× and both halves of Split share one zoom, which also hides that the pose model sizes a head in profile too small.
+- **The width setting does little on these clips.** The median zoom on clip C is 1.88, 1.88 and 1.83 for Tight, Medium and Wide, held back by the 5× limit. On clip D it is 1 for all three, because a 9:16 crop of a 480p close-up is already as tight as asked. It should matter more on sharper sources, which these clips can't show.
+- **In the picture isn't the same as well framed.** The numbers show nobody gets lost; only watching the result shows whether it looks right.
+
 #### Still open
 
 - An episode with two or more people talking throughout.
+- A wide shot with a real back-and-forth, to count how many clicks it takes.
+- Captions sit on the lower face in Split, where their default place falls.

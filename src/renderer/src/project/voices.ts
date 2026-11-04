@@ -3,13 +3,14 @@
  * transcript, and again when the transcript, its words or the number of
  * people change. The result comes from the cache, not the project.
  */
+import { useMemo } from 'react';
 import { useStore } from 'zustand';
 import { createStore } from 'zustand/vanilla';
 import type { VoicesResult } from '../../../shared/api.ts';
 import type { Project } from '../../../shared/project.ts';
-import type { EpisodeVoices, SpeakerCount } from '../../../shared/voices.ts';
+import { heardVoices, type EpisodeVoices, type HeardVoices, type SpeakerCount, type SpeakerPick, type Span, type VoiceEdit } from '../../../shared/voices.ts';
 import type { VoicesProgress } from '../../../shared/worker-api.ts';
-import { projectStore } from './store.ts';
+import { projectStore, useProject, type EditLabel } from './store.ts';
 
 export interface VoicesState {
   /** The project the rest is about; null with no project or no transcript. */
@@ -98,9 +99,40 @@ export function setSpeakerCount(count: SpeakerCount): void {
   projectStore.getState().edit('history.speakerCount', (d) => void (d.voices.count = count));
 }
 
-/** Seconds each voice talks, by voice number. */
-export function talkTimes(voices: EpisodeVoices): number[] {
-  const times = new Array<number>(voices.voices).fill(0);
-  for (const t of voices.turns) times[t.voice] = (times[t.voice] ?? 0) + t.end - t.start;
-  return times;
+/** The voices with the user's corrections on them; null until there's a result. */
+export function useHeardVoices(): HeardVoices | null {
+  const found = useVoices((s) => s.voices);
+  const edits = useProject((s) => s.project?.voices.edits);
+  return useMemo(() => (found ? heardVoices(found, edits ?? []) : null), [found, edits]);
+}
+
+function addVoiceEdit(label: EditLabel, edit: VoiceEdit): void {
+  projectStore.getState().edit(label, (d) => void d.voices.edits.push(edit));
+}
+
+/** Names the voice talking at `at`; an empty name takes it away. */
+export const nameVoice = (at: number, name: string) => addVoiceEdit('history.nameVoice', { kind: 'name', at, name });
+
+/** The voice at `at` is the same person as the voice at `into`. */
+export const mergeVoice = (at: number, into: number) => addVoiceEdit('history.mergeVoices', { kind: 'merge', at, into });
+
+/** The turn is someone else's: the voice at `as`, a new voice, or nobody's. */
+export const correctTurn = ({ start, end }: Span, as: number | 'new' | null) => addVoiceEdit('history.correctTurn', { kind: 'turn', start, end, as });
+
+export const splitTurn = (at: number) => addVoiceEdit('history.splitTurn', { kind: 'split', at });
+
+/** Back to the voices as they were found, with nobody said to be anywhere, in any clip. */
+export function forgetVoiceEdits(): void {
+  projectStore.getState().edit('history.forgetVoiceEdits', (d) => {
+    d.voices.edits = [];
+    d.voices.picks = [];
+  });
+}
+
+/** Puts `next` in the place of the pick `old`; either can be null. */
+export function pickSpeaker(old: SpeakerPick | null, next: SpeakerPick | null): void {
+  projectStore.getState().edit('history.pickSpeaker', (d) => {
+    if (old) d.voices.picks = d.voices.picks.filter((p) => p.t !== old.t);
+    if (next) d.voices.picks.push(next);
+  });
 }

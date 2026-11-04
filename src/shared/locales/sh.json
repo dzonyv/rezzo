@@ -65,7 +65,14 @@
     "addEffect": "dodavanje efekta",
     "effectIntensity": "jačina efekta",
     "effectSettings": "podešavanja efekta",
-    "speakerCount": "broj ljudi koji pričaju"
+    "speakerCount": "broj ljudi koji pričaju",
+    "nameVoice": "imenovanje glasa",
+    "mergeVoices": "spajanje glasova",
+    "correctTurn": "ispravka poteza",
+    "splitTurn": "deljenje poteza",
+    "forgetVoiceEdits": "poništavanje svih ispravki glasova",
+    "pickSpeaker": "izbor ko govori",
+    "autoFrame": "automatski kadar"
   },
   "files": {
     "project": "Rezzo projekat",
@@ -506,7 +513,17 @@
     "phase": {
       "audio": "Čitam zvuk… {{percent}}%",
       "voices": "Razdvajam glasove… {{percent}}%"
-    }
+    },
+    "name": "Ime za {{voice}}",
+    "sameAs": "Ista osoba kao…",
+    "mergeInto": "{{voice}} je ista osoba kao",
+    "forget": "Poništi sve ispravke",
+    "turnHelp": "{{voice}}. Desni klik za ispravku",
+    "whoTalks": "Ko ovde govori?",
+    "newVoice": "Novi glas",
+    "nobody": "Niko",
+    "split": "Podeli ovde",
+    "wholeVoice": "Ceo ovaj glas je"
   },
   "analysis": {
     "cut": "Rez kamere",
@@ -514,5 +531,39 @@
     "person": "Osoba {{n}}",
     "showPeople": "Prikaži ljude",
     "showPeopleHelp": "Označava glave koje je analiza našla u ovom kadru"
+  },
+  "speakers": {
+    "title": "Ko sada govori",
+    "pick": "Klikni ako ova osoba sada govori",
+    "unpick": "Povuci da ova osoba sada govori",
+    "picked": "Ovde je ručno izabrano ko govori",
+    "why": {
+      "alone": "Samo jedna osoba u kadru",
+      "pick": "Ova osoba je izabrana ručno",
+      "place": "Poznato iz ranijeg klika",
+      "left": "Druga osoba je poznata, pa je ovo jedina preostala",
+      "group": "Ne zna se ko govori: klikni na osobu",
+      "none": "Nema nikog u kadru",
+      "held": "Niko ne govori: kadar ostaje na ovoj osobi"
+    }
+  },
+  "autoFrame": {
+    "title": "Automatsko kadriranje",
+    "button": "Automatski kadar",
+    "buttonHelp": "Kadrira ceo klip prema tome ko govori, umesto postojećeg kadriranja i rasporeda",
+    "shot": "Ovaj kadar",
+    "shotHelp": "Ponovo kadrira samo kadar na poziciji reprodukcije, a ostatak klipa ne dira",
+    "waiting": "Čeka analizu klipa i glasove",
+    "width": "Širina",
+    "widths": {
+      "tight": "Uzak",
+      "medium": "Srednji",
+      "wide": "Širok"
+    },
+    "change": "Novi govornik",
+    "changes": {
+      "cut": "Rez",
+      "pan": "Pan"
+    }
   }
 }

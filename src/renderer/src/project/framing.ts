@@ -4,9 +4,13 @@
  * lands on a keyframe at that time (see editAt in shared/framing.ts).
  */
 import type { Draft } from 'immer';
+import type { ClipAnalysis } from '../../../shared/analysis.ts';
+import { autoFrame, withAutoFrame, type AutoFrameOptions } from '../../../shared/autoframe.ts';
 import { editAt, removeKey, setKey, setLayoutAt, valueAt } from '../../../shared/framing.ts';
-import { workingFrameRate } from '../../../shared/frames.ts';
+import { fps, workingFrameRate } from '../../../shared/frames.ts';
 import type { Animated, Crop, FullFrame, Layout, VideoLayer } from '../../../shared/project.ts';
+import type { Stretch } from '../../../shared/speakers.ts';
+import type { Span } from '../../../shared/voices.ts';
 import { projectStore, type EditLabel } from './store.ts';
 
 /** The framing values a user edits; `layout` is edited only through setLayout. */
@@ -58,4 +62,16 @@ export function setSmooth(clipId: string, property: FramingProperty, index: numb
     const key = l[property][index];
     if (key) key.ease = smooth ? 'smooth' : 'cut';
   });
+}
+
+/** Frames `range` of the clip from who talks, in place of the framing and layouts there. One undo step. */
+export function applyAutoFrame(clipId: string, analysis: ClipAnalysis, stretches: readonly Stretch[], range: Span, options: AutoFrameOptions): void {
+  const clip = projectStore.getState().project?.clips.find((c) => c.id === clipId);
+  if (!clip) return;
+  const rate = sourceRate();
+  const span = { start: Math.max(range.start, clip.start, analysis.start), end: Math.min(range.end, clip.end, analysis.end) };
+  if (span.end <= span.start) return;
+  const framed = autoFrame(analysis, stretches, span, options, rate);
+  const toEnd = span.end >= clip.end - 1 / fps(rate);
+  editLayer(clipId, 'history.autoFrame', (l) => void Object.assign(l, withAutoFrame(l, framed, span, toEnd, rate)));
 }

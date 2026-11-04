@@ -1,18 +1,18 @@
 import { useTranslation } from 'react-i18next';
 import type { Project } from '../../../shared/project.ts';
-import { MAX_SPEAKERS, type SpeakerCount } from '../../../shared/voices.ts';
+import { MAX_SPEAKERS, type HeardVoice, type SpeakerCount } from '../../../shared/voices.ts';
 import { formatDuration } from '../format.ts';
-import { retryVoices, setSpeakerCount, talkTimes, useVoices } from '../project/voices.ts';
-import { voiceColor } from '../voice-colors.ts';
+import { forgetVoiceEdits, mergeVoice, nameVoice, retryVoices, setSpeakerCount, useHeardVoices, useVoices } from '../project/voices.ts';
+import { voiceColor, voiceLabel } from '../voice-colors.ts';
 
 const AUTO: SpeakerCount = 'auto';
 
-/** The episode's voices: how many, how much each talks, and how many people there should be. */
+/** The episode's voices: how many, how much each talks, what they're called, and how many people there should be. */
 export function VoicesPanel({ project }: { project: Project }) {
   const { t } = useTranslation();
   const status = useVoices((s) => s.status);
   const progress = useVoices((s) => s.progress);
-  const voices = useVoices((s) => s.voices);
+  const heard = useHeardVoices();
   const detail = useVoices((s) => s.detail);
 
   return (
@@ -33,14 +33,10 @@ export function VoicesPanel({ project }: { project: Project }) {
         </div>
       )}
       {/* The last result stays up while a new one is worked out. */}
-      {voices && (
+      {heard && (
         <ul className="voice-list">
-          {talkTimes(voices).map((seconds, v) => (
-            <li key={v}>
-              <span className="voice-chip" style={{ background: voiceColor(v) }} />
-              {t('voices.voice', { n: v + 1 })}
-              <span className="dim">{formatDuration(seconds)}</span>
-            </li>
+          {heard.voices.map((voice) => (
+            <VoiceRow key={voice.id} voice={voice} others={heard.voices.filter((v) => v.id !== voice.id)} />
           ))}
         </ul>
       )}
@@ -58,6 +54,49 @@ export function VoicesPanel({ project }: { project: Project }) {
           ))}
         </select>
       </label>
+      {project.voices.edits.length + project.voices.picks.length > 0 && (
+        <button type="button" onClick={forgetVoiceEdits}>
+          {t('voices.forget')}
+        </button>
+      )}
     </section>
+  );
+}
+
+/** One voice: its colour, a box for its name, how long it talks, and who else it might be. */
+function VoiceRow({ voice, others }: { voice: HeardVoice; others: readonly HeardVoice[] }) {
+  const { t } = useTranslation();
+  const label = voiceLabel(t, voice);
+  return (
+    <li>
+      <span className="voice-chip" style={{ background: voiceColor(voice.id) }} />
+      <input
+        // A new name from undo or a new result replaces what's in the box.
+        key={voice.name ?? ''}
+        aria-label={t('voices.name', { voice: t('voices.voice', { n: voice.id + 1 }) })}
+        placeholder={t('voices.voice', { n: voice.id + 1 })}
+        defaultValue={voice.name ?? ''}
+        onBlur={(e) => {
+          const name = e.target.value.trim();
+          if (name !== (voice.name ?? '')) nameVoice(voice.at, name);
+        }}
+        onKeyDown={(e) => e.key === 'Enter' && e.currentTarget.blur()}
+      />
+      <span className="dim">{formatDuration(voice.seconds)}</span>
+      {others.length > 0 && (
+        <select
+          aria-label={t('voices.mergeInto', { voice: label })}
+          value=""
+          onChange={(e) => e.target.value && mergeVoice(voice.at, Number(e.target.value))}
+        >
+          <option value="">{t('voices.sameAs')}</option>
+          {others.map((other) => (
+            <option key={other.id} value={other.at}>
+              {voiceLabel(t, other)}
+            </option>
+          ))}
+        </select>
+      )}
+    </li>
   );
 }

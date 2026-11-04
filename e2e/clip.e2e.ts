@@ -9,9 +9,7 @@ import path from 'node:path';
 import type { ElectronApplication, Page } from 'playwright-core';
 import { afterAll, beforeAll, describe, expect, it } from 'vitest';
 import { captionLayerOf, videoLayerOf, type Project, type Segment } from '../src/shared/project.ts';
-import {
-  answerOpenDialog, answerSaveDialog, launchApp, makeNumberedVideo, NUMBER_BIT_WIDTH, NUMBER_STRIP_HEIGHT, stopApp,
-} from './helpers.ts';
+import { analysisDone, answerOpenDialog, answerSaveDialog, launchApp, makeNumberedVideo, NUMBER_BIT_WIDTH, NUMBER_STRIP_HEIGHT, stopApp } from './helpers.ts';
 
 /** `window` inside page.evaluate(); this config has no DOM types. */
 type PageGlobal = typeof globalThis & { __rezzoPreview?: { readRow(y: number): number[]; hasAudio(): boolean | null } };
@@ -122,7 +120,8 @@ describe('clips', () => {
     expect(await page.evaluate(() => (globalThis as PageGlobal).__rezzoPreview?.hasAudio())).toBe(true);
   });
 
-  it('steps frame by frame', async () => {
+  it('steps frame by frame', { timeout: 120_000 }, async () => {
+    await analysisDone(page);
     for (let i = 0; i < 3; i++) await page.keyboard.press('ArrowRight');
     await expect.poll(frameOnScreen).toBe(150);
     await page.keyboard.press('Shift+ArrowRight');
@@ -130,13 +129,18 @@ describe('clips', () => {
   });
 
   it('plays and pauses with Space', async () => {
+    const started = Date.now();
     await page.keyboard.press('Space');
     await new Promise((r) => setTimeout(r, 700));
     await page.keyboard.press('Space');
+    const seconds = (Date.now() - started) / 1000;
     const frame = await frameOnScreen();
-    // About 0.7 s of 30 fps from frame 180, allowing for audio start-up.
+    // At 30 fps from frame 180, allowing for audio start-up. Pressing keys takes a while on a busy machine, so the time is measured.
     expect(frame).toBeGreaterThan(190);
-    expect(frame).toBeLessThan(205);
+    expect(frame).toBeLessThanOrEqual(180 + Math.ceil(seconds * 30) + 2);
+    // And it stopped.
+    await new Promise((r) => setTimeout(r, 200));
+    expect(await frameOnScreen()).toBe(frame);
     // Back to where the next test expects to be.
     await page.keyboard.press('Shift+ArrowLeft');
     await page.keyboard.press('Shift+ArrowRight');
@@ -195,6 +199,7 @@ describe('clips', () => {
   });
 
   it('moves the end of a word by dragging it in the word strip, as one undo step', async () => {
+    await page.locator('.word-strip').scrollIntoViewIfNeeded();
     const danas = (await page.locator('.word-strip .word', { hasText: 'Danas' }).boundingBox())!;
     const pricamo = (await page.locator('.word-strip .word', { hasText: 'pričamo' }).boundingBox())!;
     const perSecond = (pricamo.x - danas.x) / 0.5;

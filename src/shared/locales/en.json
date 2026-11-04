@@ -65,7 +65,14 @@
     "addEffect": "add effect",
     "effectIntensity": "effect intensity",
     "effectSettings": "effect settings",
-    "speakerCount": "number of people talking"
+    "speakerCount": "number of people talking",
+    "nameVoice": "name a voice",
+    "mergeVoices": "merge voices",
+    "correctTurn": "correct a turn",
+    "splitTurn": "split a turn",
+    "forgetVoiceEdits": "undo all voice corrections",
+    "pickSpeaker": "say who talks",
+    "autoFrame": "auto frame"
   },
   "files": {
     "project": "Rezzo project",
@@ -506,7 +513,17 @@
     "phase": {
       "audio": "Reading the audio… {{percent}}%",
       "voices": "Telling voices apart… {{percent}}%"
-    }
+    },
+    "name": "Name of {{voice}}",
+    "sameAs": "Same person as…",
+    "mergeInto": "{{voice}} is the same person as",
+    "forget": "Undo all corrections",
+    "turnHelp": "{{voice}}. Right-click to correct",
+    "whoTalks": "Who talks here?",
+    "newVoice": "New voice",
+    "nobody": "Nobody",
+    "split": "Split here",
+    "wholeVoice": "This whole voice is"
   },
   "analysis": {
     "cut": "Camera cut",
@@ -514,5 +531,39 @@
     "person": "Person {{n}}",
     "showPeople": "Show people",
     "showPeopleHelp": "Draws the heads the analysis found in this shot"
+  },
+  "speakers": {
+    "title": "Who talks now",
+    "pick": "Click if this person is talking now",
+    "unpick": "Take back that this person is talking now",
+    "picked": "You said who talks here",
+    "why": {
+      "alone": "Alone in the shot",
+      "pick": "You picked this person",
+      "place": "Known from an earlier click",
+      "left": "The other person is placed, so it must be this one",
+      "group": "Can't tell who talks: click the person",
+      "none": "Nobody in the shot",
+      "held": "Nobody talks: staying on this person"
+    }
+  },
+  "autoFrame": {
+    "title": "Automatic framing",
+    "button": "Auto frame",
+    "buttonHelp": "Frames the whole clip from who talks, in place of its framing and layouts",
+    "shot": "This shot",
+    "shotHelp": "Frames only the shot at the playhead again, and leaves the rest of the clip alone",
+    "waiting": "Waits for the clip analysis and the voices",
+    "width": "Width",
+    "widths": {
+      "tight": "Tight",
+      "medium": "Medium",
+      "wide": "Wide"
+    },
+    "change": "New speaker",
+    "changes": {
+      "cut": "Cut",
+      "pan": "Pan"
+    }
   }
 }

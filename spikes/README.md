@@ -69,6 +69,8 @@ Corrected transcripts and labels live in `<media>/whisper/review/`, with instruc
 ```
 npm run faces:lab            # MediaPipe on every clip, writes <clip>.json and <clip>.debug.mp4
 node faces/summarize.ts      # detection rates, sizes, timings, cuts
+node faces/who.ts            # who to look at in shots with several people (needs the app's analysis of clips C and D)
+node faces/frame.ts          # automatic framing on the same clips
 npm run faces:speakers       # active-speaker accuracy against speaker labels
 ```
 

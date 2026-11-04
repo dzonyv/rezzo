@@ -230,10 +230,28 @@ describe('project files', () => {
   });
 
   it('keeps the number of people talking, within reason', () => {
-    const two = { ...withVideo(), voices: { count: 2 as const } };
+    const two = { ...withVideo(), voices: { count: 2 as const, edits: [], picks: [] } };
     expect(parseProject(serializeProject(two))).toEqual(two);
-    expect(code(() => parseProject(JSON.stringify({ ...two, voices: { count: 0 } })))).toBe('invalid');
-    expect(code(() => parseProject(JSON.stringify({ ...two, voices: { count: 2.5 } })))).toBe('invalid');
+    expect(code(() => parseProject(JSON.stringify({ ...two, voices: { ...two.voices, count: 0 } })))).toBe('invalid');
+    expect(code(() => parseProject(JSON.stringify({ ...two, voices: { ...two.voices, count: 2.5 } })))).toBe('invalid');
+  });
+
+  it('upgrades a format 8 file, which had no corrections to the voices, keeping its count', () => {
+    const old = { ...withVideo(), format: 8, voices: { count: 3 } };
+    expect(parseProject(JSON.stringify(old)).voices).toEqual({ count: 3, edits: [], picks: [] });
+  });
+
+  it('keeps corrections to the voices and picks, and rejects a pick outside the picture', () => {
+    const edits = [
+      { kind: 'name' as const, at: 3, name: 'Ana' },
+      { kind: 'merge' as const, at: 3, into: 9 },
+      { kind: 'turn' as const, start: 1, end: 2, as: 'new' as const },
+      { kind: 'turn' as const, start: 4, end: 5, as: null },
+      { kind: 'split' as const, at: 7 },
+    ];
+    const corrected = { ...withVideo(), voices: { count: 'auto' as const, edits, picks: [{ t: 4, x: 0.25, y: 0.4, size: 0.05 }] } };
+    expect(parseProject(serializeProject(corrected))).toEqual(corrected);
+    expect(code(() => parseProject(JSON.stringify({ ...corrected, voices: { ...corrected.voices, picks: [{ t: 4, x: 1.5, y: 0, size: 0.05 }] } })))).toBe('invalid');
   });
 
   it('rejects an effect setting out of its range, or one the effect does not have', () => {

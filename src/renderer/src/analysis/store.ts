@@ -61,5 +61,11 @@ clipUiStore.subscribe((s) => {
   if (s.openClipId === null && analysisStore.getState().url) stopAnalysis();
 });
 
-// For the end-to-end tests: what the analysis found, and a way to run it on any working file.
-Object.assign(window, { __rezzoAnalysis: { state: () => analysisStore.getState(), run: (file: WorkingFile) => analyse(file) } });
+// For the end-to-end tests: what the analysis found, a way to run it on any working file, and to put people in a synthetic clip.
+Object.assign(window, {
+  __rezzoAnalysis: {
+    state: () => analysisStore.getState(),
+    run: (file: WorkingFile) => analyse(file),
+    set: (analysis: ClipAnalysis) => analysisStore.setState({ status: 'ready', analysis }),
+  },
+});

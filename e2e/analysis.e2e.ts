@@ -16,7 +16,7 @@ import { afterAll, beforeAll, describe, expect, it } from 'vitest';
 import type { ClipAnalysis } from '../src/shared/analysis.ts';
 import { clipFromWords } from '../src/shared/clips.ts';
 import type { Project } from '../src/shared/project.ts';
-import { answerOpenDialog, answerSaveDialog, ffmpegExe, launchApp, stopApp } from './helpers.ts';
+import { answerOpenDialog, answerSaveDialog, ffmpegExe, launchApp, stopApp, until } from './helpers.ts';
 
 const run = promisify(execFile);
 
@@ -26,14 +26,6 @@ type PageGlobal = typeof globalThis & { __rezzoAnalysis: { state(): { status: st
 let dir: string;
 let app: ElectronApplication | undefined;
 let page: Page;
-
-async function until(check: () => Promise<boolean>, timeoutMs = 10_000): Promise<void> {
-  const end = Date.now() + timeoutMs;
-  while (!(await check())) {
-    if (Date.now() > end) throw new Error('timed out');
-    await new Promise((r) => setTimeout(r, 100));
-  }
-}
 
 const state = () => page.evaluate(() => (globalThis as PageGlobal).__rezzoAnalysis.state());
 

@@ -1,5 +1,5 @@
 import { describe, expect, it } from 'vitest';
-import { cutDendrogram, dendrogram, piecesOf, turnsOf, voiceAt, voicesOf, type Span } from './voices.ts';
+import { cutDendrogram, dendrogram, piecesOf, turnsOf, voiceAt, voicesOf, type Span, heardVoices, turnNear, type VoiceTurn } from './voices.ts';
 
 const v = (...xs: number[]) => Float32Array.from(xs);
 const unit = (angle: number) => v(Math.cos(angle), Math.sin(angle));
@@ -109,5 +109,93 @@ describe('voices', () => {
     expect(voiceAt(turns, 7.99)).toBe(0);
     expect(voiceAt(turns, 8)).toBeNull();
     expect(voiceAt(turns, 11)).toBeNull();
+  });
+});
+
+describe('corrections to the voices', () => {
+  const found = {
+    voices: 2,
+    turns: [
+      { start: 0, end: 4, voice: 0 },
+      { start: 5, end: 6, voice: 1 },
+      { start: 7, end: 12, voice: 0 },
+      { start: 13, end: 15, voice: 1 },
+    ] satisfies VoiceTurn[],
+  };
+
+  it('leaves the voices as found without any', () => {
+    const heard = heardVoices(found, []);
+    expect(heard.turns).toEqual(found.turns);
+    expect(heard.voices).toEqual([
+      { id: 0, name: null, seconds: 9, at: 9.5 },
+      { id: 1, name: null, seconds: 3, at: 14 },
+    ]);
+  });
+
+  it('names a voice by a moment it talks at, and takes a name away', () => {
+    expect(heardVoices(found, [{ kind: 'name', at: 2, name: 'Ana' }]).voices[0]!.name).toBe('Ana');
+    expect(heardVoices(found, [{ kind: 'name', at: 2, name: 'Ana' }, { kind: 'name', at: 9, name: '' }]).voices[0]!.name).toBeNull();
+  });
+
+  it('finds the voice near a moment that falls in a pause', () => {
+    expect(turnNear(found.turns, 4.2)!.voice).toBe(0);
+    expect(turnNear(found.turns, 4.8)!.voice).toBe(1);
+    expect(turnNear([], 3)).toBeNull();
+  });
+
+  it('merges voices, keeping the name of either', () => {
+    const heard = heardVoices(found, [
+      { kind: 'name', at: 14, name: 'Ana' },
+      { kind: 'merge', at: 14, into: 2 },
+    ]);
+    expect(heard.voices).toEqual([{ id: 0, name: 'Ana', seconds: 12, at: 9.5 }]);
+    expect(heard.turns.every((t) => t.voice === 0)).toBe(true);
+  });
+
+  it('gives a turn to another voice, a new one, or nobody', () => {
+    expect(heardVoices(found, [{ kind: 'turn', start: 5, end: 6, as: 2 }]).turns[1]).toEqual({ start: 5, end: 6, voice: 0 });
+    const fresh = heardVoices(found, [{ kind: 'turn', start: 5, end: 6, as: 'new' }]);
+    expect(fresh.turns[1]).toEqual({ start: 5, end: 6, voice: 2 });
+    expect(fresh.voices.map((v) => v.id)).toEqual([0, 1, 2]);
+    expect(heardVoices(found, [{ kind: 'turn', start: 5, end: 6, as: null }]).turns).toHaveLength(3);
+  });
+
+  it('splits a turn, so that one half can be corrected', () => {
+    const heard = heardVoices(found, [
+      { kind: 'split', at: 9 },
+      { kind: 'turn', start: 9, end: 12, as: 14 },
+    ]);
+    expect(heard.turns.slice(2, 4)).toEqual([
+      { start: 7, end: 9, voice: 0 },
+      { start: 9, end: 12, voice: 1 },
+    ]);
+  });
+
+  it('cuts away what a correction covers from turns that stick out of it', () => {
+    const heard = heardVoices(found, [{ kind: 'turn', start: 8, end: 10, as: null }]);
+    expect(heard.turns.slice(2, 4)).toEqual([
+      { start: 7, end: 8, voice: 0 },
+      { start: 10, end: 12, voice: 0 },
+    ]);
+  });
+
+  it('reads each correction as the voices stood when it was made', () => {
+    // The name went on voice 0 at 2 s; moving that turn to voice 1 later doesn't move the name.
+    const heard = heardVoices(found, [
+      { kind: 'name', at: 2, name: 'Ana' },
+      { kind: 'turn', start: 0, end: 4, as: 14 },
+    ]);
+    expect(heard.voices.find((v) => v.id === 0)!.name).toBe('Ana');
+    expect(heard.voices.find((v) => v.id === 1)!.name).toBeNull();
+  });
+
+  it('holds on a new result, where the same people have other numbers', () => {
+    const renumbered = { voices: 2, turns: found.turns.map((t) => ({ ...t, voice: 1 - t.voice })) };
+    const heard = heardVoices(renumbered, [{ kind: 'name', at: 2, name: 'Ana' }]);
+    expect(heard.voices.find((v) => v.name === 'Ana')!.seconds).toBe(9);
+  });
+
+  it('skips a correction when no voice is left to name', () => {
+    expect(heardVoices({ voices: 0, turns: [] }, [{ kind: 'name', at: 2, name: 'Ana' }, { kind: 'turn', start: 1, end: 2, as: 2 }, { kind: 'merge', at: 1, into: 2 }])).toEqual({ turns: [], voices: [] });
   });
 });

@@ -53,6 +53,8 @@ export async function diarize(ctx: JobContext, req: VoicesRequest): Promise<Epis
 
   await mkdir(req.cacheDir, { recursive: true });
   const embeddings = await embeddingsOf(ctx, req);
+  // A job that was replaced has nothing to add, and would write over the new one's result.
+  if (ctx.signal.aborted) throw new Error('cancelled');
   const voices = voicesOf(req.pieces, embeddings, req.count);
   const result: EpisodeVoices = {
     version: VOICES_VERSION,

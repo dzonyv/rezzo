@@ -5,6 +5,7 @@ import { readFile, writeFile } from 'node:fs/promises';
 import path from 'node:path';
 import { promisify } from 'node:util';
 import { _electron as electron, type ElectronApplication, type Page } from 'playwright-core';
+import type { Segment } from '../src/shared/project.ts';
 
 const run = promisify(execFile);
 
@@ -13,6 +14,40 @@ function ffmpegBin(): string {
   const build = readdirSync(root, { withFileTypes: true }).find((d) => d.isDirectory());
   if (!build) throw new Error('FFmpeg missing: run `npm run fetch-tools`');
   return path.join(root, build.name, 'bin');
+}
+
+/** expect.poll() for hooks, where vitest doesn't allow it. */
+export async function until(check: () => Promise<boolean>, timeoutMs = 10_000): Promise<void> {
+  const end = Date.now() + timeoutMs;
+  while (!(await check())) {
+    if (Date.now() > end) throw new Error('timed out');
+    await new Promise((r) => setTimeout(r, 100));
+  }
+}
+
+/**
+ * Waits for the open clip's analysis to finish. While MediaPipe starts up
+ * it keeps the GPU busy: reading the preview back stalls for most of a second
+ * here, and for much longer on a machine with no GPU. Anything that measures
+ * time waits for this first.
+ */
+export async function analysisDone(page: Page): Promise<void> {
+  type Analysis = typeof globalThis & { __rezzoAnalysis: { state(): { status: string } } };
+  await until(async () => /ready|failed/.test(await page.evaluate(() => (globalThis as Analysis).__rezzoAnalysis.state().status)), 100_000);
+}
+
+/** A transcript segment of words 0.5 s apart from `start` to `end`. */
+export function segmentOf(start: number, end: number): Segment {
+  const words = Array.from({ length: Math.round((end - start) / 0.5) }, (_, i) => ({ text: `reč${i}`, start: start + i * 0.5, end: start + i * 0.5 + 0.4, p: 0.9 }));
+  return { start, end: words.at(-1)!.end, words };
+}
+
+/** Puts the playhead `seconds` into a clip of `length` seconds by pressing on the timeline. */
+export async function seekTimeline(page: Page, seconds: number, length: number): Promise<void> {
+  const timeline = page.locator('.clip-timeline');
+  await timeline.scrollIntoViewIfNeeded();
+  const box = (await timeline.boundingBox())!;
+  await timeline.click({ position: { x: (box.width * seconds) / length, y: box.height - 4 } });
 }
 
 export const ffmpegExe = (): string => path.join(ffmpegBin(), 'ffmpeg.exe');

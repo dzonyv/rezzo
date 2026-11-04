@@ -34,6 +34,7 @@ export interface Span {
 }
 
 const seconds = z.number().finite().nonnegative();
+const unit = z.number().min(0).max(1);
 
 export const voiceTurnSchema = z.object({ start: seconds, end: seconds, voice: z.number().int().nonnegative() });
 export type VoiceTurn = z.infer<typeof voiceTurnSchema>;
@@ -47,6 +48,33 @@ export const episodeVoicesSchema = z.object({
   turns: z.array(voiceTurnSchema),
 });
 export type EpisodeVoices = z.infer<typeof episodeVoicesSchema>;
+
+/**
+ * A correction to the voices, kept in the project in the order it was made.
+ * A voice's number holds only for one result (changing the count or the
+ * words renumbers them), so a correction names a voice by a moment it talks
+ * at, as the voices stood when it was made. Replaying them works on any result.
+ */
+export const voiceEditSchema = z.discriminatedUnion('kind', [
+  /** The voice at `at` has a name; an empty one takes it away. */
+  z.object({ kind: z.literal('name'), at: seconds, name: z.string() }),
+  /** The voice at `at` is the same person as the voice at `into`. */
+  z.object({ kind: z.literal('merge'), at: seconds, into: seconds }),
+  /** Whoever talks from `start` to `end` is the voice at `as`, a new voice, or nobody. */
+  z.object({ kind: z.literal('turn'), start: seconds, end: seconds, as: z.union([seconds, z.literal('new'), z.null()]) }),
+  /** The turn around `at` is really two. */
+  z.object({ kind: z.literal('split'), at: seconds }),
+]);
+export type VoiceEdit = z.infer<typeof voiceEditSchema>;
+
+/**
+ * "At `t` the person at (x, y) is the one talking", from a click. The point
+ * is in 0..1 of the source, not a seat of the analysis, so it means the same
+ * after a new analysis and in every clip of the episode. `size` is their head
+ * as a share of the picture's width, which tells one camera angle from another.
+ */
+export const speakerPickSchema = z.object({ t: seconds, x: unit, y: unit, size: z.number().positive().max(1) });
+export type SpeakerPick = z.infer<typeof speakerPickSchema>;
 
 /** Words joined into pieces, split at pauses of `gap` and at `max` seconds. */
 export function piecesOf(words: readonly Span[], gap = PIECE_GAP, max = PIECE_MAX): Span[] {
@@ -209,4 +237,86 @@ export function voiceAt(turns: readonly VoiceTurn[], t: number): number | null {
     else return turn.voice;
   }
   return null;
+}
+
+/** The turn nearest to `t`, or null when there are none. */
+export function turnNear(turns: readonly VoiceTurn[], t: number): VoiceTurn | null {
+  let best: VoiceTurn | null = null;
+  let bestD = Infinity;
+  for (const turn of turns) {
+    const d = Math.max(turn.start - t, t - turn.end, 0);
+    if (d < bestD) {
+      bestD = d;
+      best = turn;
+    }
+  }
+  return best;
+}
+
+export interface HeardVoice {
+  id: number;
+  /** What the user calls it, if they have. */
+  name: string | null;
+  /** Seconds it talks. */
+  seconds: number;
+  /** A moment it talks at, for corrections to name it by. */
+  at: number;
+}
+
+export interface HeardVoices {
+  turns: VoiceTurn[];
+  voices: HeardVoice[];
+}
+
+/** What's left of a turn outside `start`..`end`. */
+function outside(turn: VoiceTurn, start: number, end: number): VoiceTurn[] {
+  if (turn.end <= start || turn.start >= end) return [turn];
+  const left = turn.start < start ? [{ ...turn, end: start }] : [];
+  const right = turn.end > end ? [{ ...turn, start: end }] : [];
+  return [...left, ...right];
+}
+
+/** The voices as found, with the user's corrections replayed over them in order. */
+export function heardVoices(found: Pick<EpisodeVoices, 'voices' | 'turns'>, edits: readonly VoiceEdit[]): HeardVoices {
+  let turns: VoiceTurn[] = found.turns;
+  let unused = found.voices;
+  const names = new Map<number, string>();
+  const voiceNear = (t: number) => turnNear(turns, t)?.voice ?? null;
+
+  for (const edit of edits) {
+    if (edit.kind === 'name') {
+      const voice = voiceNear(edit.at);
+      if (voice === null) continue;
+      if (edit.name) names.set(voice, edit.name);
+      else names.delete(voice);
+    } else if (edit.kind === 'merge') {
+      const from = voiceNear(edit.at);
+      const into = voiceNear(edit.into);
+      if (from === null || into === null || from === into) continue;
+      turns = turns.map((t) => (t.voice === from ? { ...t, voice: into } : t));
+      const name = names.get(from);
+      if (name !== undefined && !names.has(into)) names.set(into, name);
+      names.delete(from);
+    } else if (edit.kind === 'split') {
+      turns = turns.flatMap((t) => (t.start < edit.at && edit.at < t.end ? [{ ...t, end: edit.at }, { ...t, start: edit.at }] : [t]));
+    } else {
+      const voice = edit.as === 'new' ? unused++ : edit.as === null ? null : voiceNear(edit.as);
+      if (edit.as !== null && voice === null) continue;
+      turns = turns.flatMap((t) => outside(t, edit.start, edit.end));
+      if (voice !== null) turns = [...turns, { start: edit.start, end: edit.end, voice }].sort((a, b) => a.start - b.start);
+    }
+  }
+
+  const voices = new Map<number, HeardVoice & { longest: number }>();
+  for (const turn of turns) {
+    const length = turn.end - turn.start;
+    const voice = voices.get(turn.voice) ?? { id: turn.voice, name: names.get(turn.voice) ?? null, seconds: 0, at: turn.start, longest: 0 };
+    voice.seconds += length;
+    if (length > voice.longest) {
+      voice.longest = length;
+      voice.at = (turn.start + turn.end) / 2;
+    }
+    voices.set(turn.voice, voice);
+  }
+  return { turns, voices: [...voices.values()].sort((a, b) => a.id - b.id).map(({ longest: _, ...voice }) => voice) };
 }
