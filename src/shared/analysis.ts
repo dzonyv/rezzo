@@ -204,11 +204,22 @@ function onePerFrame(samples: HeadSample[], x: number, y: number): HeadSample[] 
  * in the shot, the seat's mean position.
  */
 export function seatBoxAt(seat: Seat, t: number): Box {
-  const near = seat.samples.filter((s) => Math.abs(s.t - t) <= SMOOTH);
+  // Samples are in time order; the camera asks about every step of a scene.
+  const { samples } = seat;
+  let lo = 0;
+  let hi = samples.length;
+  while (lo < hi) {
+    const mid = (lo + hi) >> 1;
+    if (samples[mid]!.t < t - SMOOTH) lo = mid + 1;
+    else hi = mid;
+  }
+  const near: HeadSample[] = [];
+  for (let i = lo; i < samples.length && samples[i]!.t <= t + SMOOTH; i++) near.push(samples[i]!);
   if (near.length === 0) {
-    let best: HeadSample | undefined;
-    for (const s of seat.samples) if (!best || Math.abs(s.t - t) < Math.abs(best.t - t)) best = s;
-    return best?.box ?? seat.box;
+    const before = samples[lo - 1];
+    const after = samples[lo];
+    const nearest = before && (!after || t - before.t <= after.t - t) ? before : after;
+    return nearest?.box ?? seat.box;
   }
   let cx = 0;
   let cy = 0;

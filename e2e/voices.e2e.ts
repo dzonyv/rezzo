@@ -13,9 +13,9 @@ import path from 'node:path';
 import { promisify } from 'node:util';
 import type { ElectronApplication, Page } from 'playwright-core';
 import { afterAll, beforeAll, describe, expect, it } from 'vitest';
-import type { Project, Segment } from '../src/shared/project.ts';
+import type { Project } from '../src/shared/project.ts';
 import { VOICES_VERSION } from '../src/shared/voices.ts';
-import { answerOpenDialog, answerSaveDialog, ffmpegExe, launchApp, stopApp } from './helpers.ts';
+import { answerOpenDialog, answerSaveDialog, ffmpegExe, launchApp, segmentOf, stopApp, until } from './helpers.ts';
 
 const run = promisify(execFile);
 
@@ -23,21 +23,6 @@ let dir: string;
 let app: ElectronApplication | undefined;
 let page: Page;
 let file: string;
-
-/** Words 0.5 s apart from `start` to `end`. */
-function segment(start: number, end: number): Segment {
-  const words = Array.from({ length: Math.round((end - start) / 0.5) }, (_, i) => ({ text: `reč${i}`, start: start + i * 0.5, end: start + i * 0.5 + 0.4, p: 0.9 }));
-  return { start, end: words.at(-1)!.end, words };
-}
-
-/** expect.poll() for hooks, where vitest doesn't allow it. */
-async function until(check: () => Promise<boolean>, timeoutMs = 10_000): Promise<void> {
-  const end = Date.now() + timeoutMs;
-  while (!(await check())) {
-    if (Date.now() > end) throw new Error('timed out');
-    await new Promise((r) => setTimeout(r, 100));
-  }
-}
 
 async function saved(): Promise<Project> {
   await page.keyboard.press('Control+S');
@@ -78,7 +63,7 @@ beforeAll(async () => {
     createdAt: new Date().toISOString(),
     startShift: -0.1,
     // Pauses of 0.6 s cut the speech into pieces of about 2 s.
-    segments: [segment(0.2, 2.2), segment(2.8, 4.8), segment(6.3, 8.3), segment(8.9, 10.9)],
+    segments: [segmentOf(0.2, 2.2), segmentOf(2.8, 4.8), segmentOf(6.3, 8.3), segmentOf(8.9, 10.9)],
   };
   await writeFile(file, JSON.stringify(project));
   await page.getByRole('button', { name: /two-sounds/ }).click();

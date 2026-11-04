@@ -1,6 +1,6 @@
 import { describe, expect, it } from 'vitest';
 import { ANALYSIS_VERSION, type ClipAnalysis, type Seat } from './analysis.ts';
-import { stretchAt, stretchesOf, type Target } from './speakers.ts';
+import { clickedStretch, isPicked, stretchAt, stretchesOf, type Target } from './speakers.ts';
 import type { VoiceTurn } from './voices.ts';
 
 const WIDTH = 1000;
@@ -135,6 +135,24 @@ describe('who to look at', () => {
     expect(stretches.at(-1)!.end).toBe(50);
     stretches.slice(1).forEach((s, i) => expect(s.start).toBe(stretches[i]!.end));
     expect(stretches.find((s) => s.voice === 0)).toMatchObject({ start: 10, end: 12 });
+  });
+
+  it('takes a click in the pause that opens a shot for the turn to come', () => {
+    const stretches = stretchesOf(analysis, turns, []);
+    expect(clickedStretch(stretches, 10.5)).toMatchObject({ start: 11, voice: 0 });
+    // A pause between turns stays a pause, and turns and one-person shots are themselves.
+    expect(clickedStretch(stretches, 14.5)).toMatchObject({ start: 14, voice: null });
+    expect(clickedStretch(stretches, 12)).toMatchObject({ start: 11 });
+    expect(clickedStretch(stretches, 5)).toMatchObject({ start: 0, end: 10 });
+    expect(clickedStretch(stretchesOf(analysis, [], []), 12)).toMatchObject({ start: 10, end: 20 });
+    expect(clickedStretch([], 1)).toBeNull();
+  });
+
+  it('tells a seat that was picked from one that was worked out', () => {
+    const stretches = stretchesOf(analysis, turns, [{ t: 12, ...LEFT }]);
+    expect(isPicked(stretchAt(stretches, 12)!, 1)).toBe(true);
+    expect(isPicked(stretchAt(stretches, 12)!, 2)).toBe(false);
+    expect(isPicked(stretchAt(stretches, 36)!, 4)).toBe(false);
   });
 
   it('finds the stretch at a moment, and the last one past the end', () => {
