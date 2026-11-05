@@ -37,7 +37,9 @@ afterEach(async () => {
 describe('app', () => {
   it('starts with a sandboxed renderer', async () => {
     const page = await (await launch()).firstWindow();
-    await expect.poll(() => page.locator('h1').textContent()).toBe('Rezzo');
+    // Not expect.poll: its one second is about what a start takes on CI, and sometimes less.
+    await page.locator('h1').waitFor();
+    expect(await page.locator('h1').textContent()).toBe('Rezzo');
     expect(await page.evaluate(() => typeof (globalThis as PageGlobal).require)).toBe('undefined');
     expect(await page.evaluate(() => typeof (globalThis as PageGlobal).rezzo.invoke)).toBe('function');
   });
@@ -52,6 +54,7 @@ describe('app', () => {
 
     await app!.close();
     page = await (await launch()).firstWindow();
+    await page.locator('h1').waitFor();
     await expect.poll(() => page.locator('html').getAttribute('lang')).toBe('sh');
   });
 
