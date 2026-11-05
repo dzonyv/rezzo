@@ -14,7 +14,7 @@ import type { ElectronApplication, Page } from 'playwright-core';
 import { afterAll, beforeAll, describe, expect, it } from 'vitest';
 import { defaultVideoLayer } from '../src/shared/framing.ts';
 import type { ImageLayer, Project } from '../src/shared/project.ts';
-import { answerOpenDialog, answerSaveDialog, ffmpegExe, launchApp, makeNumberedVideo, stopApp } from './helpers.ts';
+import { analysisDone, answerOpenDialog, answerSaveDialog, ffmpegExe, launchApp, makeNumberedVideo, stopApp } from './helpers.ts';
 
 const run = promisify(execFile);
 
@@ -74,6 +74,7 @@ async function openClip(): Promise<void> {
   await page.locator('.clip-list li', { hasText: 'Slike' }).getByRole('button', { name: 'Slike' }).click();
   // The preview has drawn the clip's first frame.
   await until(async () => isGrey(await pixel(OUTSIDE_X)), 20_000);
+  await analysisDone(page);
 }
 
 async function reopenProject(): Promise<void> {
