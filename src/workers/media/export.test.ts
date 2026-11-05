@@ -5,7 +5,7 @@ import { exportArgs, pickEncoder } from './export.ts';
 const request = (patch: Partial<ExportRequest> = {}): ExportRequest => ({
   out: 'D:\\Klipovi\\klip.mp4',
   workingFile: 'D:\\cache\\work.mp4',
-  audioStart: 2.002,
+  audioPieces: [{ start: 2.002, duration: 31.031 }],
   duration: 31.031,
   hasAudio: true,
   sounds: [],
@@ -18,6 +18,29 @@ const request = (patch: Partial<ExportRequest> = {}): ExportRequest => ({
 const arg = (args: string[], flag: string, from = 0) => args[args.indexOf(flag, from) + 1];
 
 describe('export arguments', () => {
+  it('joins the pieces of a clip with skips, and leaves a whole clip as it was', () => {
+    const whole = exportArgs(request(), 'out.part');
+    expect(whole).not.toContain('-filter_complex');
+    expect(arg(whole, '-ss')).toBe('2.002000');
+    expect(arg(whole, '-t')).toBe('31.031000');
+
+    const args = exportArgs(request({ audioPieces: [{ start: 2, duration: 3 }, { start: 6, duration: 4 }], duration: 7 }), 'out.part');
+    expect(arg(args, '-ss')).toBe('2.000000');
+    expect(arg(args, '-t')).toBe('8.000000');
+    const graph = arg(args, '-filter_complex')!;
+    expect(graph).toContain('atrim=start=0.000000:end=3.000000');
+    expect(graph).toContain('atrim=start=4.000000:end=8.000000');
+    expect(graph).toContain('afade=t=out:st=2.990000:d=0.01');
+    expect(graph).toContain('afade=t=in:d=0.01');
+    expect(graph).toContain('concat=n=2:v=0:a=1[a0]');
+    expect(graph).toContain('atrim=end=7.000000[a]');
+  });
+
+  it('has no sound to join in a clip without any', () => {
+    const args = exportArgs(request({ hasAudio: false, audioPieces: [{ start: 2, duration: 3 }, { start: 6, duration: 4 }], duration: 7 }), 'out.part');
+    expect(args).not.toContain('-filter_complex');
+  });
+
   it('reads raw 1080×1920 yuv420p frames at the working file rate from stdin', () => {
     const args = exportArgs(request(), 'out.part');
     expect(arg(args, '-f')).toBe('rawvideo');

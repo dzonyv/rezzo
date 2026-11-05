@@ -609,3 +609,36 @@ On CI the clip tests failed because reading the preview back stalled while the a
 - An episode with two or more people talking throughout.
 - A wide shot with a real back-and-forth, to count how many clicks it takes.
 - Captions sit on the lower face in Split, where their default place falls.
+
+## Phase 5 checks
+
+### Finding pauses (5a)
+
+The plan was to cut gaps between words that are also quiet. `silence/gaps.ts` measures those gaps on the four Phase 0 clips, with words as the app makes them and loudness as the highest sample in each 10 ms.
+
+| Clip | Gaps of 0.5 s or more | Share of the clip | Of those, quiet at -26 dB under speech |
+|---|---|---|---|
+| A | 19 | 31% | 3 |
+| B | 23 | 33% | 0 |
+| C | 20 | 22% | 1 |
+| D | 24 | 24% | 0 |
+
+Word times can't find pauses. A quarter to a third of each clip looks like a gap, and almost none of it is quiet. At those gaps the sound runs on 0.41 s after a word's end (median; 0.80 s at the 95th percentile) and starts 0.26 s before the next word's start (0.88 s). Word ends run early, so a cut in such a gap would take the end of a word with it.
+
+`silence/quiet.ts` turns it around and looks for quiet in the sound alone: RMS over 20 ms, with a limit set per clip between its noise floor and its speech level, since those differ a lot between clips (a range of 26 to 65 dB).
+
+| Clip | Pauses of 0.5 s or more, limit at 0.35 of the range | Time | Share of the clip | Under words |
+|---|---|---|---|---|
+| A | 4 | 5.7 s | 11% | 0% |
+| B | 13 | 14.0 s | 20% | 18% |
+| C | 1 | 0.5 s | 1% | 0% |
+| D | 4 | 2.9 s | 4% | 0% |
+
+- **Pauses come from the sound.** Words only make sure no word is cut: clip B has words over quiet stretches, so a pause is what's left of a quiet stretch after taking the words out of it.
+- **The limit isn't critical.** 0.25 to 0.5 of the range gives about the same pauses on clips A, B and D. Clip C, a loud wide shot with a floor of -41 dB, finds 0 to 4.
+- **Some clips have little to cut.** Clips C and D are people talking fast, so they lose 1 to 4%. That's the right answer, not a miss.
+- **Air can be small.** Since a pause's edges are where the sound really stops, 0.1 s on each side is enough.
+
+### Going over a cut in the preview (5a)
+
+The decoder has to start again from a keyframe at each cut, up to 14 frames before the one it needs. On the GTX 1660, with a 720p test clip playing over two cuts, the picture stood still for 32 and 42 ms: about one frame. That can't be seen, so playback jumps and doesn't need to decode through short cuts. The sound doesn't wait, since it's scheduled ahead.

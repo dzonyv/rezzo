@@ -7,6 +7,7 @@ import { useOpenClip, useOpenClipId } from '../clip/state.ts';
 import { formatDuration } from '../format.ts';
 import { seek } from '../player/playback.ts';
 import { createClip, setClipWords } from '../project/clips.ts';
+import { cutWords } from '../project/skips.ts';
 import { ruleFor } from '../../../shared/replacements.ts';
 import { wordsOfText } from '../../../shared/transcript-edit.ts';
 import { useProject } from '../project/store.ts';
@@ -304,13 +305,15 @@ function hitsBySegment(flat: FlatTranscript, matches: Match[], current: number):
   return out;
 }
 
-/** Per word: 0 outside any clip, 1 inside a clip, 2 inside the open clip. */
+/** Per word: 0 outside any clip, 1 inside a clip, 2 inside the open clip, 3 cut from the open clip. */
 function clipMarks(words: readonly FlatWord[], clips: readonly Clip[], openClipId: string | null): Uint8Array {
   const marks = new Uint8Array(words.length);
   for (const clip of clips) {
     const mark = clip.id === openClipId ? 2 : 1;
     for (const w of words) {
-      if (w.start >= clip.start - 1e-6 && w.end <= clip.end + 1e-6) marks[w.index] = Math.max(marks[w.index]!, mark);
+      if (w.start < clip.start - 1e-6 || w.end > clip.end + 1e-6) continue;
+      const cut = mark === 2 && clip.skips.some((s) => w.start >= s.start - 1e-6 && w.end <= s.end + 1e-6);
+      marks[w.index] = cut ? 3 : Math.max(marks[w.index]!, mark);
     }
   }
   return marks;
@@ -341,6 +344,7 @@ function SelectionBar({ words, source }: { words: FlatWord[]; source: Source }) 
   const open = useOpenClip();
   const range = rangeForWords(words, source);
   const fits = fitsInClip(range);
+  const inOpen = open !== null && words[0]!.start >= open.start - 1e-6 && words.at(-1)!.end <= open.end + 1e-6;
   const done = (fn: () => void) => () => {
     fn();
     clearSelection();
@@ -350,6 +354,11 @@ function SelectionBar({ words, source }: { words: FlatWord[]; source: Source }) 
       <span>{t('clips.selected', { count: words.length, duration: formatDuration(range.end - range.start) })}</span>
       {!fits && <span className="warning">{t('clips.tooLong', { minutes: MAX_CLIP_SECONDS / 60 })}</span>}
       <div className="spacer" />
+      {inOpen && (
+        <button type="button" title={t('clips.cutWordsHelp')} onClick={done(() => cutWords(open.id, words))}>
+          {t('clips.cutWords')}
+        </button>
+      )}
       {open && (
         <button type="button" disabled={!fits} onClick={done(() => setClipWords(open.id, words))}>
           {t('clips.useForOpen', { name: open.name })}
@@ -435,6 +444,7 @@ function wordClass(
   const classes = ['w'];
   if (mark === 1) classes.push('in-clip');
   if (mark === 2) classes.push('in-open-clip');
+  if (mark === 3) classes.push('cut-from-clip');
   if (selection && index >= selection.first && index <= selection.last) classes.push('selected');
   if (active) classes.push('active');
   if (hits?.any.has(index)) classes.push('hit');

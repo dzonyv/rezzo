@@ -72,7 +72,11 @@
     "splitTurn": "deljenje poteza",
     "forgetVoiceEdits": "poništavanje svih ispravki glasova",
     "pickSpeaker": "izbor ko govori",
-    "autoFrame": "automatski kadar"
+    "autoFrame": "automatski kadar",
+    "cutPauses": "uklanjanje pauza",
+    "cutWords": "isecanje reči iz klipa",
+    "restoreCut": "vraćanje isečenog dela",
+    "restoreCuts": "vraćanje svih isečenih delova"
   },
   "files": {
     "project": "Rezzo projekat",
@@ -179,6 +183,8 @@
     "tooLong": "Klip može da traje najviše {{minutes}} minuta.",
     "create": "Napravi klip",
     "useForOpen": "Primeni na „{{name}}”",
+    "cutWords": "Iseci iz klipa",
+    "cutWordsHelp": "Izbacuje ove reči iz otvorenog klipa. Klik na isečeni deo na timeline-u ih vraća.",
     "clearSelection": "Poništi",
     "untitled": "Klip bez naziva",
     "delete": "Obriši klip",
@@ -565,5 +571,21 @@
       "cut": "Rez",
       "pan": "Pan"
     }
+  },
+  "silence": {
+    "title": "Uklanjanje pauza",
+    "find": "Nađi pauze",
+    "findHelp": "Obeležava pauze na timeline-u. Ništa se ne seče dok ne potvrdiš.",
+    "noSound": "Čeka klip, koji mora da ima zvuk",
+    "minPause": "Najkraća pauza",
+    "air": "Ostavi oko reči",
+    "seconds": "{{value}} s",
+    "none": "Nema pauza.",
+    "found": "Pauza za uklanjanje: {{count}} ({{seconds}} s)",
+    "remove": "Ukloni",
+    "cancel": "Otkaži",
+    "restoreAll": "Vrati sve isečeno",
+    "pauseHelp": "Klikni da zadržiš ili ukloniš ovu pauzu",
+    "skipHelp": "Isečeno iz klipa. Klikni da vratiš."
   }
 }

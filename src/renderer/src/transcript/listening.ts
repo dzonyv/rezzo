@@ -48,11 +48,11 @@ export function seekPaused(time: number): void {
   }
 }
 
-/** Plays from a little before `time`, to hear a word in context. */
+/** Plays from a little before `time`, to hear a word in context. A word cut from the clip is only heard in the episode. */
 export function playAround(time: number): void {
   const from = Math.max(0, time - 1);
   const clip = clipPlayerFor(time);
-  if (clip) {
+  if (clip && !clip.clipRange.skips.some((s) => time >= s.start && time < s.end)) {
     clip.seek(from);
     clip.play();
   } else {
