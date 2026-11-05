@@ -72,7 +72,11 @@
     "splitTurn": "split a turn",
     "forgetVoiceEdits": "undo all voice corrections",
     "pickSpeaker": "say who talks",
-    "autoFrame": "auto frame"
+    "autoFrame": "auto frame",
+    "cutPauses": "remove pauses",
+    "cutWords": "cut words from the clip",
+    "restoreCut": "restore a cut",
+    "restoreCuts": "restore all cuts"
   },
   "files": {
     "project": "Rezzo project",
@@ -179,6 +183,8 @@
     "tooLong": "A clip can be at most {{minutes}} minutes long.",
     "create": "Make clip",
     "useForOpen": "Use for “{{name}}”",
+    "cutWords": "Cut from clip",
+    "cutWordsHelp": "Leaves these words out of the open clip. Click the cut on the timeline to bring them back.",
     "clearSelection": "Clear",
     "untitled": "Untitled clip",
     "delete": "Delete clip",
@@ -565,5 +571,21 @@
       "cut": "Cut",
       "pan": "Pan"
     }
+  },
+  "silence": {
+    "title": "Removing pauses",
+    "find": "Find pauses",
+    "findHelp": "Marks the pauses on the timeline. Nothing is cut until you say so.",
+    "noSound": "Waits for the clip, which has to have sound",
+    "minPause": "Shortest pause",
+    "air": "Leave around words",
+    "seconds": "{{value}} s",
+    "none": "No pauses found.",
+    "found": "Pauses to remove: {{count}} ({{seconds}} s)",
+    "remove": "Remove",
+    "cancel": "Cancel",
+    "restoreAll": "Restore all cuts",
+    "pauseHelp": "Click to keep or remove this pause",
+    "skipHelp": "Cut from the clip. Click to bring it back."
   }
 }

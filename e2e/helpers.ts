@@ -77,15 +77,16 @@ export const NUMBER_STRIP_HEIGHT = 40;
 /**
  * A 1280×720 video at 30 fps whose frames show their own number: 16 black
  * or white blocks along the top, lowest bit on the left, over grey. Lets a
- * test read which source frame ended up on screen.
+ * test read which source frame ended up on screen. Its tone stops during `quiet`.
  */
-export async function makeNumberedVideo(file: string, { seconds = 20 } = {}): Promise<string> {
+export async function makeNumberedVideo(file: string, { seconds = 20, quiet = [] as [number, number][] } = {}): Promise<string> {
   const bits = `255*mod(floor(N/pow(2\\,floor(X/${NUMBER_BIT_WIDTH})))\\,2)`;
   await run(ffmpegExe(), [
     '-y', '-v', 'error',
     '-f', 'lavfi', '-i', `color=c=gray:size=1280x720:rate=30:duration=${seconds}`,
     '-f', 'lavfi', '-i', `sine=frequency=440:sample_rate=48000:duration=${seconds}`,
     '-vf', `format=yuv420p,geq=lum='if(lt(Y\\,${NUMBER_STRIP_HEIGHT})\\,${bits}\\,128)':cb=128:cr=128`,
+    ...(quiet.length > 0 ? ['-af', quiet.map(([a, b]) => `volume=enable='between(t,${a},${b})':volume=0`).join(',')] : []),
     '-c:v', 'libx264', '-crf', '12', '-pix_fmt', 'yuv420p', '-c:a', 'aac', '-shortest', file,
   ]);
   return file;

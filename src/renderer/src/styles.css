@@ -558,6 +558,11 @@ button.icon {
   box-shadow: inset 0 -2px 0 var(--accent);
 }
 
+.w.cut-from-clip {
+  color: var(--text-dim);
+  text-decoration: line-through;
+}
+
 .w.selected {
   background: rgb(120 160 255 / 0.35);
 }
@@ -1085,6 +1090,62 @@ button.icon {
   display: flex;
   gap: 6px;
   align-items: center;
+}
+
+.silence {
+  display: flex;
+  flex-wrap: wrap;
+  gap: 6px 10px;
+  align-items: center;
+  margin-bottom: 10px;
+}
+
+.silence label {
+  display: flex;
+  gap: 6px;
+  align-items: center;
+}
+
+.silence-found {
+  display: flex;
+  flex-basis: 100%;
+  flex-wrap: wrap;
+  gap: 6px 10px;
+  align-items: center;
+}
+
+.clip-timeline .skip,
+.clip-timeline .found-pause {
+  position: absolute;
+  top: 0;
+  bottom: 0;
+  min-width: 3px;
+  padding: 0;
+  border: 0;
+  border-radius: 0;
+  cursor: pointer;
+}
+
+.clip-timeline .skip {
+  background: repeating-linear-gradient(135deg, rgb(0 0 0 / 0.75) 0 4px, rgb(255 255 255 / 0.25) 4px 8px);
+}
+
+.clip-timeline .skip-shade {
+  position: absolute;
+  top: 0;
+  bottom: 0;
+  background: rgb(0 0 0 / 0.35);
+  pointer-events: none;
+}
+
+.clip-timeline .found-pause {
+  background: transparent;
+  box-shadow: inset 0 0 0 1px var(--text-dim);
+}
+
+.clip-timeline .found-pause.on {
+  background: rgb(255 107 61 / 0.55);
+  box-shadow: inset 0 0 0 1px var(--accent);
 }
 
 .layouts {

@@ -5,6 +5,7 @@ import type { CaptionPage } from '../../../shared/captions.ts';
 import { EFFECTS } from '../../../shared/effects.ts';
 import { ASSET_KIND_OF, isTimed, keyframesOf, videoLayerOf, type Animated, type Clip, type TimedLayer } from '../../../shared/project.ts';
 import { moveLayer, reorderLayer, trimLayer } from '../project/layers.ts';
+import { restoreSkip } from '../project/skips.ts';
 import { videoLayersOverLimit } from '../../../shared/overlay-files.ts';
 import { projectStore, useProject } from '../project/store.ts';
 import type { VoiceTurn } from '../../../shared/voices.ts';
@@ -14,7 +15,7 @@ import { useOverlayFile } from '../render/overlay-files.ts';
 import { voiceColor, voiceLabel } from '../voice-colors.ts';
 import { pauseClip, seekClip } from './playback.ts';
 import { useStretches } from './speakers.ts';
-import { selectLayer } from './state.ts';
+import { selectLayer, toggleFoundPause, useFoundPauses } from './state.ts';
 import { VoiceTurnMenu } from './VoiceTurnMenu.tsx';
 
 interface Props {
@@ -66,6 +67,7 @@ export function ClipTimeline({ clip, assets, keys, pages, selectedId, time }: Pr
   /** Seconds that one screen pixel covers. */
   const perPixel = () => length / track.current!.getBoundingClientRect().width;
 
+  const found = useFoundPauses(clip.id) ?? [];
   const shots = useAnalysis((s) => s.analysis?.shots);
   const heard = useHeardVoices();
   const turns = heard?.turns;
@@ -274,6 +276,35 @@ export function ClipTimeline({ clip, assets, keys, pages, selectedId, time }: Pr
               <div key={c} className="cut" style={{ left: at(c) }} title={t('analysis.cut')} />
             ))}
             <AnalysisProgress />
+            {clip.skips.filter((s) => inClip(s.start, s.end)).map((s) => (
+              <button
+                key={s.start}
+                type="button"
+                className="skip"
+                style={span(s.start, s.end)}
+                aria-label={t('silence.skipHelp')}
+                title={t('silence.skipHelp')}
+                onPointerDown={(e) => {
+                  e.stopPropagation();
+                  restoreSkip(clip.id, s.start);
+                }}
+              />
+            ))}
+            {found.map((p) => (
+              <button
+                key={p.start}
+                type="button"
+                className={`found-pause${p.on ? ' on' : ''}`}
+                style={span(p.start, p.end)}
+                aria-pressed={p.on}
+                aria-label={t('silence.pauseHelp')}
+                title={t('silence.pauseHelp')}
+                onPointerDown={(e) => {
+                  e.stopPropagation();
+                  toggleFoundPause(p.start);
+                }}
+              />
+            ))}
             {keyMarks(keys)}
           </div>
           {turns && (
@@ -302,6 +333,9 @@ export function ClipTimeline({ clip, assets, keys, pages, selectedId, time }: Pr
                 ))}
             </div>
           )}
+          {clip.skips.filter((s) => inClip(s.start, s.end)).map((s) => (
+            <div key={s.start} className="skip-shade" style={span(s.start, s.end)} />
+          ))}
           <div className="playhead" style={{ left: at(time) }} />
         </div>
       </div>

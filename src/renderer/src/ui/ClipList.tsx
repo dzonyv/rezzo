@@ -1,4 +1,5 @@
 import { useTranslation } from 'react-i18next';
+import { keptLength } from '../../../shared/skips.ts';
 import { openClip, useOpenClipId } from '../clip/state.ts';
 import { exportClip, isExporting, useExport } from '../export/state.ts';
 import { formatDuration } from '../format.ts';
@@ -35,7 +36,7 @@ export function ClipList() {
                 {clip.name || t('clips.untitled')}
               </button>
               <span className="meta">
-                {t('clips.length', { start: formatDuration(clip.start), length: formatDuration(clip.end - clip.start) })}
+                {t('clips.length', { start: formatDuration(clip.start), length: formatDuration(keptLength(clip)) })}
               </span>
               <button
                 type="button"

@@ -4,6 +4,7 @@ import { keyAt, valueAt } from '../../../shared/framing.ts';
 import { fps, workingFrameRate } from '../../../shared/frames.ts';
 import { videoLayersOverLimit } from '../../../shared/overlay-files.ts';
 import { captionPages } from '../../../shared/captions.ts';
+import { keptLength, outputTime } from '../../../shared/skips.ts';
 import { captionLayerOf, isTimed, LAYOUTS, MAX_ZOOM, videoLayerOf, type Clip, type Source } from '../../../shared/project.ts';
 import { exportClip, isExporting, useExport } from '../export/state.ts';
 import { formatClipTime } from '../format.ts';
@@ -16,6 +17,7 @@ import { flatOf, refOf, wordAt } from '../transcript/words.ts';
 import { isTypingTarget } from '../ui/focus.ts';
 import { AddLayerMenu } from './AddLayerMenu.tsx';
 import { AutoFramePanel } from './AutoFramePanel.tsx';
+import { SilencePanel } from './SilencePanel.tsx';
 import { CaptionOverlay } from './CaptionOverlay.tsx';
 import { CaptionPanel } from './CaptionPanel.tsx';
 import { ClipPreview } from './ClipPreview.tsx';
@@ -163,7 +165,7 @@ export function ClipEditor({ clip, source }: { clip: Clip; source: Source }) {
           {playing ? t('clipEditor.pause') : t('clipEditor.play')}
         </button>
         <span className="time">
-          {t('clipEditor.time', { current: formatClipTime(time - clip.start), total: formatClipTime(clip.end - clip.start) })}
+          {t('clipEditor.time', { current: formatClipTime(outputTime(clip, time)), total: formatClipTime(keptLength(clip)) })}
         </span>
         <button type="button" aria-pressed={showPeople} title={t('analysis.showPeopleHelp')} onClick={() => setShowPeople((v) => !v)}>
           {t('analysis.showPeople')}
@@ -196,6 +198,7 @@ export function ClipEditor({ clip, source }: { clip: Clip; source: Source }) {
     return (
       <>
       <AutoFramePanel clip={clip} time={time} />
+      <SilencePanel clip={clip} />
       <div className="layouts" role="group" aria-label={t('clipEditor.layout')}>
         {LAYOUTS.map((l) => (
           <button

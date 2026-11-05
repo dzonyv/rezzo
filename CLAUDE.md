@@ -47,6 +47,11 @@ Details and numbers in `spikes/REPORT.md`.
 - People: MediaPipe Pose for heads, Face Landmarker on head crops for faces and lips. Face/pose analysis runs on the selected clip only.
 - Who is talking: not from lips alone; camera cuts and audio first, manual correction by clicking.
 
+## Settled in Phase 5
+
+- Cutting inside a clip: a clip has a list of skips and every time stays in source seconds. Only the player, the export and the timeline know about skips. Video layers and Lottie count kept time, so they don't jump at a cut; keyframes, captions and effects stay on source time.
+- Pauses come from the sound, with a limit set per clip. Gaps between words aren't pauses: most of them aren't quiet. Words only make sure no word is cut.
+
 ## Workflow
 
 - Each phase (see ROADMAP.md) is developed on its own branch and merged via a PR.

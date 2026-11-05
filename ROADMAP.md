@@ -53,7 +53,7 @@ Built in three parts: 3a (layers over the picture, the multi-layer timeline, ima
 
 ## Phase 5 — Later
 
-- AI suggestions for interesting moments.
-- Silence removal.
+- Silence removal, and cutting words out of a clip ✓
 - Music.
+- AI suggestions for interesting moments.
 - macOS and Linux.
