@@ -1,7 +1,9 @@
 import { describe, expect, it } from 'vitest';
 import { DEFAULT_CAPTION_STYLE } from './caption-style.ts';
-import { captionBox, captionPages, captionStateAt, pageLines, PAGE_HOLD_SECONDS, type CaptionPage } from './captions.ts';
-import type { Word } from './project.ts';
+import {
+  captionBox, captionPages, captionStateAt, captionYAt, DEFAULT_CAPTION_Y, pageLines, PAGE_HOLD_SECONDS, SPLIT_CAPTION_Y, type CaptionPage,
+} from './captions.ts';
+import type { Animated, Layout, Word } from './project.ts';
 
 /** Words of `text`, each 0.3 s long with 0.05 s between them, from `at`. */
 function words(text: string, at = 0): Word[] {
@@ -99,5 +101,29 @@ describe('captionStateAt', () => {
 describe('captionBox', () => {
   it('is centred on y, as tall as the lines', () => {
     expect(captionBox({ size: 100, lines: 2 }, 0.5, 1920)).toEqual({ top: 960 - 120, bottom: 960 + 120 });
+  });
+});
+
+describe('captionYAt', () => {
+  const layouts: Animated<Layout> = [
+    { t: 0, value: 'follow', ease: 'cut' },
+    { t: 2, value: 'split', ease: 'cut' },
+    { t: 4, value: 'full', ease: 'cut' },
+  ];
+  const at = (value: number, t = 0) => ({ t, value, ease: 'cut' as const });
+
+  it('takes captions in their default place to the line between the halves, only in Split', () => {
+    const y = [at(DEFAULT_CAPTION_Y)];
+    expect(captionYAt(y, layouts, 1)).toBe(DEFAULT_CAPTION_Y);
+    expect(captionYAt(y, layouts, 3)).toBe(SPLIT_CAPTION_Y);
+    expect(captionYAt(y, layouts, 5)).toBe(DEFAULT_CAPTION_Y);
+  });
+
+  it('leaves captions the user moved where they are', () => {
+    expect(captionYAt([at(0.8)], layouts, 3)).toBe(0.8);
+  });
+
+  it('leaves keyframed captions alone, even at the default place', () => {
+    expect(captionYAt([at(DEFAULT_CAPTION_Y), at(DEFAULT_CAPTION_Y, 1)], layouts, 3)).toBe(DEFAULT_CAPTION_Y);
   });
 });

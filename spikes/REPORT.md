@@ -608,7 +608,6 @@ On CI the clip tests failed because reading the preview back stalled while the a
 
 - An episode with two or more people talking throughout.
 - A wide shot with a real back-and-forth, to count how many clicks it takes.
-- Captions sit on the lower face in Split, where their default place falls.
 
 ## Phase 5 checks
 

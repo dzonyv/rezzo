@@ -52,6 +52,15 @@ async function frameOnScreen(): Promise<number> {
   return n;
 }
 
+/** How many pure white pixels the comp has in the band around `y`, a share of the height: the captions' letters. */
+async function captionInk(y: number): Promise<number> {
+  const rows = Array.from({ length: 16 }, (_, i) => Math.round(y * 1920) - 60 + i * 8);
+  const lines = await page.evaluate((ys) => ys.map((r) => (globalThis as PageGlobal).__rezzoPreview?.readRow(r) ?? []), rows);
+  let ink = 0;
+  for (const line of lines) for (let i = 0; i < line.length; i += 4) if (line[i]! > 250 && line[i + 1]! > 250 && line[i + 2]! > 250) ink++;
+  return ink;
+}
+
 /** Saves and reads the file back once the save has finished (the unsaved marker is gone). */
 async function saved(): Promise<Project> {
   await page.keyboard.press('Control+S');
@@ -260,6 +269,21 @@ describe('clips', () => {
 
     await page.getByRole('button', { name: 'Undo' }).click();
     expect((await saved()).transcript!.segments[1]!.words[2]!.pageBreak).toBeUndefined();
+  });
+
+  it('takes captions nobody moved off the lower face in Split', async () => {
+    const band = page.locator('.caption-overlay');
+    expect(await band.getAttribute('aria-valuenow')).toBe('0.7');
+    await expect.poll(() => captionInk(0.7)).toBeGreaterThan(0);
+    await page.getByRole('button', { name: 'Split', exact: true }).click();
+    await expect.poll(() => band.getAttribute('aria-valuenow')).toBe('0.5');
+    await expect.poll(() => captionInk(0.5)).toBeGreaterThan(0);
+    expect(await captionInk(0.7)).toBe(0);
+    // Nothing is written to the captions, so going back needs no second undo.
+    expect(captionLayerOf((await saved()).clips[0]!)!.y.map((k) => k.value)).toEqual([0.7]);
+    await page.getByRole('button', { name: 'Undo' }).click();
+    await expect.poll(() => band.getAttribute('aria-valuenow')).toBe('0.7');
+    await expect.poll(() => captionInk(0.7)).toBeGreaterThan(0);
   });
 
   it('moves the captions by dragging them, not the picture', async () => {

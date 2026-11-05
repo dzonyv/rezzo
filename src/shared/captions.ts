@@ -4,7 +4,8 @@
  * at a given moment. Pure functions, shared by the preview and the export.
  */
 import type { CaptionStyle } from './caption-style.ts';
-import type { CaptionLayer, Word } from './project.ts';
+import { valueAt } from './framing.ts';
+import type { Animated, CaptionLayer, Layout as PictureLayout, Word } from './project.ts';
 
 /** A pause longer than this starts a new page. */
 export const PAGE_GAP_SECONDS = 0.7;
@@ -12,6 +13,8 @@ export const PAGE_GAP_SECONDS = 0.7;
 export const PAGE_HOLD_SECONDS = 0.5;
 /** Where new captions sit: a little below the middle, clear of the app buttons at the bottom of a phone. */
 export const DEFAULT_CAPTION_Y = 0.7;
+/** Where captions nobody moved sit in Split: on the line between the halves, since 0.7 is the lower person's face. */
+export const SPLIT_CAPTION_Y = 0.5;
 /** Line height as a share of the font size. */
 export const LINE_HEIGHT = 1.2;
 
@@ -158,6 +161,16 @@ export function captionBox(style: Pick<CaptionStyle, 'size' | 'lines'>, y: numbe
   const half = (style.lines * style.size * LINE_HEIGHT) / 2;
   const middle = y * outputHeight;
   return { top: middle - half, bottom: middle + half };
+}
+
+/**
+ * Where the captions sit at time `t`, given the picture's layouts. Captions
+ * still in their default place keep clear of the faces in Split; once moved
+ * or keyframed they stay where the user put them, in every layout.
+ */
+export function captionYAt(y: Animated<number>, layouts: Animated<PictureLayout>, t: number): number {
+  const untouched = y.length === 1 && y[0]!.value === DEFAULT_CAPTION_Y;
+  return untouched && valueAt(layouts, t) === 'split' ? SPLIT_CAPTION_Y : valueAt(y, t);
 }
 
 export function newCaptionLayer(t: number, style: CaptionStyle, id: string = crypto.randomUUID()): CaptionLayer {

@@ -170,7 +170,7 @@ export function ClipEditor({ clip, source }: { clip: Clip; source: Source }) {
         <FramingOverlay clipId={clip.id} layout={layout} half={half} onHalf={setHalf} time={time} sourceSize={sourceSize} />
         <LayerOverlay clip={clip} assets={assets} selectedId={selectedLayer?.id ?? null} time={time} />
         {showPeople && <PeopleOverlay layer={layer} time={time} sourceSize={sourceSize} />}
-        {captions && <CaptionOverlay clipId={clip.id} layer={captions} time={time} />}
+        {captions && <CaptionOverlay clipId={clip.id} layer={captions} layouts={layer.layout} time={time} />}
       </ClipPreview>
 
       <div className="transport">
