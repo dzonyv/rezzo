@@ -223,7 +223,6 @@
     "addKeyframe": "Dodaj ključni kadar",
     "smooth": "Glatko do sledećeg",
     "deleteKeyframe": "Obriši ključni kadar",
-    "deleteKeyframeHelp": "Radi na ključnom kadru ispod plejheda: prvo klikni na njegov romb na timeline-u. Isto radi tipka Delete.",
     "keyframeHelp": "Bez ključnih kadrova kadriranje važi za ceo klip. Dodaj jedan tamo gde kadar treba da se promeni, pa tamo pomeri sliku.",
     "wordStrip": "Tajming reči",
     "wordHelp": "Klik vodi na reč, dupli klik je ispravlja. Prevuci ivicu da pomeriš početak ili kraj; Alt+←/→ pomera početak najbliži playhead-u za jedan kadar.",

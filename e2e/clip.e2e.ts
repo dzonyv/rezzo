@@ -188,30 +188,6 @@ describe('clips', () => {
     expect(videoLayerOf(project.clips[0]!).follow[0]!.value.x).toBe(0.5);
   });
 
-  it('deletes the keyframe at the playhead with the Delete key, but never the last one', async () => {
-    const follows = async () => videoLayerOf((await saved()).clips[0]!).follow.length;
-    await page.getByRole('button', { name: 'Add keyframe' }).first().click();
-    await expect.poll(follows).toBe(2);
-    await page.keyboard.press('Delete');
-    await expect.poll(follows).toBe(1);
-    expect(await page.getByRole('button', { name: 'Undo' }).getAttribute('title')).toBe('Undo: delete keyframe');
-
-    await page.getByRole('button', { name: 'Undo' }).click();
-    await expect.poll(follows).toBe(2);
-    await page.getByRole('button', { name: 'Delete keyframe' }).first().click();
-    await expect.poll(follows).toBe(1);
-
-    // Away from a keyframe, the key does nothing.
-    await page.keyboard.press('Delete');
-    expect(await follows()).toBe(1);
-  });
-
-  it('shows Auto frame above the timeline', async () => {
-    const panel = await page.getByRole('group', { name: 'Automatic framing' }).boundingBox();
-    const timeline = await page.locator('.clip-timeline').boundingBox();
-    expect(panel!.y).toBeLessThan(timeline!.y);
-  });
-
   it('nudges the word start nearest the playhead with Alt+arrows', async () => {
     // The playhead is at 6 s, where "o" starts.
     await page.keyboard.press('Alt+ArrowRight');

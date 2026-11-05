@@ -100,19 +100,6 @@ export function ClipEditor({ clip, source }: { clip: Clip; source: Source }) {
         selectLayer(null);
         return;
       }
-      if (e.key === 'Delete') {
-        // With no layer selected: the framing keyframe at the playhead, as the button does.
-        const open = projectStore.getState().project?.clips.find((c) => c.id === clip.id);
-        if (!open || !player) return;
-        const video = videoLayerOf(open);
-        const at = player.currentTime;
-        const track = propertyFor(valueAt(video.layout, at), half);
-        const index = keyAt(video[track], at, rate);
-        if (index < 0 || video[track].length === 1) return;
-        e.preventDefault();
-        deleteKeyframe(clip.id, track, index);
-        return;
-      }
       if (e.code === 'Space') {
         // Space plays even with a button focused (after clicking a layout, say);
         // Enter still presses the button.
@@ -127,7 +114,7 @@ export function ClipEditor({ clip, source }: { clip: Clip; source: Source }) {
     };
     window.addEventListener('keydown', onKey);
     return () => window.removeEventListener('keydown', onKey);
-  }, [frame, rate, half, clip.id]);
+  }, [frame, clip.id]);
 
   return (
     <section className="clip-editor">
@@ -186,9 +173,7 @@ export function ClipEditor({ clip, source }: { clip: Clip; source: Source }) {
         <AddLayerMenu clipId={clip.id} time={time} />
       </div>
       {showPeople && <WhoTalks time={time} />}
-      <AutoFramePanel clip={clip} time={time} />
       <ClipTimeline clip={clip} assets={assets} keys={keys} pages={pages} selectedId={selectedLayer?.id ?? null} time={time} />
-      {!selectedLayer && keyframeControls()}
       {transcript && <WordStrip clip={clip} transcript={transcript} time={time} rate={rate} captions={captions !== null} />}
 
       {selectedLayer?.kind === 'effect' ? (
@@ -208,37 +193,11 @@ export function ClipEditor({ clip, source }: { clip: Clip; source: Source }) {
     </section>
   );
 
-  /** The picture's keyframes, next to the timeline that shows them. */
-  function keyframeControls() {
-    return (
-      <>
-        <div className="keyframes">
-          <button type="button" disabled={keyIndex >= 0} onClick={() => addKeyframe(clip.id, property, time)}>
-            <span className="diamond" aria-hidden="true" />
-            {t('clipEditor.addKeyframe')}
-          </button>
-          <label className={keyIndex < 0 || keyIndex === keys.length - 1 ? 'disabled' : undefined}>
-            <input
-              type="checkbox"
-              disabled={keyIndex < 0 || keyIndex === keys.length - 1}
-              checked={keyIndex >= 0 && keys[keyIndex]!.ease === 'smooth'}
-              onChange={(e) => setSmooth(clip.id, property, keyIndex, e.target.checked)}
-            />
-            {t('clipEditor.smooth')}
-          </label>
-          <button type="button" title={t('clipEditor.deleteKeyframeHelp')} disabled={keyIndex < 0 || keys.length === 1} onClick={() => deleteKeyframe(clip.id, property, keyIndex)}>
-            {t('clipEditor.deleteKeyframe')}
-          </button>
-        </div>
-        <p className="dim hint">{t('clipEditor.keyframeHelp')}</p>
-      </>
-    );
-  }
-
   /** The source video's framing and the captions: what's edited when no layer is selected. */
   function pictureSettings() {
     return (
       <>
+      <AutoFramePanel clip={clip} time={time} />
       <SilencePanel clip={clip} />
       <div className="layouts" role="group" aria-label={t('clipEditor.layout')}>
         {LAYOUTS.map((l) => (
@@ -278,6 +237,26 @@ export function ClipEditor({ clip, source }: { clip: Clip; source: Source }) {
           }}
         />
       </label>
+
+      <div className="keyframes">
+        <button type="button" disabled={keyIndex >= 0} onClick={() => addKeyframe(clip.id, property, time)}>
+          <span className="diamond" aria-hidden="true" />
+          {t('clipEditor.addKeyframe')}
+        </button>
+        <label className={keyIndex < 0 || keyIndex === keys.length - 1 ? 'disabled' : undefined}>
+          <input
+            type="checkbox"
+            disabled={keyIndex < 0 || keyIndex === keys.length - 1}
+            checked={keyIndex >= 0 && keys[keyIndex]!.ease === 'smooth'}
+            onChange={(e) => setSmooth(clip.id, property, keyIndex, e.target.checked)}
+          />
+          {t('clipEditor.smooth')}
+        </label>
+        <button type="button" disabled={keyIndex < 0 || keys.length === 1} onClick={() => deleteKeyframe(clip.id, property, keyIndex)}>
+          {t('clipEditor.deleteKeyframe')}
+        </button>
+      </div>
+      <p className="dim hint">{t('clipEditor.keyframeHelp')}</p>
 
       <CaptionPanel clipId={clip.id} layer={captions} time={time} rate={rate} />
       </>
