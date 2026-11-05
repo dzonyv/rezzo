@@ -22,6 +22,8 @@ Lottie animations work like images too: add a .json or .lottie file, place it, a
 
 Effects are layers as well. Each one changes everything under it on the timeline, so a new effect goes just below the captions and leaves them alone. There are camera moves (a zoom punch, shake, slow zoom), a white flash and fades to and from black, colour changes (brightness, contrast, saturation, temperature, black and white) and a few stylised ones (blur, vignette, glitch, film grain). Every effect has an intensity you can keyframe, so it can come in and go out as gradually as you want.
 
+The app can also do the framing for you. After transcribing it tells the voices in the episode apart, and when you open a clip it looks for camera cuts and people. Press Auto frame and you get ordinary keyframes and layouts that you can change by hand. One person in a shot gets followed, a shot with nobody in it goes to full frame, and two people go to Split until the app knows who is who. On a wide shot it can't work that out alone, so turn on Show people and click whoever is talking. That click teaches it where the voice sits for the rest of the episode. If it gave a turn to the wrong voice, right-click the turn on the timeline and fix it. Lips turned out to be no use for this on real footage, so it goes by the audio and the camera cuts.
+
 ## Running it from source
 
 You need Windows and Node 24.
@@ -32,7 +34,7 @@ npm run fetch-tools
 npm run dev
 ```
 
-`fetch-tools` puts FFmpeg in `vendor/`. The first time you transcribe, the app downloads whisper.cpp and the speech model (about 1.3 GB with an NVIDIA card) into `%LOCALAPPDATA%\Rezzo`. `npm run check` runs the linter, the type checker and the unit tests; `npm run test:e2e` builds the app and drives it with Playwright.
+`fetch-tools` puts FFmpeg, the voice tools and the pose and face models in `vendor/`. The first time you transcribe, the app downloads whisper.cpp and the speech model (about 1.3 GB with an NVIDIA card) into `%LOCALAPPDATA%\Rezzo`. `npm run check` runs the linter, the type checker and the unit tests; `npm run test:e2e` builds the app and drives it with Playwright.
 
 To build the installer, run this after `fetch-tools`:
 
@@ -40,9 +42,9 @@ To build the installer, run this after `fetch-tools`:
 npm run dist
 ```
 
-That puts `Rezzo-Setup-0.1.0.exe` (about 180 MB) in `release/`. It installs for your user only and doesn't need administrator rights. The installer isn't signed, so Windows SmartScreen will warn you the first time. Click "More info", then "Run anyway". Uninstalling leaves the downloaded speech model in `%LOCALAPPDATA%\Rezzo`, so a reinstall doesn't download it again. Delete that folder if you want the space back.
+That puts `Rezzo-Setup-0.1.0.exe` (about 225 MB) in `release/`. It installs for your user only and doesn't need administrator rights. The installer isn't signed, so Windows SmartScreen will warn you the first time. Click "More info", then "Run anyway". Uninstalling leaves the downloaded speech model in `%LOCALAPPDATA%\Rezzo`, so a reinstall doesn't download it again. Delete that folder if you want the space back.
 
-## What it will do
+## What it does
 
 - Transcribe the whole episode with timing for every word, so you can search it and pick a clip by selecting text.
 - Frame the clip for 9:16 in one of three ways: follow the person talking, stack two people on top of each other, or show the full shot over a blurred copy of itself. You can switch between them in the middle of a clip.
@@ -55,7 +57,7 @@ Transcripts are always in Latin script. If Cyrillic comes out of the speech mode
 
 ## Under the hood
 
-Electron, React and TypeScript. FFmpeg comes bundled with the app, whisper.cpp handles transcription and MediaPipe finds faces. Windows only for now; macOS and Linux will come later.
+Electron, React and TypeScript. FFmpeg comes bundled with the app, whisper.cpp handles transcription, MediaPipe finds people and faces, and sherpa-onnx tells voices apart. Windows only for now; macOS and Linux will come later.
 
 ## Contributing
 

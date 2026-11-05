@@ -41,7 +41,9 @@ Built in three parts: 3a (layers over the picture, the multi-layer timeline, ima
 - Effects library.
 - Multi-layer timeline.
 
-## Phase 4 — Speaker tracking
+## Phase 4 — Speaker tracking ✓
+
+Built in three parts: 4a (clip analysis: voices, camera cuts, people), 4b (who talks, corrected by clicking) and 4c (automatic framing).
 
 - Short spike first: telling voices apart from the audio (speaker diarization), without Python.
 - Camera cut detection.
