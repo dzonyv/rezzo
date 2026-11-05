@@ -36,6 +36,8 @@ app.on('second-instance', () => {
 
 /** Set once the renderer has dealt with unsaved work, so the next close goes through. */
 const closeApproved = new WeakSet<BrowserWindow>();
+/** Windows whose renderer hears close requests. Before that a request would be lost, and there's no work to lose. */
+const closeListening = new WeakSet<BrowserWindow>();
 
 function registerHandlers(): void {
   handle('settings:get', () => getSettings());
@@ -92,6 +94,7 @@ function registerHandlers(): void {
   handle('asset:locate', ({ window }, kind, asset) => locateAsset(window, kind, asset));
   handle('asset:url', (_ctx, asset) => assetFileUrl(asset));
 
+  handle('app:listening', ({ window }) => void closeListening.add(window));
   handle('app:close', ({ window }) => {
     closeApproved.add(window);
     window.close();
@@ -118,7 +121,7 @@ function createWindow(): void {
 
   // Closing goes through the renderer first: it may have unsaved work to ask about.
   win.on('close', (event) => {
-    if (closeApproved.has(win)) return;
+    if (closeApproved.has(win) || !closeListening.has(win)) return;
     event.preventDefault();
     win.webContents.send('app:close-requested', null);
   });

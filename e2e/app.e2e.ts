@@ -44,6 +44,15 @@ describe('app', () => {
     expect(await page.evaluate(() => typeof (globalThis as PageGlobal).rezzo.invoke)).toBe('function');
   });
 
+  it('closes straight away while the page is still loading', async () => {
+    const launched = await launch();
+    await launched.firstWindow();
+    const closed = launched.waitForEvent('close', { timeout: 10_000 });
+    await launched.evaluate(({ BrowserWindow }) => BrowserWindow.getAllWindows()[0]!.close());
+    await closed;
+    app = undefined;
+  });
+
   it('switches the UI language and remembers it', async () => {
     let page = await (await launch()).firstWindow();
     await page.locator('.language select').selectOption('sh');

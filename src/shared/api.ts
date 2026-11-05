@@ -198,6 +198,8 @@ export interface InvokeApi {
   /** A rezzo-media:// URL the page can read a layer's file from. */
   'asset:url': (asset: AssetFile) => string;
 
+  /** The renderer listens for close requests from now on. Until then a window closes without asking it. */
+  'app:listening': () => void;
   /** Closes the window for real, after the renderer has dealt with unsaved work. */
   'app:close': () => void;
 }
@@ -258,6 +260,7 @@ export const INVOKE_CHANNELS = {
   'asset:check': true,
   'asset:locate': true,
   'asset:url': true,
+  'app:listening': true,
   'app:close': true,
 } as const satisfies Record<InvokeChannel, true>;
 

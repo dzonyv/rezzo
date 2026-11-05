@@ -19,7 +19,11 @@ export function useProjectChrome(): void {
     document.title = name === undefined ? t('app.name') : `${dirty ? '• ' : ''}${name} — ${t('app.name')}`;
   }, [name, dirty, t]);
 
-  useEffect(() => window.rezzo.on('app:close-requested', () => void closeWindow()), []);
+  useEffect(() => {
+    const stop = window.rezzo.on('app:close-requested', () => void closeWindow());
+    void window.rezzo.invoke('app:listening');
+    return stop;
+  }, []);
 
   useEffect(() => {
     const onKey = (e: KeyboardEvent) => {
