@@ -52,7 +52,7 @@ describe('layer edits', () => {
 
   it('puts new images under the captions', () => {
     state().edit('history.addCaptions', (d) => {
-      d.clips[0]!.layers.push({ id: crypto.randomUUID(), kind: 'caption', style: undefined as never, y: [{ t: 10, value: 0.7, ease: 'cut' }] });
+      d.clips[0]!.layers.push({ id: crypto.randomUUID(), kind: 'caption', style: undefined as never, y: [{ t: 10, value: 0.7, ease: 'cut' }], splitY: [{ t: 10, value: 0.5, ease: 'cut' }] });
     });
     addImageLayer(CLIP, FILE, SIZE, 10);
     expect(clip().layers.map((l) => l.kind)).toEqual(['video', 'image', 'caption']);

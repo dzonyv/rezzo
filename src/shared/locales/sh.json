@@ -342,7 +342,7 @@
     "lines": "Redovi",
     "maxChars": "Slova po redu",
     "position": "Položaj",
-    "positionHelp": "Prevuci titlove gore ili dole u pregledu. Dodaj ključni kadar tamo gde treba da se pomere.",
+    "positionHelp": "Prevuci titlove gore ili dole u pregledu. Podeljeno ima svoj položaj. Dodaj ključni kadar tamo gde treba da se pomere.",
     "drag": "Titlovi: prevuci gore ili dole da ih pomeriš",
     "styleName": "Naziv stila",
     "save": "Sačuvaj kao stil",

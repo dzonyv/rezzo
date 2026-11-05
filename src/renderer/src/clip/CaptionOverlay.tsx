@@ -1,8 +1,8 @@
 import { useEffect, useRef } from 'react';
 import { useTranslation } from 'react-i18next';
-import { captionBox, captionYAt } from '../../../shared/captions.ts';
-import { OUTPUT } from '../../../shared/framing.ts';
-import type { Animated, CaptionLayer, Layout } from '../../../shared/project.ts';
+import { captionBox, type CaptionTrack } from '../../../shared/captions.ts';
+import { OUTPUT, valueAt } from '../../../shared/framing.ts';
+import type { CaptionLayer } from '../../../shared/project.ts';
 import { moveCaptions } from '../project/captions.ts';
 import { projectStore } from '../project/store.ts';
 import { pauseClip } from './playback.ts';
@@ -13,7 +13,7 @@ import { selectLayer } from './state.ts';
  * dragging it moves the captions up or down. Dragging anywhere else still
  * moves the picture, and the wheel zooms it here too.
  */
-export function CaptionOverlay({ clipId, layer, layouts, time }: { clipId: string; layer: CaptionLayer; layouts: Animated<Layout>; time: number }) {
+export function CaptionOverlay({ clipId, layer, track, time }: { clipId: string; layer: CaptionLayer; track: CaptionTrack; time: number }) {
   const { t } = useTranslation();
   const el = useRef<HTMLDivElement>(null);
   const drag = useRef<{ startY: number; from: number; height: number } | null>(null);
@@ -31,7 +31,7 @@ export function CaptionOverlay({ clipId, layer, layouts, time }: { clipId: strin
     node.addEventListener('wheel', forward, { passive: false });
     return () => node.removeEventListener('wheel', forward);
   }, []);
-  const y = captionYAt(layer.y, layouts, time);
+  const y = valueAt(layer[track], time);
   const box = captionBox(layer.style, y, OUTPUT.height);
   const pct = (px: number) => `${(px / OUTPUT.height) * 100}%`;
 
@@ -65,7 +65,7 @@ export function CaptionOverlay({ clipId, layer, layouts, time }: { clipId: strin
       }}
       onPointerMove={(e) => {
         const d = drag.current;
-        if (d) moveCaptions(clipId, time, d.from + (e.clientY - d.startY) / d.height);
+        if (d) moveCaptions(clipId, track, time, d.from + (e.clientY - d.startY) / d.height);
       }}
       onPointerUp={end}
       onLostPointerCapture={end}

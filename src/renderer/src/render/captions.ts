@@ -27,6 +27,7 @@ export interface CaptionScene {
   /** With the font it will be drawn in (see fonts/registry.ts). */
   style: CaptionStyle;
   y: Animated<number>;
+  splitY: Animated<number>;
 }
 
 /** What the compositor lays over the picture; `version` changes whenever the pixels do. */
@@ -74,7 +75,7 @@ export class CaptionPainter {
     if (!state) return null;
     const page = scene.pages[state.page]!;
     const { style } = scene;
-    const y = captionYAt(scene.y, layouts, t);
+    const y = captionYAt(scene, layouts, t);
     // Everything the picture depends on, apart from the scene itself: what is
     // on screen, where, and how far along whatever is still coming in is.
     const coming = style.mode === 'reveal' ? page.words.slice(0, state.active + 1).map((w) => t - w.start) : [state.sincePage];
@@ -179,5 +180,5 @@ export async function loadCaptionScene(layer: CaptionLayer | null, words: readon
   if (!layer) return null;
   const font = await ensureFont(layer.style.font);
   const style = { ...layer.style, font };
-  return { pages: captionPages(words, range, style), style, y: layer.y };
+  return { pages: captionPages(words, range, style), style, y: layer.y, splitY: layer.splitY };
 }

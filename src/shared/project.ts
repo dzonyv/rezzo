@@ -18,7 +18,7 @@ import { motionSchema, transformSchema } from './motion.ts';
 import { speakerCountSchema, speakerPickSchema, voiceEditSchema } from './voices.ts';
 
 /** Bumped when the file format changes in a way older files need migrating for. */
-export const PROJECT_FORMAT = 10;
+export const PROJECT_FORMAT = 11;
 export const PROJECT_EXTENSION = 'rezzo';
 
 export const TRANSCRIPT_LANGUAGES = ['sr', 'hr', 'bs'] as const;
@@ -192,13 +192,16 @@ export type VideoLayer = z.infer<typeof videoLayerSchema>;
 /**
  * The clip's captions: the transcript's words in the clip, drawn in
  * `style`. `y` is the middle of the caption block, 0 at the top of the
- * output and 1 at the bottom; it has keyframes like the framing.
+ * output and 1 at the bottom; it has keyframes like the framing. Split has
+ * its own track, `splitY`, as it has its own crops: a place that suits two
+ * people stacked doesn't suit one, and the other way round.
  */
 export const captionLayerSchema = z.object({
   id: z.uuid(),
   kind: z.literal('caption'),
   style: captionStyleSchema,
   y: animated(unit),
+  splitY: animated(unit),
 });
 export type CaptionLayer = z.infer<typeof captionLayerSchema>;
 
@@ -383,7 +386,24 @@ const MIGRATIONS: Record<number, (old: Record<string, unknown>) => Record<string
   8: (old) => ({ ...old, voices: { ...(old.voices as object), edits: [], picks: [] } }),
   // Format 10 added stretches a clip leaves out.
   9: (old) => ({ ...old, clips: Array.isArray(old.clips) ? old.clips.map((c: object) => ({ ...c, skips: [] })) : old.clips }),
+  // Format 11 gave Split its own place for captions.
+  10: (old) => ({ ...old, clips: captionsWithSplit(old.clips) }),
 };
+
+/**
+ * Captions still at the old default go on the line between the halves, off
+ * the lower face. Captions someone placed keep that place in Split too.
+ * Numbers rather than today's defaults: these files won't change.
+ */
+function captionsWithSplit(clips: unknown): unknown {
+  if (!Array.isArray(clips)) return clips;
+  const splitY = (y: Key<number>[]) => (y.length === 1 && y[0]!.value === 0.7 ? [{ ...y[0]!, value: 0.5 }] : y);
+  return clips.map((clip: { layers?: unknown }) =>
+    Array.isArray(clip?.layers)
+      ? { ...clip, layers: clip.layers.map((l: { kind?: unknown; y?: Key<number>[] }) => (l?.kind === 'caption' && Array.isArray(l.y) ? { ...l, splitY: splitY(l.y) } : l)) }
+      : clip,
+  );
+}
 
 function imagesWithoutKey(clips: unknown): unknown {
   if (!Array.isArray(clips)) return clips;

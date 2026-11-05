@@ -57,7 +57,7 @@ async function until(check: () => Promise<boolean>, timeoutMs = 10_000): Promise
   }
 }
 
-function clip(name: string, start: number, end: number, layout: [number, 'full' | 'follow'][], captions = false): Clip {
+function clip(name: string, start: number, end: number, layout: [number, 'full' | 'follow' | 'split'][], captions = false): Clip {
   const layer = defaultVideoLayer(start);
   layer.layout = layout.map(([t, value]) => ({ t, value, ease: 'cut' }));
   const layers: Clip['layers'] = [layer];
@@ -178,6 +178,7 @@ beforeAll(async () => {
   project.clips = [
     clip('Kratki', FIRST / 30, (FIRST + COUNT) / 30, [[FIRST / 30, 'full'], [SWITCH / 30, 'follow']], true),
     clip('Dugi', 0.1, 0.1 + LONG_COUNT / 30, [[0.1, 'full']]),
+    clip('Podeljeni', FIRST / 30, (FIRST + COUNT) / 30, [[FIRST / 30, 'split']], true),
   ];
   await writeFile(file, JSON.stringify(project));
   await page.getByRole('button', { name: /numbered/ }).click();
@@ -300,6 +301,18 @@ describe('export', () => {
     await page.locator('.export-dialog').getByRole('button', { name: 'Close', exact: true }).click();
     const { stdout } = await run(ffprobeExe(), ['-v', 'error', '-select_streams', 'v:0', '-count_packets', '-show_entries', 'stream=nb_read_packets', '-of', 'csv=p=0', target]);
     expect(Number(stdout.trim())).toBe(COUNT);
+  });
+
+  it('exports captions in Split on the line between the halves', async () => {
+    const target = path.join(dir, 'out', 'podeljeni.mp4');
+    await exportFromList('Podeljeni', target);
+    await page.getByRole('heading', { name: 'Clip exported' }).waitFor({ timeout: 60_000 });
+    await page.locator('.export-dialog').getByRole('button', { name: 'Close', exact: true }).click();
+    const luma = (await lumaFrames(target))[VECE_FRAME - FIRST]!;
+    const bright = (row: number) => luma.subarray(row * W, (row + 1) * W).filter((v) => v > 200).length;
+    // Just above the middle: right below it the lower half starts with the number strip.
+    expect(bright(H / 2 - 15)).toBeGreaterThan(0);
+    expect(bright(CAPTION_ROW)).toBe(0);
   });
 
   it('exports captions in a font the user added', async () => {

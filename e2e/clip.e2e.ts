@@ -52,9 +52,13 @@ async function frameOnScreen(): Promise<number> {
   return n;
 }
 
-/** How many pure white pixels the comp has in the band around `y`, a share of the height: the captions' letters. */
+/**
+ * How many pure white pixels the comp has just above `y`, a share of the
+ * height: the captions' letters. Only above, since in Split the source's
+ * number strip, which has white in it too, starts right below the middle.
+ */
 async function captionInk(y: number): Promise<number> {
-  const rows = Array.from({ length: 16 }, (_, i) => Math.round(y * 1920) - 60 + i * 8);
+  const rows = Array.from({ length: 10 }, (_, i) => Math.round(y * 1920) - 40 + i * 4);
   const lines = await page.evaluate((ys) => ys.map((r) => (globalThis as PageGlobal).__rezzoPreview?.readRow(r) ?? []), rows);
   let ink = 0;
   for (const line of lines) for (let i = 0; i < line.length; i += 4) if (line[i]! > 250 && line[i + 1]! > 250 && line[i + 2]! > 250) ink++;
@@ -271,7 +275,7 @@ describe('clips', () => {
     expect((await saved()).transcript!.segments[1]!.words[2]!.pageBreak).toBeUndefined();
   });
 
-  it('takes captions nobody moved off the lower face in Split', async () => {
+  it('gives Split its own place for the captions', async () => {
     const band = page.locator('.caption-overlay');
     expect(await band.getAttribute('aria-valuenow')).toBe('0.7');
     await expect.poll(() => captionInk(0.7)).toBeGreaterThan(0);
@@ -279,8 +283,21 @@ describe('clips', () => {
     await expect.poll(() => band.getAttribute('aria-valuenow')).toBe('0.5');
     await expect.poll(() => captionInk(0.5)).toBeGreaterThan(0);
     expect(await captionInk(0.7)).toBe(0);
-    // Nothing is written to the captions, so going back needs no second undo.
-    expect(captionLayerOf((await saved()).clips[0]!)!.y.map((k) => k.value)).toEqual([0.7]);
+
+    // A drag here moves them in Split only.
+    await band.scrollIntoViewIfNeeded();
+    const box = (await band.boundingBox())!;
+    const preview = (await page.locator('.clip-preview').boundingBox())!;
+    await page.mouse.move(box.x + box.width / 2, box.y + box.height / 2);
+    await page.mouse.down();
+    await page.mouse.move(box.x + box.width / 2, box.y + box.height / 2 + 0.1 * preview.height, { steps: 4 });
+    await page.mouse.up();
+    const captions = captionLayerOf((await saved()).clips[0]!)!;
+    expect(captions.splitY[0]!.value).toBeCloseTo(0.6, 2);
+    expect(captions.y.map((k) => k.value)).toEqual([0.7]);
+
+    await page.getByRole('button', { name: 'Undo' }).click();
+    await expect.poll(() => band.getAttribute('aria-valuenow')).toBe('0.5');
     await page.getByRole('button', { name: 'Undo' }).click();
     await expect.poll(() => band.getAttribute('aria-valuenow')).toBe('0.7');
     await expect.poll(() => captionInk(0.7)).toBeGreaterThan(0);

@@ -5,7 +5,7 @@
  */
 import type { CaptionStyle } from './caption-style.ts';
 import { valueAt } from './framing.ts';
-import type { Animated, CaptionLayer, Layout as PictureLayout, Word } from './project.ts';
+import type { Animated, CaptionLayer, Layout, Word } from './project.ts';
 
 /** A pause longer than this starts a new page. */
 export const PAGE_GAP_SECONDS = 0.7;
@@ -13,7 +13,7 @@ export const PAGE_GAP_SECONDS = 0.7;
 export const PAGE_HOLD_SECONDS = 0.5;
 /** Where new captions sit: a little below the middle, clear of the app buttons at the bottom of a phone. */
 export const DEFAULT_CAPTION_Y = 0.7;
-/** Where captions nobody moved sit in Split: on the line between the halves, since 0.7 is the lower person's face. */
+/** Where new captions sit in Split: on the line between the halves, since 0.7 is the lower person's face. */
 export const SPLIT_CAPTION_Y = 0.5;
 /** Line height as a share of the font size. */
 export const LINE_HEIGHT = 1.2;
@@ -43,7 +43,7 @@ export interface CaptionState {
   sincePage: number;
 }
 
-type Layout = Pick<CaptionStyle, 'lines' | 'maxChars'>;
+type LineLimits = Pick<CaptionStyle, 'lines' | 'maxChars'>;
 
 const endsSentence = (text: string) => /[.?!…]["”“»)]*$/.test(text);
 
@@ -69,7 +69,7 @@ function greedyLines(words: readonly CaptionWord[], maxChars: number): number[] 
  * Lines as even as they can be: a page that needs two lines breaks where
  * the longer line is shortest, rather than filling the first line up.
  */
-function balancedLines(words: readonly CaptionWord[], style: Layout): number[] {
+function balancedLines(words: readonly CaptionWord[], style: LineLimits): number[] {
   const greedy = greedyLines(words, style.maxChars);
   if (greedy.length !== 2) return greedy;
   let best = greedy[1]!;
@@ -87,7 +87,7 @@ function balancedLines(words: readonly CaptionWord[], style: Layout): number[] {
   return [0, best];
 }
 
-function page(words: CaptionWord[], style: Layout): CaptionPage {
+function page(words: CaptionWord[], style: LineLimits): CaptionPage {
   return { words, lineStarts: balancedLines(words, style), start: words[0]!.start, end: Math.max(...words.map((w) => w.end)) };
 }
 
@@ -163,16 +163,16 @@ export function captionBox(style: Pick<CaptionStyle, 'size' | 'lines'>, y: numbe
   return { top: middle - half, bottom: middle + half };
 }
 
-/**
- * Where the captions sit at time `t`, given the picture's layouts. Captions
- * still in their default place keep clear of the faces in Split; once moved
- * or keyframed they stay where the user put them, in every layout.
- */
-export function captionYAt(y: Animated<number>, layouts: Animated<PictureLayout>, t: number): number {
-  const untouched = y.length === 1 && y[0]!.value === DEFAULT_CAPTION_Y;
-  return untouched && valueAt(layouts, t) === 'split' ? SPLIT_CAPTION_Y : valueAt(y, t);
+/** The caption keyframes a layout uses and edits. */
+export type CaptionTrack = 'y' | 'splitY';
+
+export const captionTrackFor = (layout: Layout): CaptionTrack => (layout === 'split' ? 'splitY' : 'y');
+
+/** Where the captions sit at time `t`, over a picture with `layouts`. */
+export function captionYAt(tracks: Pick<CaptionLayer, CaptionTrack>, layouts: Animated<Layout>, t: number): number {
+  return valueAt(tracks[captionTrackFor(valueAt(layouts, t))], t);
 }
 
 export function newCaptionLayer(t: number, style: CaptionStyle, id: string = crypto.randomUUID()): CaptionLayer {
-  return { id, kind: 'caption', style, y: [{ t, value: DEFAULT_CAPTION_Y, ease: 'cut' }] };
+  return { id, kind: 'caption', style, y: [{ t, value: DEFAULT_CAPTION_Y, ease: 'cut' }], splitY: [{ t, value: SPLIT_CAPTION_Y, ease: 'cut' }] };
 }
