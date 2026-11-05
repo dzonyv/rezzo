@@ -112,7 +112,7 @@ beforeAll(async () => {
     startShift: -0.1,
     segments: [{ start: 2.1, end: 2.5, words: [{ text: 'Slike.', start: 2.1, end: 2.5, p: 0.9 }] }],
   };
-  project.clips =[{ id: crypto.randomUUID(), name: 'Slike', start: START, end: END, layers: [defaultVideoLayer(START)] }];
+  project.clips =[{ id: crypto.randomUUID(), name: 'Slike', start: START, end: END, skips: [], layers: [defaultVideoLayer(START)] }];
   await writeFile(file, JSON.stringify(project));
   await page.getByRole('button', { name: /numbered/ }).click();
   await openClip();

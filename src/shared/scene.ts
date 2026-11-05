@@ -14,6 +14,7 @@ import { frameRecipe, OUTPUT, type FrameRecipe, type Size } from './framing.ts';
 import { lottieFrameAt, lottieRenderSize } from './lottie.ts';
 import { layerTransformAt, type Transform } from './motion.ts';
 import { ASSET_KIND_OF, videoLayerOf, type Clip, type OverlayLayer, type TimedLayer } from './project.ts';
+import { layerClock } from './skips.ts';
 
 export interface Quad {
   cx: number;
@@ -111,9 +112,9 @@ export function sceneAt(clip: Clip, assets: readonly Asset[], t: number, source:
       if (transform.opacity <= 0 || transform.scale <= 0) continue;
       const op = { layerId: layer.id, assetId: asset.id, quad: quadOf(transform, asset), opacity: transform.opacity };
       if (layer.kind === 'image') ops.push({ type: 'image', ...op, key: layer.key });
-      else if (layer.kind === 'overlay' && asset.kind === 'video') ops.push({ type: 'overlay', ...op, key: layer.key, time: overlayTimeAt(layer, asset.duration, t) });
+      else if (layer.kind === 'overlay' && asset.kind === 'video') ops.push({ type: 'overlay', ...op, key: layer.key, time: overlayTimeAt(layer, asset.duration, layerClock(clip, layer.start, t)) });
       else if (layer.kind === 'lottie' && asset.kind === 'lottie') {
-        ops.push({ type: 'lottie', ...op, frame: lottieFrameAt(layer, asset, t), size: lottieRenderSize(asset, op.quad.w) });
+        ops.push({ type: 'lottie', ...op, frame: lottieFrameAt(layer, asset, layerClock(clip, layer.start, t)), size: lottieRenderSize(asset, op.quad.w) });
       }
     }
   }

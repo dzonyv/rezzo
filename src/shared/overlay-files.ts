@@ -9,6 +9,7 @@ import type { Asset, VideoAsset } from './assets.ts';
 import { OUTPUT, type Size } from './framing.ts';
 import { MAX_CLIP_SECONDS, type Clip, type OverlayLayer } from './project.ts';
 import { showsAt } from './scene.ts';
+import { keptLength, outputTime, type ClipSpan } from './skips.ts';
 
 /** Bumped when the conversion changes, so old cached files aren't reused. */
 export const OVERLAY_VERSION = 1;
@@ -108,6 +109,15 @@ export function overlaySoundPieces(
     t += length;
   }
   return pieces;
+}
+
+/**
+ * A video layer's sound in `clip`, with `at` in output time: a layer plays
+ * on through the clip's skips, as it does on screen.
+ */
+export function clipSoundPieces(clip: ClipSpan, layer: Pick<OverlayLayer, 'start' | 'end' | 'offset' | 'loop'>, duration: number): SoundPiece[] {
+  const played = { ...layer, start: outputTime(clip, layer.start), end: outputTime(clip, layer.end) };
+  return overlaySoundPieces(played, duration, { start: 0, end: keptLength(clip) });
 }
 
 /**

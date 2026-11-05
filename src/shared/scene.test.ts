@@ -74,6 +74,7 @@ describe('scene', () => {
   const clip: Clip = {
     id: crypto.randomUUID(),
     name: 'x',
+    skips: [],
     start: 0,
     end: 10,
     layers: [defaultVideoLayer(0), image(2, 4), newCaptionLayer(0, DEFAULT_CAPTION_STYLE)],

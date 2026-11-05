@@ -124,22 +124,24 @@ export async function renderExport(job: ExportJob, port: MessagePort, clip: Clip
       onProgress(++sent);
     };
 
-    for await (const { frame, index } of frames.frames(job.first, job.count)) {
-      if (signal.aborted || link.error) {
+    for (const piece of job.pieces) {
+      for await (const { frame, index } of frames.frames(piece.first, piece.count)) {
+        if (signal.aborted || link.error) {
+          frame.close();
+          break;
+        }
+        c.upload(frame);
         frame.close();
-        break;
+        const time = workingFrameTime(job, index);
+        await r.prepare(scene, time, true);
+        // A video layer that can't be decoded, or an animation that can't be loaded, fails the export rather than going missing from it.
+        if (layerError) throw layerError;
+        r.draw(scene, time);
+        if (pending.length === SLOTS) await sendOne();
+        c.startReadback(slot);
+        pending.push(slot);
+        slot = (slot + 1) % SLOTS;
       }
-      c.upload(frame);
-      frame.close();
-      const time = workingFrameTime(job, index);
-      await r.prepare(scene, time, true);
-      // A video layer that can't be decoded, or an animation that can't be loaded, fails the export rather than going missing from it.
-      if (layerError) throw layerError;
-      r.draw(scene, time);
-      if (pending.length === SLOTS) await sendOne();
-      c.startReadback(slot);
-      pending.push(slot);
-      slot = (slot + 1) % SLOTS;
     }
     signal.throwIfAborted();
     if (link.error) throw link.error;

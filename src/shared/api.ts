@@ -71,8 +71,9 @@ export interface ExportJob {
   url: string;
   start: number;
   frameRate: FrameRate;
-  /** Working-file frames to render: `count` from `first`. */
-  first: number;
+  /** Working-file frames to render, in order: `count` from `first` in each piece. */
+  pieces: { first: number; count: number }[];
+  /** All of them together. */
   count: number;
 }
 

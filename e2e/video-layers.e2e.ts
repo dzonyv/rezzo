@@ -166,6 +166,7 @@ beforeAll(async () => {
   project.clips = [{
     id: crypto.randomUUID(),
     name: 'Video',
+    skips: [],
     start: START,
     end: END,
     layers: [

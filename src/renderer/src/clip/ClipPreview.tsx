@@ -64,6 +64,7 @@ export function ClipPreview({ clip, source, children }: { clip: Clip; source: So
     clip: {
       start: clip.start,
       end: clip.end,
+      skips: clip.skips,
       layers: clip.layers.flatMap((l) =>
         l.kind === 'overlay' ? [{ id: l.id, kind: l.kind, assetId: l.assetId, start: l.start, end: l.end, offset: l.offset, loop: l.loop, volume: l.volume }] : [],
       ),
@@ -135,7 +136,7 @@ export function ClipPreview({ clip, source, children }: { clip: Clip; source: So
     const range = { start: clip.start, end: clip.end };
     const playing = currentPlayer();
     if (playing && playing.file.start <= range.start + 1e-6 && playing.file.end >= range.end - 1e-6) {
-      playing.setRange(range);
+      playing.setRange({ ...range, skips: clip.skips });
       return;
     }
     playing?.pause();
@@ -153,7 +154,7 @@ export function ClipPreview({ clip, source, children }: { clip: Clip; source: So
           clipPlaybackStore.setState({ status: 'loading' });
           const c = compositor.current;
           if (!c) return;
-          const player = await ClipPlayer.load(result, c, range, (time) => drawAt.current(time));
+          const player = await ClipPlayer.load(result, c, { ...range, skips: clip.skips }, (time) => drawAt.current(time));
           if (cancelled) {
             player.dispose();
             return;
@@ -175,7 +176,7 @@ export function ClipPreview({ clip, source, children }: { clip: Clip; source: So
       cancelled = true;
       clearTimeout(timer);
     };
-  }, [clip.start, clip.end, source, generation]);
+  }, [clip.start, clip.end, clip.skips, source, generation]);
 
   // The captions as the painter wants them, once their font is in. If that
   // fails the picture still plays, without captions.

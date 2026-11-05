@@ -88,8 +88,9 @@ export interface ExportRequest {
   out: string;
   /** The clip's working file, where the sound comes from. */
   workingFile: string;
-  /** The clip's stretch of the working file, in seconds from its start. */
-  audioStart: number;
+  /** The stretches of the working file the clip plays, in order, in seconds from its start. */
+  audioPieces: { start: number; duration: number }[];
+  /** All of them together. */
   duration: number;
   /** Whether the working file has sound (the source does). */
   hasAudio: boolean;

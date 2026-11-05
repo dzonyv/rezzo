@@ -11,9 +11,15 @@
  * drawn with everything in the clip at that frame's own time, as the
  * export does. What takes time to get ready for a frame (video layers'
  * frames) is prepared before the frame is shown.
+ *
+ * Playback goes from one kept piece of the clip to the next (shared/skips.ts).
+ * The sound is scheduled ahead, piece after piece, so the clock it gives is
+ * output time, and frames are compared with it in output time. A paused
+ * playhead may stand inside a skip, to see what was cut.
  */
 import type { Size } from '../../../shared/framing.ts';
 import { fps, type FrameRate } from '../../../shared/frames.ts';
+import { JOIN_FADE_SECONDS, keptLength, keptPieces, nextKept, outputTime, type ClipSpan } from '../../../shared/skips.ts';
 import { workingFrameIndex, workingFrameTime } from '../../../shared/working.ts';
 import type { Compositor } from './compositor.ts';
 import { demux } from './demux.ts';
@@ -40,8 +46,8 @@ const nothingToPrepare: PrepareAt = () => Promise.resolve(false);
 
 /**
  * A video layer's sound: its working file's audio, the stretches of it
- * that play (`at` in source seconds, `from` seconds into `buffer`) and
- * how loud.
+ * that play (`at` in output time, `from` seconds into `buffer`) and how
+ * loud.
  */
 export interface LayerSound {
   buffer: AudioBuffer;
@@ -69,6 +75,22 @@ function peaksOf(audio: AudioBuffer): Peaks {
   return out;
 }
 
+/** Seconds per value in Loudness. */
+export const LOUDNESS_STEP = 0.02;
+
+/** How loud the sound is in dB, one value per LOUDNESS_STEP from the working file's start: for finding pauses. */
+function loudnessOf(audio: AudioBuffer): Float32Array {
+  const step = Math.round(audio.sampleRate * LOUDNESS_STEP);
+  const out = new Float32Array(Math.floor(audio.length / step));
+  const channels = Array.from({ length: audio.numberOfChannels }, (_, c) => audio.getChannelData(c));
+  for (let b = 0; b < out.length; b++) {
+    let sum = 0;
+    for (const data of channels) for (let i = b * step; i < (b + 1) * step; i++) sum += data[i]! * data[i]!;
+    out[b] = 10 * Math.log10(Math.max(sum / (step * channels.length), 1e-10));
+  }
+  return out;
+}
+
 const nextAnimationFrame = () => new Promise<void>((resolve) => requestAnimationFrame(() => resolve()));
 
 export class ClipPlayer {
@@ -83,13 +105,13 @@ export class ClipPlayer {
   private readonly frames: FrameSource;
   private readonly audio: AudioBuffer | null;
   private readonly context = new AudioContext({ latencyHint: 'interactive' });
-  private node: AudioBufferSourceNode | null = null;
+  private nodes: AudioBufferSourceNode[] = [];
   private sounds: LayerSound[] = [];
   private soundNodes: AudioBufferSourceNode[] = [];
-  /** While playing: the audio context's time at which source time `time` was rendered. */
+  /** While playing: the audio context's time at which output time `time` was rendered. */
   private origin: { contextTime: number; time: number } | null = null;
 
-  private range: { start: number; end: number };
+  private range: ClipSpan;
   private drawAt: DrawAt;
   private prepareAt: PrepareAt = nothingToPrepare;
   private time: number;
@@ -104,7 +126,7 @@ export class ClipPlayer {
   private lock: Promise<void> = Promise.resolve();
   private disposed = false;
 
-  private constructor(file: WorkingFile, size: Size, compositor: Compositor, frames: FrameSource, audio: AudioBuffer | null, range: { start: number; end: number }, drawAt: DrawAt) {
+  private constructor(file: WorkingFile, size: Size, compositor: Compositor, frames: FrameSource, audio: AudioBuffer | null, range: ClipSpan, drawAt: DrawAt) {
     this.file = file;
     this.size = size;
     this.compositor = compositor;
@@ -115,7 +137,7 @@ export class ClipPlayer {
     this.time = range.start;
   }
 
-  static async load(file: WorkingFile, compositor: Compositor, range: { start: number; end: number }, drawAt: DrawAt): Promise<ClipPlayer> {
+  static async load(file: WorkingFile, compositor: Compositor, range: ClipSpan, drawAt: DrawAt): Promise<ClipPlayer> {
     const response = await fetch(file.url);
     if (!response.ok) throw new Error(`loading the working file failed: ${response.status}`);
     const bytes = await response.arrayBuffer();
@@ -136,6 +158,14 @@ export class ClipPlayer {
     return this.peakCache;
   }
 
+  private loudnessCache: Float32Array | null | undefined;
+
+  /** The sound's loudness for finding pauses, worked out on first use; null without sound. */
+  get loudness(): Float32Array | null {
+    if (this.loudnessCache === undefined) this.loudnessCache = this.audio ? loudnessOf(this.audio) : null;
+    return this.loudnessCache;
+  }
+
   /** False for a clip without sound; it then plays on the system clock. */
   get hasAudio(): boolean {
     return this.audio !== null;
@@ -150,13 +180,15 @@ export class ClipPlayer {
   }
 
   /** The clip's range in the source; playback stays inside it. */
-  get clipRange(): { start: number; end: number } {
+  get clipRange(): ClipSpan {
     return this.range;
   }
 
-  setRange(range: { start: number; end: number }): void {
+  setRange(range: ClipSpan): void {
+    const skipsChanged = range.skips !== this.range.skips;
     this.range = range;
     if (this.time < range.start || this.time >= range.end) this.seek(range.start);
+    else if (skipsChanged && this.playing) this.startPlaying();
   }
 
   /**
@@ -198,7 +230,7 @@ export class ClipPlayer {
   play(): void {
     if (this.playing) return;
     // From the end, play starts over.
-    if (this.frameAt(this.time) >= this.frameAt(this.range.end) - 1) this.time = this.range.start;
+    if (this.frameAt(this.time) >= this.frameAt(this.range.end) - 1 || nextKept(this.range, this.time) === null) this.time = this.range.start;
     this.playing = true;
     this.startPlaying();
   }
@@ -286,66 +318,67 @@ export class ClipPlayer {
     void this.exclusive(() => this.playFrom(from, run));
   }
 
-  /** The source time being heard now. */
+  /** The output time being heard now. */
   private clock: () => number = () => this.time;
 
   private async playFrom(from: number, run: number): Promise<void> {
     if (run !== this.run) return;
     await this.context.resume();
-    const first = this.frameAt(from);
-    const end = this.frameAt(this.range.end);
     if (run !== this.run) return;
-    if (first >= end) {
+    const range = this.range;
+    const start = nextKept(range, from);
+    const pieces = start === null ? [] : keptPieces(range).filter((p) => p.end > start).map((p) => ({ start: Math.max(p.start, start), end: p.end }));
+    const spans = pieces.map((p) => ({ first: this.frameAt(p.start), end: this.frameAt(p.end) })).filter((s) => s.first < s.end);
+    const last = spans.at(-1)?.end;
+    if (start === null || last === undefined) {
       this.pause();
       return;
     }
     // Audio reaches the speakers this much after the context renders it.
     const latency = this.audio ? this.context.baseLatency + (this.context.outputLatency || 0) : 0;
     const startedAt = this.audio ? this.context.currentTime : performance.now() / 1000;
-    this.origin = { contextTime: this.context.currentTime, time: from };
+    const fromOutput = outputTime(range, start);
+    this.origin = { contextTime: this.context.currentTime, time: fromOutput };
     const now = this.audio ? () => this.context.currentTime : () => performance.now() / 1000;
-    this.clock = () => from + Math.max(0, now() - startedAt - latency);
-    if (this.audio) {
-      const node = this.context.createBufferSource();
-      node.buffer = this.audio;
-      node.connect(this.context.destination);
-      node.start(0, Math.max(0, from - this.file.start));
-      this.node = node;
-    }
-    this.startSounds(from);
+    this.clock = () => fromOutput + Math.max(0, now() - startedAt - latency);
+    if (this.audio) this.startClipSound(this.audio, pieces, this.context.currentTime);
+    this.startSounds(fromOutput);
 
     const frameSeconds = 1 / fps(this.file.frameRate);
-    for await (const { frame, index } of this.frames.frames(first, end - first)) {
-      if (run !== this.run) {
-        frame.close();
-        return;
-      }
-      const due = this.timeOf(index);
-      while (this.clock() < due - frameSeconds / 2) {
-        await nextAnimationFrame();
+    for (const span of spans) {
+      for await (const { frame, index } of this.frames.frames(span.first, span.end - span.first)) {
         if (run !== this.run) {
           frame.close();
           return;
         }
+        const due = this.timeOf(index);
+        const dueOutput = outputTime(range, due);
+        while (this.clock() < dueOutput - frameSeconds / 2) {
+          await nextAnimationFrame();
+          if (run !== this.run) {
+            frame.close();
+            return;
+          }
+        }
+        // Too late to show: skip it and catch up with the sound.
+        if (this.clock() > dueOutput + frameSeconds && index < last - 1) {
+          frame.close();
+          continue;
+        }
+        try {
+          await this.prepareAt(due, true);
+        } catch (e) {
+          frame.close();
+          throw e;
+        }
+        if (run !== this.run) {
+          frame.close();
+          return;
+        }
+        this.show(frame, index);
+        this.time = due;
+        this.emit();
       }
-      // Too late to show: skip it and catch up with the sound.
-      if (this.clock() > due + frameSeconds && index < end - 1) {
-        frame.close();
-        continue;
-      }
-      try {
-        await this.prepareAt(due, true);
-      } catch (e) {
-        frame.close();
-        throw e;
-      }
-      if (run !== this.run) {
-        frame.close();
-        return;
-      }
-      this.show(frame, index);
-      this.time = due;
-      this.emit();
     }
     if (run !== this.run) return;
     // The end of the clip: around again from the start.
@@ -353,15 +386,42 @@ export class ClipPlayer {
     this.startPlaying();
   }
 
+  /** Schedules the clip's own sound from `when`: the pieces end to end, faded where they join. */
+  private startClipSound(audio: AudioBuffer, pieces: readonly { start: number; end: number }[], when: number): void {
+    let at = when;
+    pieces.forEach((piece, i) => {
+      const length = piece.end - piece.start;
+      const isLast = i === pieces.length - 1;
+      const node = this.context.createBufferSource();
+      node.buffer = audio;
+      const gain = this.context.createGain();
+      if (i > 0) {
+        gain.gain.setValueAtTime(0, at);
+        gain.gain.linearRampToValueAtTime(1, at + JOIN_FADE_SECONDS);
+      }
+      if (!isLast) {
+        gain.gain.setValueAtTime(1, at + length - JOIN_FADE_SECONDS);
+        gain.gain.linearRampToValueAtTime(0, at + length);
+      }
+      node.connect(gain).connect(this.context.destination);
+      const offset = Math.max(0, piece.start - this.file.start);
+      if (isLast) node.start(at, offset);
+      else node.start(at, offset, length);
+      this.nodes.push(node);
+      at += length;
+    });
+  }
+
   private stopAudio(): void {
-    this.node?.stop();
-    this.node?.disconnect();
-    this.node = null;
+    for (const node of this.nodes.splice(0)) {
+      node.stop();
+      node.disconnect();
+    }
     this.stopSounds();
     this.origin = null;
   }
 
-  /** Schedules every stretch of the layers' sound from source time `from` to the end of the clip. */
+  /** Schedules every stretch of the layers' sound from output time `from` to the end of the clip. */
   private startSounds(from: number): void {
     const origin = this.origin;
     if (!origin) return;
@@ -370,7 +430,7 @@ export class ClipPlayer {
       if (sound.volume <= 0) continue;
       for (const piece of sound.pieces) {
         let start = Math.max(piece.at, from);
-        const end = Math.min(piece.at + piece.duration, this.range.end);
+        const end = Math.min(piece.at + piece.duration, keptLength(this.range));
         let when = origin.contextTime + (start - origin.time);
         // Already due: start now, that much further in.
         if (when < now) {

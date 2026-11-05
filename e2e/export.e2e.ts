@@ -62,7 +62,7 @@ function clip(name: string, start: number, end: number, layout: [number, 'full' 
   layer.layout = layout.map(([t, value]) => ({ t, value, ease: 'cut' }));
   const layers: Clip['layers'] = [layer];
   if (captions) layers.push(newCaptionLayer(start, DEFAULT_CAPTION_STYLE));
-  return { id: crypto.randomUUID(), name, start, end, layers };
+  return { id: crypto.randomUUID(), name, start, end, skips: [], layers };
 }
 
 /** Every frame of `file` as yuv420p, exactly as encoded. */

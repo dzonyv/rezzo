@@ -10,10 +10,11 @@ import { z } from 'zod';
 import { EXPORT_PORT_MESSAGE, type ExportJob, type ExportResult } from '../shared/api.ts';
 import { assetSchema, type Asset } from '../shared/assets.ts';
 import { fps, type FrameRate } from '../shared/frames.ts';
-import { overlayRange, overlaySoundPieces, videoLayersOf } from '../shared/overlay-files.ts';
+import { clipSoundPieces, overlayRange, videoLayersOf } from '../shared/overlay-files.ts';
 import { clipSchema, sourceSchema, type Clip } from '../shared/project.ts';
 import type { ExportSound } from '../shared/worker-api.ts';
 import { translate } from '../shared/translate.ts';
+import { keptPieces } from '../shared/skips.ts';
 import { clipFrames, spanStart } from '../shared/working.ts';
 import { allowMedia, assetUrl, sourceUrl } from './media-protocol.ts';
 import { ensureWorkingFile, parseRange } from './clip.ts';
@@ -40,12 +41,11 @@ async function chooseExportFile(win: BrowserWindow, clipName: string): Promise<s
 /**
  * The video layers' sound in the clip, from their working files at `rate`
  * (made now if they aren't in the cache, reporting 0..1 as they are).
- * Times are from the clip's start.
+ * Times are output time.
  */
 async function layerSounds(
   clip: Clip,
   assets: readonly Asset[],
-  range: { start: number; end: number },
   rate: FrameRate,
   { signal, onProgress }: { signal: AbortSignal; onProgress: (fraction: number) => void },
 ): Promise<ExportSound[]> {
@@ -53,7 +53,7 @@ async function layerSounds(
   const done = heard.map(() => 0);
   const sounds = await Promise.all(
     heard.map(async ({ layer, asset }, i) => {
-      const pieces = overlaySoundPieces(layer, asset.duration, range);
+      const pieces = clipSoundPieces(clip, layer, asset.duration);
       if (pieces.length === 0) return [];
       const { file, span } = await ensureOverlayFile(asset, overlayRange(layer, asset), rate, {
         signal,
@@ -63,7 +63,7 @@ async function layerSounds(
         },
       });
       const fileStart = spanStart(span);
-      return pieces.map((p) => ({ file, start: Math.max(0, p.from - fileStart), duration: p.duration, at: p.at - range.start, volume: layer.volume }));
+      return pieces.map((p) => ({ file, start: Math.max(0, p.from - fileStart), duration: p.duration, at: p.at, volume: layer.volume }));
     }),
   );
   return sounds.flat();
@@ -100,8 +100,9 @@ export async function startExport(win: BrowserWindow, sourceArg: unknown, clipAr
     const { file, span } = await ensureWorkingFile(source, range, { signal: abort.signal, onProgress: progress });
     const encoder = await callWorker('pickEncoder', []);
     const placement = { start: spanStart(span), frameRate: span.rate };
-    const { first, count } = clipFrames(placement, range);
-    const sounds = await layerSounds(clip, assets, range, span.rate, { signal: abort.signal, onProgress: progress });
+    const pieces = keptPieces(clip).map((p) => clipFrames(placement, p)).filter((p) => p.count > 0);
+    const count = pieces.reduce((sum, p) => sum + p.count, 0);
+    const sounds = await layerSounds(clip, assets, span.rate, { signal: abort.signal, onProgress: progress });
     abort.signal.throwIfAborted();
 
     const { port1, port2 } = new MessageChannelMain();
@@ -111,7 +112,7 @@ export async function startExport(win: BrowserWindow, sourceArg: unknown, clipAr
       [{
         out,
         workingFile: file,
-        audioStart: range.start - placement.start,
+        audioPieces: pieces.map((p) => ({ start: p.first / fps(span.rate), duration: p.count / fps(span.rate) })),
         duration: count / fps(span.rate),
         hasAudio: source.audio !== null,
         sounds,
@@ -121,7 +122,7 @@ export async function startExport(win: BrowserWindow, sourceArg: unknown, clipAr
       }],
       { signal: abort.signal, transfer: [port2] },
     );
-    const job: ExportJob = { clipId: clip.id, url: allowMedia(file), ...placement, first, count };
+    const job: ExportJob = { clipId: clip.id, url: allowMedia(file), ...placement, pieces, count };
     sender.postMessage(EXPORT_PORT_MESSAGE, job, [port1]);
     await encoding;
 

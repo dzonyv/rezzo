@@ -241,6 +241,20 @@ describe('project files', () => {
     expect(parseProject(JSON.stringify(old)).voices).toEqual({ count: 3, edits: [], picks: [] });
   });
 
+  it('upgrades a format 9 file, whose clips left nothing out', () => {
+    const { skips: _, ...plain } = sample.clips[0]!;
+    const old = { ...sample, format: 9, clips: [plain] };
+    expect(parseProject(JSON.stringify(old)).clips[0]!.skips).toEqual([]);
+  });
+
+  it('keeps skips, and rejects them out of order or overlapping', () => {
+    const withSkips = (skips: { start: number; end: number }[]) => JSON.stringify({ ...sample, clips: [{ ...sample.clips[0]!, skips }] });
+    expect(parseProject(withSkips([{ start: 1, end: 2 }])).clips[0]!.skips).toEqual([{ start: 1, end: 2 }]);
+    expect(code(() => parseProject(withSkips([{ start: 3, end: 4 }, { start: 1, end: 2 }])))).toBe('invalid');
+    expect(code(() => parseProject(withSkips([{ start: 1, end: 3 }, { start: 2, end: 4 }])))).toBe('invalid');
+    expect(code(() => parseProject(withSkips([{ start: 2, end: 2 }])))).toBe('invalid');
+  });
+
   it('keeps corrections to the voices and picks, and rejects a pick outside the picture', () => {
     const edits = [
       { kind: 'name' as const, at: 3, name: 'Ana' },

@@ -18,7 +18,7 @@ import { motionSchema, transformSchema } from './motion.ts';
 import { speakerCountSchema, speakerPickSchema, voiceEditSchema } from './voices.ts';
 
 /** Bumped when the file format changes in a way older files need migrating for. */
-export const PROJECT_FORMAT = 9;
+export const PROJECT_FORMAT = 10;
 export const PROJECT_EXTENSION = 'rezzo';
 
 export const TRANSCRIPT_LANGUAGES = ['sr', 'hr', 'bs'] as const;
@@ -297,9 +297,12 @@ export const clipSchema = z
     name: z.string(),
     start: seconds,
     end: seconds,
+    /** Stretches of the source that don't play (shared/skips.ts): in order, apart, on whole frames. */
+    skips: z.array(z.object({ start: seconds, end: seconds })),
     layers: z.array(layerSchema).min(1),
   })
   .refine((c) => c.end > c.start, 'a clip ends after it starts')
+  .refine((c) => c.skips.every((s, i) => s.end > s.start && (i === 0 || s.start >= c.skips[i - 1]!.end)), 'skips are in order and apart')
   .refine((c) => c.layers[0]?.kind === 'video' && c.layers.filter((l) => l.kind === 'video').length === 1, 'a clip has one video layer, at the bottom')
   .refine((c) => c.layers.filter((l) => l.kind === 'caption').length <= 1, 'a clip has at most one caption layer')
   .refine((c) => c.layers.every((l) => !isTimed(l) || l.end > l.start), 'a layer ends after it starts')
@@ -378,6 +381,8 @@ const MIGRATIONS: Record<number, (old: Record<string, unknown>) => Record<string
   7: (old) => ({ ...old, voices: { count: 'auto' } }),
   // Format 9 added corrections to the voices and clicks on who is talking.
   8: (old) => ({ ...old, voices: { ...(old.voices as object), edits: [], picks: [] } }),
+  // Format 10 added stretches a clip leaves out.
+  9: (old) => ({ ...old, clips: Array.isArray(old.clips) ? old.clips.map((c: object) => ({ ...c, skips: [] })) : old.clips }),
 };
 
 function imagesWithoutKey(clips: unknown): unknown {
