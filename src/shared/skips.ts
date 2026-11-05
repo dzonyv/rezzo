@@ -9,11 +9,9 @@
  */
 import { fps, snapToFrame, timeOfFrame, type FrameRate } from './frames.ts';
 import type { Clip, Word } from './project.ts';
+import type { Span } from './voices.ts';
 
-export interface Span {
-  start: number;
-  end: number;
-}
+export type { Span };
 
 export type ClipSpan = Pick<Clip, 'start' | 'end' | 'skips'>;
 
@@ -68,18 +66,14 @@ export function nextKept(clip: ClipSpan, t: number): number | null {
   return null;
 }
 
-/** The skip `t` falls in. */
-export const skipAt = (clip: Pick<Clip, 'skips'>, t: number): Span | undefined => clip.skips.find((s) => t >= s.start && t < s.end);
-
 /**
  * Where a layer with its own playback (a video, an animation) has got to at
  * source time `t`: it doesn't jump at a skip, so the time skipped since the
  * layer's start is taken off.
  */
-export function layerClock(clip: Pick<Clip, 'skips'>, layerStart: number, t: number): number {
-  let clock = t;
-  for (const s of clip.skips) clock -= Math.max(0, Math.min(s.end, t) - Math.max(s.start, layerStart));
-  return clock;
+export function layerClock(clip: ClipSpan, layerStart: number, t: number): number {
+  if (clip.skips.length === 0) return t;
+  return layerStart + outputTime(clip, t) - outputTime(clip, layerStart);
 }
 
 /**
@@ -97,8 +91,9 @@ export function withSkips(clip: ClipSpan, spans: readonly Span[], rate: FrameRat
     if (last && s.start - last.end < MIN_PIECE_SECONDS) last.end = Math.max(last.end, s.end);
     else joined.push({ ...s });
   }
-  const first = joined[0];
-  const final = joined.at(-1);
+  const inside = joined.filter((s) => s.end > clip.start && s.start < clip.end);
+  const first = inside[0];
+  const final = inside.at(-1);
   if (first && first.start > clip.start && first.start - clip.start < MIN_PIECE_SECONDS) first.start = clip.start;
   if (final && final.end < clip.end && clip.end - final.end < MIN_PIECE_SECONDS) final.end = clip.end;
   return pieces({ ...clip, skips: joined }).length > 0 ? joined : clip.skips;
@@ -144,17 +139,19 @@ const percentile = (sorted: readonly number[], p: number): number => sorted[Math
 function quietRuns({ db, step, start }: Loudness, from: number, to: number, limit: number): Span[] {
   const runs: Span[] = [];
   let begun: number | null = null;
+  const close = (t: number) => {
+    if (begun === null) return;
+    const last = runs.at(-1);
+    if (last && begun - last.end <= BRIDGE_SECONDS) last.end = t;
+    else runs.push({ start: begun, end: t });
+    begun = null;
+  };
   for (let i = from; i < to; i++) {
     const t = start + i * step;
     if (db[i]! < limit) begun ??= t;
-    else if (begun !== null) {
-      const last = runs.at(-1);
-      if (last && begun - last.end <= BRIDGE_SECONDS) last.end = t;
-      else runs.push({ start: begun, end: t });
-      begun = null;
-    }
+    else close(t);
   }
-  if (begun !== null) runs.push({ start: begun, end: start + to * step });
+  close(start + to * step);
   return runs;
 }
 

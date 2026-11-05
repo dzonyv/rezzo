@@ -404,9 +404,7 @@ export class ClipPlayer {
         gain.gain.linearRampToValueAtTime(0, at + length);
       }
       node.connect(gain).connect(this.context.destination);
-      const offset = Math.max(0, piece.start - this.file.start);
-      if (isLast) node.start(at, offset);
-      else node.start(at, offset, length);
+      node.start(at, Math.max(0, piece.start - this.file.start), length);
       this.nodes.push(node);
       at += length;
     });

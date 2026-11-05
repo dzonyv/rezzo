@@ -125,6 +125,7 @@ export async function renderExport(job: ExportJob, port: MessagePort, clip: Clip
     };
 
     for (const piece of job.pieces) {
+      if (signal.aborted || link.error) break;
       for await (const { frame, index } of frames.frames(piece.first, piece.count)) {
         if (signal.aborted || link.error) {
           frame.close();

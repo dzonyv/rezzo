@@ -1,6 +1,6 @@
 import { describe, expect, it } from 'vitest';
 import { clipSoundPieces } from './overlay-files.ts';
-import { DEFAULT_PAUSE_OPTIONS, keptLength, keptPieces, layerClock, nextKept, outputTime, pausesOf, skipAt, withoutSkipAt, withSkips, wordsSpan, type ClipSpan, type Loudness } from './skips.ts';
+import { DEFAULT_PAUSE_OPTIONS, keptLength, keptPieces, layerClock, nextKept, outputTime, pausesOf, withoutSkipAt, withSkips, wordsSpan, type ClipSpan, type Loudness } from './skips.ts';
 import type { FrameRate } from './frames.ts';
 
 const RATE: FrameRate = [30, 1];
@@ -55,7 +55,7 @@ describe('output time', () => {
 });
 
 describe('a layer playing through skips', () => {
-  const c = { skips: [{ start: 12, end: 13 }] };
+  const c = clip([{ start: 12, end: 13 }]);
 
   it('takes off the time skipped since the layer started', () => {
     expect(layerClock(c, 10, 11)).toBe(11);
@@ -66,6 +66,16 @@ describe('a layer playing through skips', () => {
   it('holds inside a skip, and counts only the part after a layer that starts in one', () => {
     expect(layerClock(c, 10, 12.5)).toBe(12);
     expect(layerClock(c, 12.5, 14)).toBe(13.5);
+  });
+
+  it('agrees with its sound when a skip lies outside the clip', () => {
+    const c = clip([{ start: 6, end: 7 }]);
+    const [piece] = clipSoundPieces(c, { start: 5, end: 12, offset: 0, loop: false }, 10);
+    expect(layerClock(c, 5, 10) - 5).toBe(piece!.from);
+  });
+
+  it('runs on through skips in a clip that plays whole', () => {
+    expect(layerClock(clip([{ start: 9, end: 21 }]), 11, 14)).toBe(14);
   });
 
   it('places its sound in output time, on through the skip', () => {
@@ -91,6 +101,11 @@ describe('adding and taking back skips', () => {
     expect(withSkips(clip(), [{ start: 19, end: 19.95 }], RATE)).toEqual([{ start: 19, end: 20 }]);
   });
 
+  it('looks past a skip outside the clip for a blip at its start', () => {
+    const skips = withSkips(clip([{ start: 5, end: 6 }]), [{ start: 10.05, end: 11 }], RATE);
+    expect(skips).toEqual([{ start: 5, end: 6 }, { start: 10, end: 11 }]);
+  });
+
   it("won't cut the whole clip", () => {
     const skips = [{ start: 12, end: 13 }];
     expect(withSkips(clip(skips), [{ start: 10, end: 20 }], RATE)).toEqual(skips);
@@ -98,8 +113,6 @@ describe('adding and taking back skips', () => {
 
   it('takes back the skip at a moment', () => {
     const c = clip([{ start: 12, end: 13 }, { start: 15, end: 16 }]);
-    expect(skipAt(c, 12.5)).toEqual({ start: 12, end: 13 });
-    expect(skipAt(c, 14)).toBeUndefined();
     expect(withoutSkipAt(c, 12.5)).toEqual([{ start: 15, end: 16 }]);
   });
 
@@ -142,6 +155,11 @@ describe('finding pauses', () => {
 
   it('bridges a very short noise inside a pause', () => {
     const s = sound([[12, 12.5], [12.54, 13]]);
+    expect(pausesOf(clip(), [], s, DEFAULT_PAUSE_OPTIONS)).toHaveLength(1);
+  });
+
+  it('bridges a short noise in a pause that runs to the end of the clip', () => {
+    const s = sound([[19.3, 19.6], [19.64, 20]]);
     expect(pausesOf(clip(), [], s, DEFAULT_PAUSE_OPTIONS)).toHaveLength(1);
   });
 

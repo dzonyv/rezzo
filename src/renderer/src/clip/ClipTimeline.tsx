@@ -286,7 +286,7 @@ export function ClipTimeline({ clip, assets, keys, pages, selectedId, time }: Pr
                 title={t('silence.skipHelp')}
                 onPointerDown={(e) => {
                   e.stopPropagation();
-                  restoreSkip(clip.id, s.start);
+                  if (e.button === 0) restoreSkip(clip.id, s.start);
                 }}
               />
             ))}
@@ -301,7 +301,7 @@ export function ClipTimeline({ clip, assets, keys, pages, selectedId, time }: Pr
                 title={t('silence.pauseHelp')}
                 onPointerDown={(e) => {
                   e.stopPropagation();
-                  toggleFoundPause(p.start);
+                  if (e.button === 0) toggleFoundPause(p.start);
                 }}
               />
             ))}

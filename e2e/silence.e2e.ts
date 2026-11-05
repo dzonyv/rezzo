@@ -66,6 +66,12 @@ async function exportClip(out: string): Promise<void> {
   await expect.poll(() => page.locator('.export-dialog[open]').count()).toBe(0);
 }
 
+/** Where the sound in `file` goes quiet, in seconds. */
+async function quietStarts(file: string): Promise<number[]> {
+  const { stderr } = await run(ffmpegExe(), ['-hide_banner', '-i', file, '-map', '0:a', '-af', 'silencedetect=n=-40dB:d=0.1', '-f', 'null', '-']);
+  return [...stderr.matchAll(/silence_start: ([\d.]+)/g)].map((m) => Number(m[1]));
+}
+
 const totalTime = async () => (await page.locator('.transport .time').textContent()) ?? '';
 const panel = () => page.getByRole('group', { name: 'Removing pauses' });
 
@@ -174,6 +180,11 @@ describe('removing pauses', () => {
     expect(jumps[0]![1]! / FPS).toBeCloseTo(7.4, 0);
     const { video, audio } = await durations(out);
     expect(Math.abs(audio! - video!)).toBeLessThan(0.1);
+    // What's left of each pause, in the kept sound: at 6 s, and at 11 s less the 1.3 s cut before it.
+    const quiet = await quietStarts(out);
+    expect(quiet).toHaveLength(2);
+    expect(quiet[0]! - (6 - START)).toBeCloseTo(0, 1);
+    expect(quiet[1]! - (11 - START - 1.3)).toBeCloseTo(0, 1);
   });
 
   it('brings one cut back with a click, and all with the button', async () => {
