@@ -6,6 +6,7 @@ import {
 } from '../../../shared/caption-style.ts';
 import { cssFamily, FALLBACK_FONT, fontChoices, type FontRef } from '../../../shared/fonts.ts';
 import { keyAt } from '../../../shared/framing.ts';
+import type { CaptionTrack } from '../../../shared/captions.ts';
 import type { FrameRate } from '../../../shared/frames.ts';
 import type { CaptionLayer } from '../../../shared/project.ts';
 import { isAvailable, preloadFont } from '../fonts/registry.ts';
@@ -21,6 +22,8 @@ const WEIGHT_NAMES = [100, 200, 300, 400, 500, 600, 700, 800, 900] as const;
 interface Props {
   clipId: string;
   layer: CaptionLayer | null;
+  /** The position keyframes of the layout on screen. */
+  track: CaptionTrack;
   /** Source seconds of the frame on screen; position keyframes land there. */
   time: number;
   rate: FrameRate;
@@ -99,7 +102,7 @@ function ColorInput({ value, onPick }: { value: string; onPick: (value: string) 
 }
 
 /** The clip's caption settings: add or remove them, pick and tune a style, save it for later. */
-export function CaptionPanel({ clipId, layer, time, rate }: Props) {
+export function CaptionPanel({ clipId, layer, track, time, rate }: Props) {
   const { t } = useTranslation();
   const saved = useSettings((s) => s.captionStyles) ?? [];
   const custom = useSettings((s) => s.fonts) ?? [];
@@ -180,7 +183,8 @@ export function CaptionPanel({ clipId, layer, time, rate }: Props) {
     }
   };
 
-  const keyIndex = keyAt(layer.y, time, rate);
+  const keys = layer[track];
+  const keyIndex = keyAt(keys, time, rate);
   const color = (label: string, value: string, patch: (v: string) => Partial<CaptionStyle>) => (
     <label className="caption-color">
       <span>{label}</span>
@@ -326,20 +330,20 @@ export function CaptionPanel({ clipId, layer, time, rate }: Props) {
 
       <div className="keyframes">
         <span className="dim">{t('captions.position')}</span>
-        <button type="button" disabled={keyIndex >= 0} onClick={() => addCaptionKey(clipId, time)}>
+        <button type="button" disabled={keyIndex >= 0} onClick={() => addCaptionKey(clipId, track, time)}>
           <span className="diamond" aria-hidden="true" />
           {t('clipEditor.addKeyframe')}
         </button>
-        <label className={keyIndex < 0 || keyIndex === layer.y.length - 1 ? 'disabled' : undefined}>
+        <label className={keyIndex < 0 || keyIndex === keys.length - 1 ? 'disabled' : undefined}>
           <input
             type="checkbox"
-            disabled={keyIndex < 0 || keyIndex === layer.y.length - 1}
-            checked={keyIndex >= 0 && layer.y[keyIndex]!.ease === 'smooth'}
-            onChange={(e) => setCaptionKeySmooth(clipId, keyIndex, e.target.checked)}
+            disabled={keyIndex < 0 || keyIndex === keys.length - 1}
+            checked={keyIndex >= 0 && keys[keyIndex]!.ease === 'smooth'}
+            onChange={(e) => setCaptionKeySmooth(clipId, track, keyIndex, e.target.checked)}
           />
           {t('clipEditor.smooth')}
         </label>
-        <button type="button" disabled={keyIndex < 0 || layer.y.length === 1} onClick={() => deleteCaptionKey(clipId, keyIndex)}>
+        <button type="button" disabled={keyIndex < 0 || keys.length === 1} onClick={() => deleteCaptionKey(clipId, track, keyIndex)}>
           {t('clipEditor.deleteKeyframe')}
         </button>
       </div>

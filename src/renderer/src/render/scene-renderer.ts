@@ -8,7 +8,7 @@
 import type { Asset, ImageAsset, LottieAsset } from '../../../shared/assets.ts';
 import { OUTPUT } from '../../../shared/framing.ts';
 import type { FrameRate } from '../../../shared/frames.ts';
-import { captionLayerOf, placedLayers, type Clip, type Word } from '../../../shared/project.ts';
+import { captionLayerOf, placedLayers, videoLayerOf, type Clip, type Word } from '../../../shared/project.ts';
 import { videoLayersOf } from '../../../shared/overlay-files.ts';
 import { sceneAt } from '../../../shared/scene.ts';
 import { CaptionPainter, loadCaptionScene, type CaptionScene } from './captions.ts';
@@ -155,6 +155,6 @@ export class SceneRenderer {
     if (!size) return;
     const ops = sceneAt(scene.clip, scene.assets, t, size);
     this.lotties.draw(ops);
-    this.compositor.render(ops, scene.images, scene.captions && this.painter.paint(scene.captions, t));
+    this.compositor.render(ops, scene.images, scene.captions && this.painter.paint(scene.captions, videoLayerOf(scene.clip).layout, t));
   }
 }

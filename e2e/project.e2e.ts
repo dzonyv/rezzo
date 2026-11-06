@@ -2,12 +2,13 @@
  * Project lifecycle against the built app. Native file dialogs are replaced
  * in the main process so the tests can choose the file.
  */
-import { copyFile, mkdtemp, readFile, rename, rm, writeFile } from 'node:fs/promises';
+import { copyFile, mkdtemp, readdir, readFile, rename, rm, writeFile } from 'node:fs/promises';
 import { tmpdir } from 'node:os';
 import path from 'node:path';
 import type { ElectronApplication, Page } from 'playwright-core';
 import { afterEach, beforeAll, beforeEach, describe, expect, it } from 'vitest';
 import type { RezzoApi } from '../src/shared/api.ts';
+import { PROJECT_FORMAT } from '../src/shared/project.ts';
 import { answerOpenDialog, answerSaveDialog, launchApp, makeTestVideo, stopApp, type Launched } from './helpers.ts';
 
 type PageGlobal = typeof globalThis & { rezzo: RezzoApi };
@@ -130,18 +131,38 @@ describe('projects', () => {
     app = undefined;
   });
 
+  /** Leaves a crash copy of a project called "Lost work" behind. */
+  async function crashWithUnsavedWork(page: Page): Promise<void> {
+    await page.evaluate(async (format) => {
+      const project = { format: format as typeof PROJECT_FORMAT, id: '0b6f2a52-9d0c-4f39-8f39-7f0e2c9b1a11', name: 'Lost work', source: null, transcript: null, clips: [], assets: [], voices: { count: 'auto' as const, edits: [], picks: [] } };
+      await (globalThis as PageGlobal).rezzo.invoke('project:autosave', project, null);
+    }, PROJECT_FORMAT);
+    await stop();
+  }
+
   it('offers unsaved work after a crash', async () => {
     let { page } = await launch();
-    await page.evaluate(async () => {
-      const project = { format: 10 as const, id: '0b6f2a52-9d0c-4f39-8f39-7f0e2c9b1a11', name: 'Lost work', source: null, transcript: null, clips: [], assets: [], voices: { count: 'auto' as const, edits: [], picks: [] } };
-      await (globalThis as PageGlobal).rezzo.invoke('project:autosave', project, null);
-    });
-    await stop();
+    await crashWithUnsavedWork(page);
 
     ({ page } = await launch());
     await page.getByRole('button', { name: 'Restore' }).click();
     await expect.poll(() => nameField(page).inputValue()).toBe('Lost work');
     expect(await page.locator('.dirty').count()).toBe(1);
+  });
+
+  it('offers unsaved work from before an update', async () => {
+    let { page } = await launch();
+    await crashWithUnsavedWork(page);
+
+    const recovery = path.join(dir, 'profile', 'recovery');
+    const [name] = await readdir(recovery);
+    const copy = JSON.parse(await readFile(path.join(recovery, name!), 'utf8')) as { project: { format: number } };
+    copy.project.format = 10;
+    await writeFile(path.join(recovery, name!), JSON.stringify(copy));
+
+    ({ page } = await launch());
+    await page.getByRole('button', { name: 'Restore' }).click();
+    await expect.poll(() => nameField(page).inputValue()).toBe('Lost work');
   });
 
   it('reports a file that is not a project', async () => {

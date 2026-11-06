@@ -3,7 +3,7 @@ import { useTranslation } from 'react-i18next';
 import { keyAt, valueAt } from '../../../shared/framing.ts';
 import { fps, workingFrameRate } from '../../../shared/frames.ts';
 import { videoLayersOverLimit } from '../../../shared/overlay-files.ts';
-import { captionPages } from '../../../shared/captions.ts';
+import { captionPages, captionTrackFor } from '../../../shared/captions.ts';
 import { keptLength, outputTime } from '../../../shared/skips.ts';
 import { captionLayerOf, isTimed, LAYOUTS, MAX_ZOOM, videoLayerOf, type Clip, type Source } from '../../../shared/project.ts';
 import { exportClip, isExporting, useExport } from '../export/state.ts';
@@ -170,7 +170,7 @@ export function ClipEditor({ clip, source }: { clip: Clip; source: Source }) {
         <FramingOverlay clipId={clip.id} layout={layout} half={half} onHalf={setHalf} time={time} sourceSize={sourceSize} />
         <LayerOverlay clip={clip} assets={assets} selectedId={selectedLayer?.id ?? null} time={time} />
         {showPeople && <PeopleOverlay layer={layer} time={time} sourceSize={sourceSize} />}
-        {captions && <CaptionOverlay clipId={clip.id} layer={captions} time={time} />}
+        {captions && <CaptionOverlay clipId={clip.id} layer={captions} track={captionTrackFor(layout)} time={time} />}
       </ClipPreview>
 
       <div className="transport">
@@ -279,7 +279,7 @@ export function ClipEditor({ clip, source }: { clip: Clip; source: Source }) {
         />
       </label>
 
-      <CaptionPanel clipId={clip.id} layer={captions} time={time} rate={rate} />
+      <CaptionPanel clipId={clip.id} layer={captions} track={captionTrackFor(layout)} time={time} rate={rate} />
       </>
     );
   }

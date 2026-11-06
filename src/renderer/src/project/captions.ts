@@ -1,11 +1,12 @@
 /**
  * Edits to a clip's captions: adding and removing them, their style and
  * their position. Position edits work like framing (see project/framing.ts):
- * with one keyframe they move the captions for the whole clip.
+ * with one keyframe they move the captions for the whole clip, in the
+ * layouts that use the track being edited (see captionTrackFor).
  */
 import type { Draft } from 'immer';
 import { DEFAULT_CAPTION_STYLE, type CaptionStyle } from '../../../shared/caption-style.ts';
-import { newCaptionLayer } from '../../../shared/captions.ts';
+import { newCaptionLayer, type CaptionTrack } from '../../../shared/captions.ts';
 import { editAt, removeKey, setKey, valueAt } from '../../../shared/framing.ts';
 import type { CaptionLayer } from '../../../shared/project.ts';
 import { currentSettings } from '../settings.ts';
@@ -41,22 +42,22 @@ export function setCaptionStyle(clipId: string, patch: Partial<CaptionStyle>, la
   editCaptions(clipId, label, (l) => void Object.assign(l.style, patch));
 }
 
-/** Moves the captions to `y` (0 top, 1 bottom) at `time`; inside a gesture while dragging. */
-export function moveCaptions(clipId: string, time: number, y: number): void {
-  editCaptions(clipId, 'history.moveCaptions', (l) => void (l.y = editAt(l.y, time, Math.min(1, Math.max(0, y)), sourceRate())));
+/** Moves the captions on `track` to `y` (0 top, 1 bottom) at `time`; inside a gesture while dragging. */
+export function moveCaptions(clipId: string, track: CaptionTrack, time: number, y: number): void {
+  editCaptions(clipId, 'history.moveCaptions', (l) => void (l[track] = editAt(l[track], time, Math.min(1, Math.max(0, y)), sourceRate())));
 }
 
-export function addCaptionKey(clipId: string, time: number): void {
-  editCaptions(clipId, 'history.addKeyframe', (l) => void (l.y = setKey(l.y, time, valueAt(l.y, time), sourceRate())));
+export function addCaptionKey(clipId: string, track: CaptionTrack, time: number): void {
+  editCaptions(clipId, 'history.addKeyframe', (l) => void (l[track] = setKey(l[track], time, valueAt(l[track], time), sourceRate())));
 }
 
-export function deleteCaptionKey(clipId: string, index: number): void {
-  editCaptions(clipId, 'history.deleteKeyframe', (l) => void (l.y = removeKey(l.y, index)));
+export function deleteCaptionKey(clipId: string, track: CaptionTrack, index: number): void {
+  editCaptions(clipId, 'history.deleteKeyframe', (l) => void (l[track] = removeKey(l[track], index)));
 }
 
-export function setCaptionKeySmooth(clipId: string, index: number, smooth: boolean): void {
+export function setCaptionKeySmooth(clipId: string, track: CaptionTrack, index: number, smooth: boolean): void {
   editCaptions(clipId, 'history.smoothKeyframe', (l) => {
-    const key = l.y[index];
+    const key = l[track][index];
     if (key) key.ease = smooth ? 'smooth' : 'cut';
   });
 }

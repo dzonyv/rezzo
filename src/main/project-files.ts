@@ -127,11 +127,12 @@ export async function recoveredProjects(): Promise<RecoveredProject[]> {
   for (const name of names.filter((n) => n.endsWith('.json'))) {
     try {
       const copy = recoverySchema.parse(JSON.parse(await readFile(path.join(recoveryDir(), name), 'utf8')));
-      const project = projectSchema.parse(copy.project);
+      // Through the upgrades: a copy from before an update is still someone's work.
+      const project = parseProject(JSON.stringify(copy.project));
       rememberFiles(project);
       found.push({ filePath: copy.filePath, savedAt: copy.savedAt, project });
     } catch {
-      // A half-written or outdated copy; nothing to offer.
+      // A half-written copy, or one from a newer version; nothing to offer.
     }
   }
   return found.sort((a, b) => b.savedAt.localeCompare(a.savedAt));

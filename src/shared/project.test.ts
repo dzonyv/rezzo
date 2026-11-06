@@ -1,4 +1,6 @@
 import { describe, expect, it } from 'vitest';
+import { DEFAULT_CAPTION_STYLE } from './caption-style.ts';
+import { newCaptionLayer } from './captions.ts';
 import { clipFromWords } from './clips.ts';
 import { DEFAULT_CHROMA_KEY } from './chroma-key.ts';
 import { defaultParams } from './effects.ts';
@@ -245,6 +247,30 @@ describe('project files', () => {
     const { skips: _, ...plain } = sample.clips[0]!;
     const old = { ...sample, format: 9, clips: [plain] };
     expect(parseProject(JSON.stringify(old)).clips[0]!.skips).toEqual([]);
+  });
+
+  describe('format 10 captions', () => {
+    const key = (value: number, t = 0) => ({ t, value, ease: 'cut' as const });
+    /** A format 10 file whose captions have these keyframes, and no track of their own for Split. */
+    const upgraded = (y: ReturnType<typeof key>[]) => {
+      const { splitY: _, ...old } = { ...newCaptionLayer(0, DEFAULT_CAPTION_STYLE), y };
+      const clip = { ...sample.clips[0]!, layers: [...sample.clips[0]!.layers.filter((l) => l.kind !== 'caption'), old] };
+      const layer = parseProject(JSON.stringify({ ...sample, format: 10, clips: [clip] })).clips[0]!.layers.find((l) => l.kind === 'caption');
+      return layer as { y: unknown; splitY: unknown };
+    };
+
+    it('takes captions at the old default off the lower face in Split', () => {
+      expect(upgraded([key(0.7, 3)])).toMatchObject({ y: [key(0.7, 3)], splitY: [key(0.5, 3)] });
+    });
+
+    it('keeps captions someone moved in that place in Split too', () => {
+      expect(upgraded([key(0.3)]).splitY).toEqual([key(0.3)]);
+    });
+
+    it('keeps keyframed captions as they were in Split too', () => {
+      const keys = [key(0.7), key(0.7, 1)];
+      expect(upgraded(keys).splitY).toEqual(keys);
+    });
   });
 
   it('keeps skips, and rejects them out of order or overlapping', () => {

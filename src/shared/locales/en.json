@@ -342,7 +342,7 @@
     "lines": "Lines",
     "maxChars": "Letters per line",
     "position": "Position",
-    "positionHelp": "Drag the captions up or down in the preview. Add a keyframe where they should move.",
+    "positionHelp": "Drag the captions up or down in the preview. Split has its own place. Add a keyframe where they should move.",
     "drag": "Captions: drag up or down to move them",
     "styleName": "Style name",
     "save": "Save as style",

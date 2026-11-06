@@ -10,9 +10,9 @@
 import { clamp01, easeOutBack } from '../../../shared/easing.ts';
 import { cssFont } from '../../../shared/fonts.ts';
 import type { CaptionStyle } from '../../../shared/caption-style.ts';
-import { OUTPUT, valueAt } from '../../../shared/framing.ts';
-import { captionPages, captionStateAt, LINE_HEIGHT, pageLines, type CaptionPage, type CaptionState } from '../../../shared/captions.ts';
-import type { Animated, CaptionLayer, Word } from '../../../shared/project.ts';
+import { OUTPUT } from '../../../shared/framing.ts';
+import { captionPages, captionStateAt, captionYAt, LINE_HEIGHT, pageLines, type CaptionPage, type CaptionState } from '../../../shared/captions.ts';
+import type { Animated, CaptionLayer, Layout, Word } from '../../../shared/project.ts';
 import { ensureFont } from '../fonts/registry.ts';
 
 /** Captions keep this far from the left and right edges; a page too wide is drawn smaller. */
@@ -27,6 +27,7 @@ export interface CaptionScene {
   /** With the font it will be drawn in (see fonts/registry.ts). */
   style: CaptionStyle;
   y: Animated<number>;
+  splitY: Animated<number>;
 }
 
 /** What the compositor lays over the picture; `version` changes whenever the pixels do. */
@@ -68,13 +69,13 @@ export class CaptionPainter {
     this.ctx = this.canvas.getContext('2d')!;
   }
 
-  /** The captions at source time `t`, or null when none show. Repaints only when something changed. */
-  paint(scene: CaptionScene, t: number): Overlay | null {
+  /** The captions at source time `t` over a picture with `layouts`, or null when none show. Repaints only when something changed. */
+  paint(scene: CaptionScene, layouts: Animated<Layout>, t: number): Overlay | null {
     const state = captionStateAt(scene.pages, t);
     if (!state) return null;
     const page = scene.pages[state.page]!;
     const { style } = scene;
-    const y = valueAt(scene.y, t);
+    const y = captionYAt(scene, layouts, t);
     // Everything the picture depends on, apart from the scene itself: what is
     // on screen, where, and how far along whatever is still coming in is.
     const coming = style.mode === 'reveal' ? page.words.slice(0, state.active + 1).map((w) => t - w.start) : [state.sincePage];
@@ -179,5 +180,5 @@ export async function loadCaptionScene(layer: CaptionLayer | null, words: readon
   if (!layer) return null;
   const font = await ensureFont(layer.style.font);
   const style = { ...layer.style, font };
-  return { pages: captionPages(words, range, style), style, y: layer.y };
+  return { pages: captionPages(words, range, style), style, y: layer.y, splitY: layer.splitY };
 }
