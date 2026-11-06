@@ -1086,6 +1086,11 @@ button.icon {
   margin-bottom: 10px;
 }
 
+.auto-frame .banner {
+  flex-basis: 100%;
+  margin-bottom: 0;
+}
+
 .auto-frame label {
   display: flex;
   gap: 6px;

@@ -27,11 +27,14 @@ export function useAnalysis<T>(select: (s: AnalysisState) => T): T {
 }
 
 let running: AbortController | undefined;
+/** The working file asked for last, to try again with. */
+let latest: WorkingFile | undefined;
 
 /** Makes sure the analysis of this working file is there or on its way. */
 export async function analyse(file: WorkingFile): Promise<void> {
   const s = analysisStore.getState();
   if (s.url === file.url && s.status !== 'failed') return;
+  latest = file;
   running?.abort();
   const abort = new AbortController();
   running = abort;
@@ -50,10 +53,16 @@ export async function analyse(file: WorkingFile): Promise<void> {
   }
 }
 
+/** Tries again after a failure. */
+export function retryAnalysis(): void {
+  if (latest) void analyse(latest);
+}
+
 /** The clip editor closed: nothing to analyse any more. */
 export function stopAnalysis(): void {
   running?.abort();
   running = undefined;
+  latest = undefined;
   analysisStore.setState(idle);
 }
 
@@ -67,5 +76,6 @@ Object.assign(window, {
     state: () => analysisStore.getState(),
     run: (file: WorkingFile) => analyse(file),
     set: (analysis: ClipAnalysis) => analysisStore.setState({ status: 'ready', analysis }),
+    fail: (detail: string) => analysisStore.setState({ status: 'failed', analysis: null, detail }),
   },
 });

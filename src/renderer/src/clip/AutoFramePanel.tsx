@@ -3,7 +3,7 @@ import { shotIndexAt } from '../../../shared/analysis.ts';
 import { FRAME_WIDTHS, SPEAKER_CHANGES, type FrameWidth, type SpeakerChange } from '../../../shared/autoframe.ts';
 import type { Clip } from '../../../shared/project.ts';
 import type { Span } from '../../../shared/voices.ts';
-import { useAnalysis } from '../analysis/store.ts';
+import { retryAnalysis, useAnalysis } from '../analysis/store.ts';
 import { applyAutoFrame } from '../project/framing.ts';
 import { useVoices } from '../project/voices.ts';
 import { useStretches } from './speakers.ts';
@@ -17,6 +17,8 @@ import { setFrameOptions, useFrameOptions } from './state.ts';
 export function AutoFramePanel({ clip, time }: { clip: Clip; time: number }) {
   const { t } = useTranslation();
   const analysis = useAnalysis((s) => s.analysis);
+  const failed = useAnalysis((s) => s.status === 'failed');
+  const detail = useAnalysis((s) => s.detail);
   const stretches = useStretches();
   // Without its voices the clip would come out as Split wherever there are two people.
   const voicesComing = useVoices((s) => s.status === 'running' && !s.voices);
@@ -24,13 +26,22 @@ export function AutoFramePanel({ clip, time }: { clip: Clip; time: number }) {
   const shot = analysis?.shots[shotIndexAt(analysis.shots, time)];
   const ready = shot !== undefined && !voicesComing;
   const apply = (range: Span) => analysis && applyAutoFrame(clip.id, analysis, stretches, range, options);
+  const notReady = failed ? 'autoFrame.noAnalysis' : 'autoFrame.waiting';
 
   return (
     <div className="auto-frame" role="group" aria-label={t('autoFrame.title')}>
-      <button type="button" disabled={!ready} title={t(ready ? 'autoFrame.buttonHelp' : 'autoFrame.waiting')} onClick={() => apply(clip)}>
+      {failed && (
+        <div className="banner warning">
+          <span>{t('analysis.failed', { detail })}</span>
+          <button type="button" onClick={retryAnalysis}>
+            {t('analysis.retry')}
+          </button>
+        </div>
+      )}
+      <button type="button" disabled={!ready} title={t(ready ? 'autoFrame.buttonHelp' : notReady)} onClick={() => apply(clip)}>
         {t('autoFrame.button')}
       </button>
-      <button type="button" disabled={!ready} title={t(ready ? 'autoFrame.shotHelp' : 'autoFrame.waiting')} onClick={() => shot && apply(shot)}>
+      <button type="button" disabled={!ready} title={t(ready ? 'autoFrame.shotHelp' : notReady)} onClick={() => shot && apply(shot)}>
         {t('autoFrame.shot')}
       </button>
       <label>
