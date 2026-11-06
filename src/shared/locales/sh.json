@@ -537,7 +537,9 @@
     "running": "Tražim rezove i ljude…",
     "person": "Osoba {{n}}",
     "showPeople": "Prikaži ljude",
-    "showPeopleHelp": "Označava glave koje je analiza našla u ovom kadru"
+    "showPeopleHelp": "Označava glave koje je analiza našla u ovom kadru",
+    "failed": "Klip nije bilo moguće analizirati: {{detail}}",
+    "retry": "Pokušaj ponovo"
   },
   "speakers": {
     "title": "Ko sada govori",
@@ -561,6 +563,7 @@
     "shot": "Ovaj kadar",
     "shotHelp": "Ponovo kadrira samo kadar na poziciji reprodukcije, a ostatak klipa ne dira",
     "waiting": "Čeka analizu klipa i glasove",
+    "noAnalysis": "Analiza klipa nije uspela",
     "width": "Širina",
     "widths": {
       "tight": "Uzak",

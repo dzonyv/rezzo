@@ -1,11 +1,12 @@
 /** Shared setup for the end-to-end tests. */
-import { execFile } from 'node:child_process';
+import { execFile, spawn } from 'node:child_process';
 import { readdirSync } from 'node:fs';
 import { readFile, writeFile } from 'node:fs/promises';
 import path from 'node:path';
 import { promisify } from 'node:util';
 import { _electron as electron, type ElectronApplication, type Page } from 'playwright-core';
-import type { Segment } from '../src/shared/project.ts';
+import { clipFromWords } from '../src/shared/clips.ts';
+import type { Project, Segment } from '../src/shared/project.ts';
 
 const run = promisify(execFile);
 
@@ -147,15 +148,19 @@ export function appToLaunch(): { executablePath?: string; args: string[] } {
   return executable ? { executablePath: path.resolve(executable), args: [] } : { args: [path.resolve('out/main/index.js')] };
 }
 
-/** Starts the app (see appToLaunch) with its own profile and local data folders under `dir`. */
-export async function launchApp(dir: string): Promise<Launched> {
+/**
+ * Starts the app (see appToLaunch) with its own profile and local data
+ * folders under `dir`. With `rendererUrl` the page comes from that dev
+ * server, as in `npm run dev`, and not from the build.
+ */
+export async function launchApp(dir: string, rendererUrl = ''): Promise<Launched> {
   const app = await electron.launch({
     ...appToLaunch(),
     env: {
       ...process.env,
       REZZO_USER_DATA: path.join(dir, 'profile'),
       REZZO_LOCAL_DATA: path.join(dir, 'local'),
-      ELECTRON_RENDERER_URL: '',
+      ELECTRON_RENDERER_URL: rendererUrl,
     },
   });
   const page = await app.firstWindow();
@@ -164,6 +169,72 @@ export async function launchApp(dir: string): Promise<Launched> {
   await app.evaluate(({ BrowserWindow }) => BrowserWindow.getAllWindows()[0]!.setSize(1000, 640));
   await page.locator('h1, .topbar').first().waitFor();
   return { app, page };
+}
+
+/**
+ * Starts the app and opens a clip of three synthetic shots, with hard cuts
+ * at 2 s and 4 s and nobody in them.
+ */
+export async function openThreeShots(dir: string, rendererUrl = ''): Promise<Launched> {
+  const video = path.join(dir, 'three-shots.mp4');
+  await run(ffmpegExe(), [
+    '-y', '-v', 'error',
+    '-f', 'lavfi', '-i', 'color=c=0x802020:size=640x360:rate=30:duration=2',
+    '-f', 'lavfi', '-i', 'testsrc2=size=640x360:rate=30:duration=2',
+    '-f', 'lavfi', '-i', 'color=c=0x2040a0:size=640x360:rate=30:duration=2',
+    '-f', 'lavfi', '-i', 'sine=frequency=440:sample_rate=48000:duration=6',
+    '-filter_complex', '[0:v][1:v][2:v]concat=n=3:v=1:a=0[v]',
+    '-map', '[v]', '-map', '3:a', '-c:v', 'libx264', '-pix_fmt', 'yuv420p', '-c:a', 'aac', video,
+  ]);
+
+  const { app, page } = await launchApp(dir, rendererUrl);
+  await answerOpenDialog(app, video);
+  await page.getByRole('button', { name: 'New project' }).click();
+  const file = path.join(dir, 'three-shots.rezzo');
+  await answerSaveDialog(app, file);
+  await page.getByRole('textbox', { name: 'Project name' }).waitFor();
+  await page.keyboard.press('Control+S');
+  await until(async () => (await readFile(file, 'utf8').catch(() => '')).includes('"source"'));
+  await page.getByRole('button', { name: 'Close project' }).click();
+
+  const project = JSON.parse(await readFile(file, 'utf8')) as Project;
+  const words = Array.from({ length: 11 }, (_, i) => ({ text: `reč${i}`, start: 0.3 + i * 0.5, end: 0.7 + i * 0.5, p: 0.9 }));
+  project.transcript = { language: 'sr', model: 'test', createdAt: new Date().toISOString(), startShift: -0.1, segments: [{ start: 0.3, end: 5.7, words }] };
+  project.clips = [clipFromWords(words, project.source!)];
+  await writeFile(file, JSON.stringify(project));
+  await page.getByRole('button', { name: /three-shots/ }).click();
+  await page.locator('.clip-list li button').first().click();
+  return { app, page };
+}
+
+/** The renderer's dev server, as `npm run dev` starts it; on a free port, so a running copy of the app can stay open. */
+export async function startDevServer(): Promise<{ url: string; stop(): void }> {
+  const { ELECTRON_RENDERER_URL: _, ...env } = process.env;
+  const server = spawn(process.execPath, [path.resolve('node_modules/electron-vite/bin/electron-vite.js'), 'dev', '--rendererOnly'], { env });
+  const url = await new Promise<string>((resolve, reject) => {
+    let output = '';
+    // Nobody can stop a server this function never returned.
+    const stalled = setTimeout(() => {
+      server.kill();
+      reject(new Error(`the dev server didn't start: ${output}`));
+    }, 60_000);
+    const read = (chunk: Buffer) => {
+      // eslint-disable-next-line no-control-regex
+      output += chunk.toString().replace(/\x1b\[[0-9;]*m/g, '');
+      const found = /Local:\s+(http:\/\/\S+?)\/?\s/.exec(output);
+      if (found) {
+        clearTimeout(stalled);
+        resolve(found[1]!);
+      }
+    };
+    server.stdout.on('data', read);
+    server.stderr.on('data', read);
+    server.once('exit', () => {
+      clearTimeout(stalled);
+      reject(new Error(`the dev server stopped: ${output}`));
+    });
+  });
+  return { url, stop: () => void server.kill() };
 }
 
 /** Ends the app without the unsaved-changes question a normal close would ask. */

@@ -537,7 +537,9 @@
     "running": "Finding cuts and people…",
     "person": "Person {{n}}",
     "showPeople": "Show people",
-    "showPeopleHelp": "Draws the heads the analysis found in this shot"
+    "showPeopleHelp": "Draws the heads the analysis found in this shot",
+    "failed": "This clip couldn't be analysed: {{detail}}",
+    "retry": "Try again"
   },
   "speakers": {
     "title": "Who talks now",
@@ -561,6 +563,7 @@
     "shot": "This shot",
     "shotHelp": "Frames only the shot at the playhead again, and leaves the rest of the clip alone",
     "waiting": "Waits for the clip analysis and the voices",
+    "noAnalysis": "The clip analysis failed",
     "width": "Width",
     "widths": {
       "tight": "Tight",
