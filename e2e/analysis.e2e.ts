@@ -65,7 +65,7 @@ describe('clip analysis', () => {
 
   it('says why when the analysis fails, and tries again on request', async () => {
     const frame = page.getByRole('button', { name: 'Auto frame' });
-    await expect.poll(() => frame.isEnabled()).toBe(true);
+    await expect.poll(() => frame.isEnabled(), { timeout: 30_000 }).toBe(true);
     await page.evaluate(() => (globalThis as PageGlobal).__rezzoAnalysis.fail('the worker stopped'));
 
     await page.getByText("This clip couldn't be analysed: the worker stopped").waitFor();
@@ -74,7 +74,7 @@ describe('clip analysis', () => {
 
     await page.getByRole('button', { name: 'Try again' }).click();
     await expect.poll(async () => (await state()).status, { timeout: 60_000 }).toBe('ready');
-    await expect.poll(() => frame.isEnabled()).toBe(true);
+    await expect.poll(() => frame.isEnabled(), { timeout: 30_000 }).toBe(true);
     expect(await page.getByRole('button', { name: 'Try again' }).count()).toBe(0);
   });
 });

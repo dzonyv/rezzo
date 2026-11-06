@@ -213,15 +213,26 @@ export async function startDevServer(): Promise<{ url: string; stop(): void }> {
   const server = spawn(process.execPath, [path.resolve('node_modules/electron-vite/bin/electron-vite.js'), 'dev', '--rendererOnly'], { env });
   const url = await new Promise<string>((resolve, reject) => {
     let output = '';
+    // Nobody can stop a server this function never returned.
+    const stalled = setTimeout(() => {
+      server.kill();
+      reject(new Error(`the dev server didn't start: ${output}`));
+    }, 60_000);
     const read = (chunk: Buffer) => {
       // eslint-disable-next-line no-control-regex
       output += chunk.toString().replace(/\x1b\[[0-9;]*m/g, '');
       const found = /Local:\s+(http:\/\/\S+?)\/?\s/.exec(output);
-      if (found) resolve(found[1]!);
+      if (found) {
+        clearTimeout(stalled);
+        resolve(found[1]!);
+      }
     };
     server.stdout.on('data', read);
     server.stderr.on('data', read);
-    server.once('exit', () => reject(new Error(`the dev server stopped: ${output}`)));
+    server.once('exit', () => {
+      clearTimeout(stalled);
+      reject(new Error(`the dev server stopped: ${output}`));
+    });
   });
   return { url, stop: () => void server.kill() };
 }

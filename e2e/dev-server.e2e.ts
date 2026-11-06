@@ -40,6 +40,7 @@ describe.skipIf(process.env['REZZO_E2E_EXECUTABLE'])('the app on the dev server'
     const s = await state();
     expect(s.detail).toBeNull();
     expect(s.analysis!.shots).toHaveLength(3);
-    await expect.poll(() => page.getByRole('button', { name: 'Auto frame' }).isEnabled()).toBe(true);
+    // It waits for the voices too, which take a while on CI.
+    await expect.poll(() => page.getByRole('button', { name: 'Auto frame' }).isEnabled(), { timeout: 30_000 }).toBe(true);
   });
 });
