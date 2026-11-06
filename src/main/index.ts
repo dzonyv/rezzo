@@ -125,6 +125,9 @@ function createWindow(): void {
     event.preventDefault();
     win.webContents.send('app:close-requested', null);
   });
+  // Nobody hears a request after a crash, or from a reloaded page until it says so.
+  win.webContents.on('render-process-gone', () => closeListening.delete(win));
+  win.webContents.on('did-navigate', () => closeListening.delete(win));
 
   // The app never navigates; links to the web open in the default browser.
   win.webContents.on('will-navigate', (event) => event.preventDefault());

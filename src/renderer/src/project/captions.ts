@@ -1,7 +1,8 @@
 /**
  * Edits to a clip's captions: adding and removing them, their style and
  * their position. Position edits work like framing (see project/framing.ts):
- * with one keyframe they move the captions for the whole clip.
+ * with one keyframe they move the captions for the whole clip, in the
+ * layouts that use the track being edited (see captionTrackFor).
  */
 import type { Draft } from 'immer';
 import { DEFAULT_CAPTION_STYLE, type CaptionStyle } from '../../../shared/caption-style.ts';
