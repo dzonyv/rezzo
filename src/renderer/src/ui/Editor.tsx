@@ -5,6 +5,7 @@ import { closeProject, save } from '../project/actions.ts';
 import { isDirty, projectStore, useProject } from '../project/store.ts';
 import { EpisodePlayer } from '../player/EpisodePlayer.tsx';
 import { TranscriptView } from '../transcript/TranscriptView.tsx';
+import { Brand } from './Brand.tsx';
 import { ClipList } from './ClipList.tsx';
 import { ReplacementsDialog } from './ReplacementsDialog.tsx';
 import { SourcePanel } from './SourcePanel.tsx';
@@ -24,6 +25,7 @@ export function Editor() {
   return (
     <div className="editor">
       <header className="topbar">
+        <Brand />
         <input
           className="project-name"
           aria-label={t('editor.projectName')}
