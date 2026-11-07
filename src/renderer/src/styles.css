@@ -842,6 +842,7 @@ button.icon {
 }
 
 .tool-rail button {
+  position: relative;
   display: flex;
   flex-direction: column;
   align-items: center;
@@ -857,6 +858,17 @@ button.icon {
 .tool-rail button:hover:not(:disabled) {
   background: var(--surface-2);
   color: var(--text);
+}
+
+.tool-rail button.alert::after {
+  content: '';
+  position: absolute;
+  top: 6px;
+  right: 12px;
+  width: 7px;
+  height: 7px;
+  border-radius: 50%;
+  background: var(--warning);
 }
 
 .tool-rail button[aria-pressed='true'],
@@ -892,8 +904,7 @@ button.icon {
   font-size: 14px;
 }
 
-.clip-drawer .voices-panel,
-.clip-drawer .clip-list {
+.clip-drawer .voices-panel {
   margin: 0;
 }
 

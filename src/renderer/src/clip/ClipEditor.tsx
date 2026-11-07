@@ -15,6 +15,7 @@ import { deleteLayer, reorderLayer } from '../project/layers.ts';
 import { projectStore, useProject } from '../project/store.ts';
 import { retimeWord } from '../project/transcript.ts';
 import { flatOf, refOf, wordAt } from '../transcript/words.ts';
+import { isAvailable } from '../fonts/registry.ts';
 import { useSettings } from '../settings.ts';
 import { isTypingTarget } from '../ui/focus.ts';
 import { EffectLibrary, LayerTiles } from './AddLayers.tsx';
@@ -143,6 +144,9 @@ export function ClipEditor({ clip, source, side, voices }: { clip: Clip; source:
     return () => window.removeEventListener('keydown', onKey);
   }, [frame, rate, half, clip.id]);
 
+  // A caption font that isn't on this computer is said in the Captions drawer; the rail points there.
+  const alerts = captions && !isAvailable(captions.style.font) ? { captions: t('captions.fontMissing', { family: `${captions.style.font.family} ${captions.style.font.weight}` }) } : undefined;
+
   return (
     <section className={`clip-editor dock-${dock.size}`} data-tool={tool ?? undefined}>
       <div className="clip-stage">
@@ -197,13 +201,21 @@ export function ClipEditor({ clip, source, side, voices }: { clip: Clip; source:
               </button>
             ))}
           </div>
-          <button type="button" aria-pressed={showPeople} title={t('analysis.showPeopleHelp')} onClick={() => setShowPeople((v) => !v)}>
+          <button
+            type="button"
+            aria-pressed={showPeople}
+            title={t('analysis.showPeopleHelp')}
+            onClick={() => {
+              if (!showPeople) setTool('voices');
+              setShowPeople(!showPeople);
+            }}
+          >
             {t('analysis.showPeople')}
           </button>
         </div>
       </div>
 
-      <ToolRail tool={tool} />
+      <ToolRail tool={tool} alerts={alerts} />
       {/* The Text drawer is the episode's transcript, which the workspace puts here. */}
       {tool && tool !== 'text' && (
         <aside className="clip-drawer" aria-label={t(`tools.names.${tool}`)}>

@@ -14,14 +14,24 @@ const ICONS: Record<ClipTool, string> = {
 
 /**
  * The column of tools left of the picture. Pressing one opens its drawer
- * beside the picture; pressing it again closes it.
+ * beside the picture; pressing it again closes it. A tool in `alerts` gets
+ * a dot, with the reason as its tooltip, so a warning inside a closed
+ * drawer isn't missed.
  */
-export function ToolRail({ tool }: { tool: ClipTool | null }) {
+export function ToolRail({ tool, alerts = {} }: { tool: ClipTool | null; alerts?: Partial<Record<ClipTool, string>> }) {
   const { t } = useTranslation();
   return (
     <nav className="tool-rail" aria-label={t('tools.title')}>
       {CLIP_TOOLS.map((id) => (
-        <button key={id} type="button" aria-pressed={tool === id} title={t(`tools.help.${id}`)} onClick={() => setTool(tool === id ? null : id)}>
+        <button
+          key={id}
+          type="button"
+          className={alerts[id] ? 'alert' : undefined}
+          aria-pressed={tool === id}
+          aria-description={alerts[id]}
+          title={alerts[id] ?? t(`tools.help.${id}`)}
+          onClick={() => setTool(tool === id ? null : id)}
+        >
           <svg width="20" height="20" viewBox="0 0 18 18" aria-hidden="true">
             <path d={ICONS[id]} fill="none" stroke="currentColor" strokeWidth="1.5" strokeLinecap="round" strokeLinejoin="round" />
           </svg>

@@ -1,3 +1,4 @@
+import { useEffect } from 'react';
 import { useTranslation } from 'react-i18next';
 import type { Asset } from '../../../shared/assets.ts';
 import { keyAt, valueAt } from '../../../shared/framing.ts';
@@ -67,6 +68,7 @@ export function LayerPanel({ clipId, layer, asset, time, rate, overLimit }: Prop
   const { t } = useTranslation();
   const missing = useAssetMissing(asset?.id);
   const picking = usePicking() === layer.id;
+  useEffect(() => stopPicking, []);
   const store = projectStore.getState();
   const kind = ASSET_KIND_OF[layer.kind];
   const name = asset?.name ?? t(`layers.kinds.${kind}`);
