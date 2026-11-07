@@ -9,7 +9,7 @@ import path from 'node:path';
 import type { ElectronApplication, Page } from 'playwright-core';
 import { afterAll, beforeAll, describe, expect, it } from 'vitest';
 import { captionLayerOf, videoLayerOf, type Project, type Segment } from '../src/shared/project.ts';
-import { analysisDone, answerOpenDialog, answerSaveDialog, launchApp, makeNumberedVideo, NUMBER_BIT_WIDTH, NUMBER_STRIP_HEIGHT, stopApp } from './helpers.ts';
+import { analysisDone, answerOpenDialog, answerSaveDialog, launchApp, makeNumberedVideo, NUMBER_BIT_WIDTH, NUMBER_STRIP_HEIGHT, openTool, stopApp } from './helpers.ts';
 
 /** `window` inside page.evaluate(); this config has no DOM types. */
 type PageGlobal = typeof globalThis & { __rezzoPreview?: { readRow(y: number): number[]; hasAudio(): boolean | null } };
@@ -326,6 +326,7 @@ describe('clips', () => {
 
   it('keeps a drag in the preview one undo step after a slider was used', async () => {
     // The slider keeps focus after the drag; its blur used to cut the next gesture short.
+    await openTool(page, 'Captions');
     const slider = page.locator('.caption-slider', { hasText: /^Size/ }).locator('input');
     await slider.scrollIntoViewIfNeeded();
     const size = (await slider.boundingBox())!;

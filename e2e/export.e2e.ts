@@ -18,7 +18,16 @@ import { defaultVideoLayer } from '../src/shared/framing.ts';
 import type { Clip, Project } from '../src/shared/project.ts';
 import {
   analysisDone,
-  answerOpenDialog, answerSaveDialog, ffmpegExe, ffprobeExe, launchApp, makeNumberedVideo, NUMBER_BIT_WIDTH, NUMBER_STRIP_HEIGHT, renamedFont,
+  answerOpenDialog,
+  answerSaveDialog,
+  ffmpegExe,
+  ffprobeExe,
+  launchApp,
+  makeNumberedVideo,
+  NUMBER_BIT_WIDTH,
+  NUMBER_STRIP_HEIGHT,
+  openTool,
+  renamedFont,
   stopApp,
 } from './helpers.ts';
 
@@ -319,6 +328,7 @@ describe('export', () => {
     // Anton under another name, so it isn't one of the bundled fonts.
     const font = await renamedFont(path.resolve('src/renderer/src/fonts/anton/Anton-Regular.ttf'), path.join(dir, 'probe.ttf'), 'Anton', 'Probe');
     await page.locator('.clip-list li', { hasText: 'Kratki' }).getByRole('button', { name: 'Kratki' }).click();
+    await openTool(page, 'Captions');
     await answerOpenDialog(app!, font);
     await page.getByRole('button', { name: 'Add font…' }).click();
     await page.getByText('Added Probe.').waitFor();
@@ -347,6 +357,7 @@ describe('export', () => {
 
     await page.getByRole('button', { name: /numbered/ }).click();
     await page.locator('.clip-list li', { hasText: 'Kratki' }).getByRole('button', { name: 'Kratki' }).click();
+    await openTool(page, 'Captions');
     await page.getByText("Nema Ga 700 isn't on this computer, so these captions are drawn in Poppins Bold.", { exact: false }).waitFor();
   });
 });

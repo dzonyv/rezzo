@@ -10,6 +10,10 @@ import type { Clip } from '../../../shared/project.ts';
 import { DEFAULT_PAUSE_OPTIONS, type PauseOptions, type Span } from '../../../shared/skips.ts';
 import { projectStore, useProject } from '../project/store.ts';
 
+/** The clip editor's tools, in the order the rail shows them; each opens a drawer beside the picture. */
+export const CLIP_TOOLS = ['framing', 'captions', 'layers', 'effects', 'pauses', 'voices', 'text'] as const;
+export type ClipTool = (typeof CLIP_TOOLS)[number];
+
 /** A pause found in a clip, not cut yet; `on` until the user switches it off on the timeline. */
 export type FoundPause = Span & { on: boolean };
 
@@ -23,6 +27,8 @@ interface ClipUiState {
   pauseOptions: PauseOptions;
   /** Pauses waiting to be cut. */
   found: { clipId: string; pauses: FoundPause[] } | null;
+  /** The open drawer, or null; the same for every clip until the app closes. */
+  tool: ClipTool | null;
 }
 
 export const clipUiStore = createStore<ClipUiState>()(() => ({
@@ -31,6 +37,8 @@ export const clipUiStore = createStore<ClipUiState>()(() => ({
   frameOptions: { width: 'medium', change: 'cut' },
   pauseOptions: DEFAULT_PAUSE_OPTIONS,
   found: null,
+  // A clip is made from words, so it opens with them beside it.
+  tool: 'text',
 }));
 
 export function openClip(id: string | null): void {
@@ -39,6 +47,15 @@ export function openClip(id: string | null): void {
 
 export function selectLayer(id: string | null): void {
   clipUiStore.setState({ selectedLayerId: id });
+}
+
+/** Opens a tool's drawer; null closes it. */
+export function setTool(tool: ClipTool | null): void {
+  clipUiStore.setState({ tool });
+}
+
+export function useTool(): ClipTool | null {
+  return useStore(clipUiStore, (s) => s.tool);
 }
 
 export function setFrameOptions(options: Partial<AutoFrameOptions>): void {

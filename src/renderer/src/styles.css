@@ -782,22 +782,37 @@ button.icon {
 
 /* With a clip open, the clip editor is the whole workspace. */
 /*
- * The open clip: its settings, the picture, the clips over the transcript,
- * and the timeline dock across the bottom. The clip editor's parts are laid
- * out in the workspace's grid (it is display: contents), so the transcript
- * stays where it is in the page and isn't made again when a clip opens.
+ * The open clip: the tool rail with the open tool's drawer, the picture,
+ * the clips, and the timeline dock across the bottom. The clip editor's
+ * parts are laid out in the workspace's grid (it is display: contents), so
+ * the transcript stays where it is in the page, and isn't made again, when
+ * a clip opens: it is the Text tool's drawer.
  */
 .workspace.with-clip {
-  grid-template-columns: minmax(250px, 310px) minmax(0, 1fr) minmax(260px, 27%);
-  grid-template-rows: auto minmax(0, 1fr) auto;
+  grid-template-columns: 78px auto minmax(0, 1fr) minmax(220px, 22%);
+  grid-template-rows: minmax(0, 1fr) auto;
   grid-template-areas:
-    'settings stage side'
-    'settings stage transcript'
-    'dock dock dock';
+    'rail drawer stage side'
+    'dock dock dock dock';
 }
 
 .clip-editor {
   display: contents;
+}
+
+.workspace.with-clip > .transcript {
+  display: none;
+}
+
+.workspace.with-clip:has(> .clip-editor[data-tool='text']) > .transcript {
+  grid-area: drawer;
+  display: flex;
+  width: min(360px, 30vw);
+  min-width: 0;
+  margin: 8px 0 10px;
+  background: var(--surface);
+  border-radius: var(--radius-card);
+  overflow: hidden;
 }
 
 /* Full timeline: the picture in a narrow column, the timeline beside it. */
@@ -807,19 +822,113 @@ button.icon {
   grid-template-areas: 'stage dock';
 }
 
-.clip-editor.dock-full .clip-settings,
+.clip-editor.dock-full .tool-rail,
+.clip-editor.dock-full .clip-drawer,
 .clip-editor.dock-full .clip-side,
 .workspace.with-clip:has(> .clip-editor.dock-full) > .transcript {
   display: none;
 }
 
-.workspace.with-clip > .transcript {
-  grid-area: transcript;
-  min-width: 0;
-  margin: 0 12px 10px 0;
+.tool-rail {
+  grid-area: rail;
+  min-height: 0;
+  overflow: hidden auto;
+  scrollbar-width: none;
+  display: flex;
+  flex-direction: column;
+  align-items: center;
+  gap: 2px;
+  padding: 8px 7px;
+}
+
+.tool-rail button {
+  position: relative;
+  display: flex;
+  flex-direction: column;
+  align-items: center;
+  gap: 3px;
+  width: 64px;
+  padding: 8px 0 6px;
+  border-radius: 14px;
+  background: none;
+  color: var(--text-dim);
+  font-size: 11px;
+}
+
+.tool-rail button:hover:not(:disabled) {
+  background: var(--surface-2);
+  color: var(--text);
+}
+
+.tool-rail button.alert::after {
+  content: '';
+  position: absolute;
+  top: 6px;
+  right: 12px;
+  width: 7px;
+  height: 7px;
+  border-radius: 50%;
+  background: var(--warning);
+}
+
+.tool-rail button[aria-pressed='true'],
+.tool-rail button[aria-pressed='true']:hover:not(:disabled) {
+  background: var(--surface-2);
+  color: var(--accent);
+}
+
+/* The open tool, beside the picture: it moves the picture over, it doesn't cover it. */
+.clip-drawer {
+  grid-area: drawer;
+  width: min(300px, 28vw);
+  min-height: 0;
+  overflow: auto;
+  margin: 8px 0 10px;
+  padding: 12px 14px 14px;
+  display: flex;
+  flex-direction: column;
+  gap: 10px;
   background: var(--surface);
   border-radius: var(--radius-card);
-  overflow: hidden;
+}
+
+.clip-drawer > header {
+  display: flex;
+  align-items: center;
+  justify-content: space-between;
+}
+
+.clip-drawer h2 {
+  margin: 0;
+  font-family: var(--font-display);
+  font-size: 14px;
+}
+
+.clip-drawer .voices-panel {
+  margin: 0;
+}
+
+/* The drawer's own title already names these. */
+.clip-drawer .caption-panel h3,
+.clip-drawer .voices-panel > h2 {
+  display: none;
+}
+
+.clip-drawer .caption-panel {
+  padding-top: 0;
+  border-top: none;
+}
+
+.add-tiles {
+  display: grid;
+  grid-template-columns: repeat(3, minmax(0, 1fr));
+  gap: 6px;
+}
+
+.add-tiles .tile {
+  height: 52px;
+  padding: 0 4px;
+  border-radius: 14px;
 }
 
 .workspace.with-clip > .transcript .segment-row {
@@ -827,15 +936,7 @@ button.icon {
   padding: 6px 12px;
 }
 
-.clip-voices {
-  margin-top: 6px;
-  padding-top: 12px;
-  border-top: 1px solid var(--border);
-}
 
-.clip-voices .voices-panel {
-  margin: 0;
-}
 
 .clip-stage {
   grid-area: stage;
@@ -876,25 +977,13 @@ button.icon {
   justify-content: center;
 }
 
-.clip-settings {
-  grid-area: settings;
-  min-height: 0;
-  overflow: auto;
-  margin: 8px 0 10px 12px;
-  padding: 14px;
-  display: flex;
-  flex-direction: column;
-  gap: 10px;
-  background: var(--surface);
-  border-radius: var(--radius-card);
-}
 
 .clip-side {
   grid-area: side;
   min-width: 0;
-  max-height: 30vh;
+  min-height: 0;
   overflow: auto;
-  margin: 8px 12px 8px 0;
+  margin: 8px 12px 10px 0;
 }
 
 .clip-side .clip-list {
@@ -1156,52 +1245,12 @@ button.icon {
   color: var(--text-dim);
 }
 
-.add-menu {
-  position: relative;
-}
 
-.add-menu summary {
-  list-style: none;
-  padding: 6px 14px;
-  border-radius: 999px;
-  background: var(--surface-2);
-  font-weight: 600;
-  white-space: nowrap;
-  cursor: pointer;
-}
 
-.add-menu summary:hover {
-  background: var(--surface-3);
-}
 
-.add-menu summary::-webkit-details-marker {
-  display: none;
-}
 
-.add-menu summary::after {
-  content: ' ▾';
-  color: var(--text-dim);
-}
 
-.add-menu-items {
-  position: absolute;
-  right: 0;
-  top: calc(100% + 4px);
-  z-index: 10;
-  display: flex;
-  flex-direction: column;
-  min-width: 140px;
-  padding: 4px;
-  border: 1px solid var(--border);
-  border-radius: var(--radius);
-  background: var(--surface);
-  box-shadow: 0 6px 20px rgb(0 0 0 / 0.4);
-}
 
-.add-menu-items button {
-  border: none;
-  text-align: left;
-}
 
 .clip-timeline-box {
   --ruler: 20px;
@@ -2334,17 +2383,21 @@ button.icon {
   --group: #9fc75a;
 }
 
-/* The effect library: the groups two by two, each a column of effects; narrow enough for the smallest window. */
+/* The effect library: the groups two by two, each a column of effects, to fit the drawer. */
 .effect-library {
   display: grid;
-  grid-template-columns: repeat(2, minmax(130px, auto));
-  gap: 2px 8px;
+  grid-template-columns: repeat(2, minmax(0, 1fr));
+  gap: 6px 8px;
 }
 
-.effect-library .back {
-  grid-column: 1 / -1;
-  color: var(--text-dim);
+.effect-library button {
+  padding: 4px 8px;
+  border-radius: 8px;
+  background: none;
+  font-weight: 500;
+  text-align: left;
 }
+
 
 .effect-group {
   display: flex;

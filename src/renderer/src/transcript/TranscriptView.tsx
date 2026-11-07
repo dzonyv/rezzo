@@ -3,7 +3,7 @@ import { memo, useDeferredValue, useEffect, useMemo, useRef, useState } from 're
 import { useTranslation } from 'react-i18next';
 import { fitsInClip, rangeForWords } from '../../../shared/clips.ts';
 import { MAX_CLIP_SECONDS, type Clip, type Segment, type Source, type Transcript } from '../../../shared/project.ts';
-import { useOpenClip, useOpenClipId } from '../clip/state.ts';
+import { clipUiStore, setTool, useOpenClip, useOpenClipId } from '../clip/state.ts';
 import { formatDuration } from '../format.ts';
 import { seek } from '../player/playback.ts';
 import { createClip, setClipWords } from '../project/clips.ts';
@@ -131,17 +131,24 @@ export function TranscriptView({ transcript, source }: { transcript: Transcript;
       const here = wordAt(words, listeningStore.getState().time);
       if (e.key === 'F2' && !isTypingTarget(e.target) && words.length > 0) {
         e.preventDefault();
+        showTranscript();
         startEditing(Math.max(here, 0));
       } else if (e.ctrlKey && (e.key === 'ArrowDown' || e.key === 'ArrowUp') && !isTypingTarget(e.target)) {
         // The next word Whisper wasn't sure about, straight into the editor.
         e.preventDefault();
+        showTranscript();
         const by = e.key === 'ArrowDown' ? 1 : -1;
         const unsure = nextUnsure(words, here + by, by);
         if (unsure >= 0) startEditing(unsure);
       } else if (e.ctrlKey && e.key.toLowerCase() === 'f') {
         e.preventDefault();
-        searchBox.current?.focus();
-        searchBox.current?.select();
+        // A hidden box can't take the focus: wait for the drawer to show it.
+        const focus = () => {
+          searchBox.current?.focus();
+          searchBox.current?.select();
+        };
+        if (showTranscript()) requestAnimationFrame(focus);
+        else focus();
       } else if (e.key === 'Escape' && !isTypingTarget(e.target)) {
         clearSelection();
       }
@@ -336,6 +343,18 @@ function ReplaceOffer() {
       </button>
     </div>
   );
+}
+
+/**
+ * With a clip open, the transcript is the Text tool's drawer. Opens it if
+ * it's closed, so a shortcut for the transcript shows it; true if it had
+ * to be opened.
+ */
+function showTranscript(): boolean {
+  const { openClipId, tool } = clipUiStore.getState();
+  if (!openClipId || tool === 'text') return false;
+  setTool('text');
+  return true;
 }
 
 /** How long the selected words run, and buttons that turn them into a clip. */
