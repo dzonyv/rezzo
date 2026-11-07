@@ -242,9 +242,10 @@ describe('effects', () => {
     }, { timeout: 10_000 }).toBe(true);
 
     // Moved below the animation, it leaves the animation red.
-    await page.locator('.timeline-label').filter({ hasText: 'Black and white' }).getByRole('button', { name: 'Send backward' }).click();
+    await page.locator('.track-tag', { hasText: 'Black and white' }).click();
+    await page.locator('.dock-context').getByRole('button', { name: 'Send backward' }).click();
     await expect.poll(async () => isRed(await pixel(LEFT_X)), { timeout: 10_000 }).toBe(true);
-    await page.locator('.timeline-label').filter({ hasText: 'Black and white' }).getByRole('button', { name: 'Bring forward' }).click();
+    await page.locator('.dock-context').getByRole('button', { name: 'Bring forward' }).click();
   });
 
   it('flashes white at the start of a flash and fades to black at the end of a fade', async () => {

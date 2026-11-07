@@ -780,29 +780,243 @@ button.icon {
   min-width: 0;
 }
 
+/* With a clip open, the clip editor is the whole workspace. */
 .workspace.with-clip {
-  grid-template-columns: minmax(300px, 28%) 1fr minmax(340px, 400px);
+  grid-template-columns: minmax(0, 1fr);
 }
 
+/*
+ * The open clip: its settings, the picture, the clips and the transcript,
+ * and the timeline dock across the bottom.
+ */
 .clip-editor {
   min-height: 0;
-  overflow: auto;
-  border-left: 1px solid var(--border);
-  padding: 12px;
+  display: grid;
+  grid-template-columns: minmax(250px, 310px) minmax(0, 1fr) minmax(260px, 27%);
+  grid-template-rows: minmax(0, 1fr) auto;
+  grid-template-areas:
+    'settings stage side'
+    'dock dock dock';
+}
+
+/* Full timeline: the picture in a narrow column, the timeline beside it. */
+.clip-editor.dock-full {
+  grid-template-columns: 300px minmax(0, 1fr);
+  grid-template-rows: minmax(0, 1fr);
+  grid-template-areas: 'stage dock';
+}
+
+.clip-editor.dock-full .clip-settings,
+.clip-editor.dock-full .clip-voices {
+  margin-top: 6px;
+  padding-top: 12px;
+  border-top: 1px solid var(--border);
+}
+
+.clip-voices .voices-panel {
+  margin: 0;
+}
+
+.clip-side {
+  display: none;
+}
+
+.clip-stage {
+  grid-area: stage;
+  min-width: 0;
+  min-height: 0;
   display: flex;
   flex-direction: column;
   gap: 10px;
+  padding: 8px 12px 12px;
 }
 
-.clip-editor header {
+.clip-stage header {
   display: flex;
+  align-items: center;
   gap: 6px;
 }
 
-.clip-editor .clip-name {
+.clip-stage .back {
+  display: inline-flex;
+  align-items: center;
+  gap: 6px;
+  flex: none;
+  background: none;
+  padding-left: 8px;
+}
+
+.clip-stage .back:hover:not(:disabled) {
+  background: var(--surface-2);
+}
+
+/* The picture takes all the height there is, at 9:16. */
+.clip-frame {
+  flex: 1;
+  min-height: 0;
+  container-type: size;
+  display: flex;
+  align-items: center;
+  justify-content: center;
+}
+
+.clip-settings {
+  grid-area: settings;
+  min-height: 0;
+  overflow: auto;
+  margin: 8px 0 10px 12px;
+  padding: 14px;
+  display: flex;
+  flex-direction: column;
+  gap: 10px;
+  background: var(--surface);
+  border-radius: var(--radius-card);
+}
+
+.clip-side {
+  grid-area: side;
+  min-width: 0;
+  min-height: 0;
+  margin: 8px 12px 10px 0;
+  display: flex;
+  flex-direction: column;
+  gap: 8px;
+}
+
+.clip-side .clip-list {
+  flex: none;
+  max-height: 32%;
+  margin: 0;
+  max-width: none;
+  overflow: auto;
+}
+
+.clip-side .transcript {
+  flex: 1;
+  background: var(--surface);
+  border-radius: var(--radius-card);
+  overflow: hidden;
+}
+
+.clip-side .segment-row {
+  grid-template-columns: 52px 1fr;
+  padding: 6px 12px;
+}
+
+/* The timeline and its tools, across the bottom of the clip editor. */
+.clip-dock {
+  grid-area: dock;
+  position: relative;
+  min-width: 0;
+  min-height: 0;
+  overflow-y: auto;
+  max-height: calc(100vh - 330px);
+  margin: 0 12px;
+  padding: 12px 14px 12px;
+  display: flex;
+  flex-direction: column;
+  gap: 8px;
+  background: var(--surface);
+  border-radius: var(--radius-card) var(--radius-card) 0 0;
+}
+
+.clip-dock.full {
+  max-height: none;
+  margin: 8px 12px 12px 0;
+  border-radius: var(--radius-card);
+}
+
+.dock-handle {
+  position: absolute;
+  top: -7px;
+  left: 0;
+  right: 0;
+  height: 14px;
+  z-index: 4;
+  cursor: ns-resize;
+  touch-action: none;
+}
+
+.dock-handle::after {
+  content: '';
+  position: absolute;
+  top: 9px;
+  left: 50%;
+  width: 44px;
+  height: 4px;
+  margin-left: -22px;
+  border-radius: 2px;
+  background: var(--surface-3);
+}
+
+.dock-handle:hover::after {
+  background: var(--text-dim);
+}
+
+.clip-dock.full .dock-handle {
+  display: none;
+}
+
+.dock-tools {
+  display: flex;
+  flex-wrap: wrap;
+  align-items: center;
+  gap: 8px 18px;
+}
+
+/* What fits the selection, on a line of its own under the clip's range and the sizes. */
+.dock-context {
+  order: 3;
+  flex: 1 1 100%;
+  min-width: 0;
+  display: flex;
+  flex-wrap: wrap;
+  align-items: center;
+  gap: 6px 14px;
+}
+
+.dock-context .auto-frame {
+  margin: 0;
+}
+
+.dock-context .selected-name {
+  font-weight: 600;
+  max-width: 240px;
+  overflow: hidden;
+  text-overflow: ellipsis;
+  white-space: nowrap;
+}
+
+.dock-sizes {
+  display: flex;
+  gap: 2px;
+  margin-left: auto;
+  padding: 3px;
+  background: var(--surface-2);
+  border-radius: 999px;
+}
+
+.dock-sizes button {
+  padding: 4px 12px;
+  background: none;
+  font-size: 12px;
+  white-space: nowrap;
+}
+
+.dock-sizes button[aria-pressed='true'] {
+  background: var(--text);
+}
+
+.clip-stage .clip-name {
   flex: 1;
   min-width: 0;
   font-weight: 600;
+  background: transparent;
+}
+
+.clip-stage .clip-name:hover,
+.clip-stage .clip-name:focus {
+  background: var(--surface-2);
 }
 
 .clip-editor .hint {
@@ -812,8 +1026,7 @@ button.icon {
 
 .clip-range {
   display: flex;
-  justify-content: space-between;
-  gap: 8px;
+  gap: 14px;
 }
 
 .clip-range .edge {
@@ -833,11 +1046,11 @@ button.icon {
 
 .clip-preview {
   position: relative;
-  height: min(46vh, 560px);
+  height: min(100cqh, calc(100cqw * 16 / 9));
   aspect-ratio: 9 / 16;
-  margin: 0 auto;
   background: #000;
   flex-shrink: 0;
+  box-shadow: 0 18px 60px rgb(0 0 0 / 0.55);
 }
 
 .clip-preview canvas {
@@ -897,10 +1110,32 @@ button.icon {
   top: 50%;
 }
 
+/* Under the picture: play, the time, the layouts, and what goes over the picture. */
 .transport {
+  align-self: center;
+  max-width: 100%;
   display: flex;
+  flex-wrap: wrap;
+  justify-content: center;
   align-items: center;
   gap: 6px;
+  padding: 5px;
+  background: var(--surface);
+  border-radius: 22px;
+}
+
+.transport .play {
+  background: var(--accent);
+  color: var(--accent-text);
+  font-weight: 700;
+}
+
+.transport .play:hover:not(:disabled) {
+  background: #ffe04d;
+}
+
+.transport .time {
+  padding: 0 6px;
 }
 
 .transport button {
@@ -912,10 +1147,6 @@ button.icon {
   font-family: var(--font-mono);
   font-variant-numeric: tabular-nums;
   color: var(--text-dim);
-}
-
-.transport .add-menu {
-  margin-left: auto;
 }
 
 .add-menu {
@@ -965,66 +1196,139 @@ button.icon {
   text-align: left;
 }
 
-/* Rows of the timeline and their labels share these heights. */
 .clip-timeline-box {
-  --row: 22px;
-  --video-row: 28px;
-  --voices-row: 14px;
-  --row-gap: 3px;
-  display: grid;
-  grid-template-columns: auto minmax(0, 1fr);
-  gap: 6px;
-  flex-shrink: 0;
-}
-
-.timeline-labels {
+  --row: 26px;
+  --video-row: 34px;
+  --voices-row: 18px;
+  --row-gap: 4px;
+  /* The rows come first: a short dock scrolls rather than squash them. */
+  flex: 1 0 auto;
+  min-height: 0;
   display: flex;
   flex-direction: column;
-  gap: var(--row-gap);
-  width: 110px;
+  gap: 8px;
 }
 
-.timeline-label {
+.clip-dock.compact .clip-timeline-box {
+  flex: none;
+}
+
+.timeline-overview-row {
   display: flex;
   align-items: center;
-  height: var(--row);
-  gap: 2px;
+  gap: 10px;
 }
 
-.timeline-label.video {
-  height: var(--video-row);
-}
-
-.timeline-label .name {
+/* The whole clip in small, with a box around the part in view. */
+.timeline-overview {
+  position: relative;
   flex: 1;
-  min-width: 0;
+  height: 24px;
   overflow: hidden;
-  padding: 0 6px;
-  border: none;
-  background: none;
-  color: var(--text-dim);
+  background: var(--bg);
+  border-radius: 7px;
+  cursor: pointer;
+  touch-action: none;
+}
+
+.timeline-overview .mini {
+  position: absolute;
+  pointer-events: none;
+}
+
+.timeline-overview .mini.band {
+  top: 0;
+  bottom: 0;
+  opacity: 0.16;
+}
+
+.timeline-overview .mini.layer {
+  height: 3px;
+  border-radius: 2px;
+  background: var(--text-dim);
+}
+
+.timeline-overview .mini.skip {
+  top: 0;
+  bottom: 0;
+  background: rgb(0 0 0 / 0.65);
+}
+
+.timeline-overview .mini.playhead {
+  top: 0;
+  bottom: 0;
+  width: 2px;
+  margin-left: -1px;
+  background: var(--accent);
+}
+
+.overview-box {
+  position: absolute;
+  top: 0;
+  bottom: 0;
+  min-width: 10px;
+  border: 2px solid var(--text);
+  border-radius: 7px;
+  background: rgb(246 242 231 / 0.07);
+  cursor: grab;
+}
+
+.overview-box:active {
+  cursor: grabbing;
+}
+
+.overview-edge {
+  position: absolute;
+  top: 0;
+  bottom: 0;
+  width: 10px;
+  cursor: ew-resize;
+}
+
+.overview-edge.from {
+  left: -6px;
+}
+
+.overview-edge.to {
+  right: -6px;
+}
+
+.timeline-zoom {
+  display: flex;
+  align-items: center;
+  gap: 4px;
+}
+
+.timeline-zoom button {
+  padding: 4px 12px;
   font-size: 12px;
-  text-align: left;
-  text-overflow: ellipsis;
   white-space: nowrap;
 }
 
-.timeline-label.selected .name {
-  color: var(--text);
-  font-weight: 600;
+.timeline-zoom button.icon {
+  width: 28px;
+  height: 28px;
+  padding: 0;
+  font-size: 16px;
+  line-height: 1;
 }
 
-.timeline-label .icon {
-  padding: 2px 3px;
-}
+
+
+
+
+
 
 .timeline-scroll {
-  overflow-x: auto;
-  overflow-y: hidden;
+  flex: 1 1 auto;
+  min-height: 0;
+  overflow: auto;
 }
 
 .clip-timeline {
   position: relative;
+  /* Not hidden: that would make it the scroller the row names stick in. */
+  overflow: clip;
   display: flex;
   flex-direction: column;
   gap: var(--row-gap);
@@ -1035,9 +1339,91 @@ button.icon {
 
 .timeline-row {
   position: relative;
+  flex: none;
   height: var(--row);
-  background: var(--surface-2);
-  border-radius: var(--radius);
+  background: var(--bg);
+  border-radius: 7px;
+}
+
+/* Times along the top, in the clip's own time. */
+.timeline-ruler {
+  position: relative;
+  flex: none;
+  height: 20px;
+}
+
+.timeline-ruler .tick {
+  position: absolute;
+  top: 6px;
+  bottom: 0;
+  border-left: 1px solid var(--surface-3);
+}
+
+.timeline-ruler .tick span {
+  position: absolute;
+  top: -5px;
+  left: 4px;
+  font-family: var(--font-mono);
+  font-size: 10px;
+  color: var(--text-dim);
+  white-space: nowrap;
+}
+
+/* A row's name, at its left edge however far the timeline is scrolled. */
+.track-tag {
+  position: sticky;
+  left: 4px;
+  z-index: 2;
+  display: inline-flex;
+  align-items: center;
+  gap: 2px;
+  max-width: 170px;
+  height: 18px;
+  margin-top: 4px;
+  padding: 0 8px;
+  overflow: hidden;
+  border: none;
+  border-radius: 999px;
+  background: rgb(18 17 14 / 0.8);
+  color: var(--text-dim);
+  font-size: 11px;
+  font-weight: 600;
+  text-overflow: ellipsis;
+  white-space: nowrap;
+}
+
+button.track-tag:hover:not(:disabled) {
+  background: var(--surface-3);
+  color: var(--text);
+}
+
+.track-tag.selected,
+button.track-tag.selected:hover:not(:disabled) {
+  background: var(--accent);
+  color: var(--accent-text);
+}
+
+.timeline-row.video .track-tag {
+  margin-top: 8px;
+}
+
+.timeline-row.voices .track-tag {
+  height: 14px;
+  margin-top: 2px;
+  font-size: 10px;
+}
+
+.track-tag .tag-name {
+  padding: 0 2px 0 0;
+  background: none;
+  color: inherit;
+  font: inherit;
+}
+
+.track-tag .icon {
+  padding: 1px 2px;
+  background: none;
+  color: inherit;
 }
 
 .timeline-row.video {
@@ -1102,15 +1488,15 @@ button.icon {
 }
 
 /* Not yellow: the playhead runs over these. */
-.clip-timeline .band.follow {
+.band.follow {
   background: var(--text);
 }
 
-.clip-timeline .band.split {
+.band.split {
   background: #d2b8ff;
 }
 
-.clip-timeline .band.full {
+.band.full {
   background: #ffc98a;
 }
 
@@ -1134,7 +1520,6 @@ button.icon {
   pointer-events: none;
 }
 
-.timeline-label.voices,
 .timeline-row.voices {
   height: var(--voices-row);
 }
@@ -1180,12 +1565,28 @@ button.icon {
 
 .clip-timeline .playhead {
   position: absolute;
-  top: -2px;
-  bottom: -2px;
+  top: 0;
+  bottom: 0;
+  z-index: 3;
   width: 2px;
   margin-left: -1px;
   background: var(--accent);
   pointer-events: none;
+}
+
+.playhead-time {
+  position: absolute;
+  top: 0;
+  left: 50%;
+  transform: translateX(-50%);
+  padding: 1px 7px;
+  border-radius: 999px;
+  background: var(--accent);
+  color: var(--accent-text);
+  font-family: var(--font-mono);
+  font-size: 10px;
+  font-weight: 500;
+  white-space: nowrap;
 }
 
 .auto-frame {
@@ -1247,9 +1648,9 @@ button.icon {
 
 .clip-timeline .skip-shade {
   position: absolute;
-  top: 0;
+  top: 20px;
   bottom: 0;
-  background: rgb(0 0 0 / 0.35);
+  background: rgb(0 0 0 / 0.6);
   pointer-events: none;
 }
 
@@ -1274,11 +1675,12 @@ button.icon {
 .layouts button {
   flex: 1;
   background: none;
+  white-space: nowrap;
 }
 
 .layouts button.selected {
-  background: var(--accent);
-  color: var(--accent-text);
+  background: var(--text);
+  color: var(--bg);
 }
 
 .zoom {
@@ -1323,7 +1725,7 @@ button.icon {
   height: 64px;
   flex-shrink: 0;
   overflow: hidden;
-  background: var(--surface-2);
+  background: var(--bg);
   border-radius: var(--radius);
   color: rgb(255 255 255 / 0.18);
   touch-action: none;

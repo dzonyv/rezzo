@@ -1,15 +1,17 @@
-import { useEffect, useRef, useState } from 'react';
+import { useEffect, useLayoutEffect, useRef, useState } from 'react';
 import { useTranslation } from 'react-i18next';
 import type { Asset } from '../../../shared/assets.ts';
 import type { CaptionPage } from '../../../shared/captions.ts';
 import { EFFECTS } from '../../../shared/effects.ts';
 import { ASSET_KIND_OF, isTimed, keyframesOf, videoLayerOf, type Animated, type Clip, type TimedLayer } from '../../../shared/project.ts';
+import { outputTime } from '../../../shared/skips.ts';
 import { moveLayer, reorderLayer, trimLayer } from '../project/layers.ts';
 import { restoreSkip } from '../project/skips.ts';
 import { videoLayersOverLimit } from '../../../shared/overlay-files.ts';
 import { projectStore, useProject } from '../project/store.ts';
 import type { VoiceTurn } from '../../../shared/voices.ts';
 import { useAnalysis } from '../analysis/store.ts';
+import { formatClipTime } from '../format.ts';
 import { useHeardVoices } from '../project/voices.ts';
 import { useOverlayFile } from '../render/overlay-files.ts';
 import { voiceColor, voiceLabel } from '../voice-colors.ts';
@@ -30,12 +32,30 @@ interface Props {
 }
 
 const MAX_ZOOM = 20;
+/** One press of the zoom buttons. */
+const ZOOM_STEP = 1.5;
 /** A dragged edge snaps to the playhead or another edge this close, in screen pixels. */
 const SNAP_PX = 6;
+/** Ruler steps in seconds; the smallest that leaves this much room between labels is used. */
+const RULER_STEPS = [0.1, 0.2, 0.5, 1, 2, 5, 10, 15, 30, 60, 120, 300];
+const RULER_GAP_PX = 64;
 
 type Drag =
   | { kind: 'scrub' }
   | { kind: 'move' | 'start' | 'end'; layer: TimedLayer; x: number; moved: boolean };
+
+/** The part of the clip in view, as fractions of its length. */
+interface View {
+  from: number;
+  to: number;
+}
+
+/** Dragging the box on the overview: moving it, or one of its edges (which zooms). */
+interface OverviewDrag {
+  kind: 'pan' | 'from' | 'to';
+  x: number;
+  view: View;
+}
 
 /**
  * The clip from start to end, one row per layer: the layers over the
@@ -43,16 +63,29 @@ type Drag =
  * source video with its layouts (coloured bands) and the keyframes of the
  * framing being edited, with the camera cuts the analysis found. Below it,
  * who talks when (the episode's voices), where the user said who it is, and
- * where nobody knows yet. Press and drag on empty space to scrub; drag a
- * layer to move it in time and its ends to trim it. Ctrl+scroll zooms.
- * Right-click a turn to correct it.
+ * where nobody knows yet. Each row's name stays at its left edge as the
+ * timeline scrolls; press it to select the layer.
+ *
+ * Above the rows, a ruler in the clip's own time (what plays, without the
+ * cut parts) and the playhead's time. Above that, the whole clip in small
+ * with a box around the part in view: drag the box to move along the clip
+ * and its edges to zoom. Ctrl+scroll zooms too.
+ *
+ * Press and drag on empty space to scrub; drag a layer to move it in time
+ * and its ends to trim it. Right-click a turn to correct it.
  */
 export function ClipTimeline({ clip, assets, keys, pages, selectedId, time }: Props) {
   const { t } = useTranslation();
   const scroller = useRef<HTMLDivElement>(null);
   const track = useRef<HTMLDivElement>(null);
+  const overview = useRef<HTMLDivElement>(null);
   const drag = useRef<Drag | null>(null);
+  const overviewDrag = useRef<OverviewDrag | null>(null);
+  /** Where to scroll once a new zoom is laid out: keep `fraction` of the clip `x` pixels into the view. */
+  const anchor = useRef<{ fraction: number; x: number } | null>(null);
   const [zoom, setZoom] = useState(1);
+  const [view, setView] = useState<View>({ from: 0, to: 1 });
+  const [viewWidth, setViewWidth] = useState(0);
   const [turnMenu, setTurnMenu] = useState<{ turn: VoiceTurn; at: number; x: number; y: number } | null>(null);
   const length = clip.end - clip.start;
   const pct = (seconds: number) => ((Math.min(Math.max(seconds, clip.start), clip.end) - clip.start) / length) * 100;
@@ -76,14 +109,15 @@ export function ClipTimeline({ clip, assets, keys, pages, selectedId, time }: Pr
   const cuts = (shots ?? []).slice(1).map((s) => s.start).filter((c) => c > clip.start && c < clip.end);
   const inClip = (from: number, to: number) => to > clip.start && from < clip.end;
   const clipTurns = (turns ?? []).filter((v) => inClip(v.start, v.end));
+  const skips = clip.skips.filter((s) => inClip(s.start, s.end));
   const labelOf = (voice: number) => voiceLabel(t, heard?.voices.find((v) => v.id === voice) ?? { id: voice, name: null });
 
   const layout = videoLayerOf(clip).layout;
-  const bands = layout.map((k, i) => ({ from: Math.max(k.t, clip.start), to: layout[i + 1]?.t ?? clip.end, layout: k.value }));
+  const bands = layout
+    .map((k, i) => ({ from: Math.max(k.t, clip.start), to: layout[i + 1]?.t ?? clip.end, layout: k.value }))
+    .filter((b) => b.to > clip.start && b.from < clip.end);
   // Top row first: the layer drawn last.
   const rows = clip.layers.slice(1).reverse();
-  const raise = (id: string) => reorderLayer(clip.id, id, 'up');
-  const lower = (id: string) => reorderLayer(clip.id, id, 'down');
   const overLimit = videoLayersOverLimit(clip);
   const nameOf = (layer: TimedLayer) =>
     layer.kind === 'effect' ? t(`effects.names.${layer.effect}`) : (assets.find((a) => a.id === layer.assetId)?.name ?? t(`layers.kinds.${ASSET_KIND_OF[layer.kind]}`));
@@ -118,25 +152,81 @@ export function ClipTimeline({ clip, assets, keys, pages, selectedId, time }: Pr
     return best;
   };
 
+  /** Reads which part of the clip is in view from the scroller. */
+  const readView = () => {
+    const node = scroller.current;
+    if (!node || node.scrollWidth === 0) return;
+    setView({ from: node.scrollLeft / node.scrollWidth, to: (node.scrollLeft + node.clientWidth) / node.scrollWidth });
+    setViewWidth(node.clientWidth);
+  };
+
+  /** Zooms so that `fraction` of the clip ends up `x` pixels into the view. */
+  const zoomTo = (next: number, fraction: number, x: number) => {
+    const clamped = Math.min(MAX_ZOOM, Math.max(1, next));
+    if (clamped === zoom) {
+      // No new layout to wait for.
+      const node = scroller.current!;
+      node.scrollLeft = fraction * node.scrollWidth - x;
+      return;
+    }
+    anchor.current = { fraction, x };
+    setZoom(clamped);
+  };
+
+  /** Zooms around the middle of the view (the zoom buttons). */
+  const zoomBy = (factor: number) => {
+    const node = scroller.current!;
+    zoomTo(zoom * factor, (view.from + view.to) / 2, node.clientWidth / 2);
+  };
+
+  /** Shows the part of the clip from `from` to `to` (fractions). */
+  const showPart = (from: number, to: number) => zoomTo(1 / (to - from), from, 0);
+
+  // Once a new zoom is laid out, scroll to where zoomTo() wanted it.
+  useLayoutEffect(() => {
+    const node = scroller.current!;
+    if (anchor.current) {
+      node.scrollLeft = anchor.current.fraction * node.scrollWidth - anchor.current.x;
+      anchor.current = null;
+    }
+    readView();
+  }, [zoom]);
+
+  useEffect(() => {
+    const node = scroller.current!;
+    const resize = new ResizeObserver(readView);
+    resize.observe(node);
+    return () => resize.disconnect();
+  }, []);
+
   // Ctrl+wheel zooms around the pointer; React's wheel listener is passive, so this one is added by hand.
   useEffect(() => {
     const node = scroller.current!;
     const onWheel = (e: WheelEvent) => {
       if (!e.ctrlKey) return;
       e.preventDefault();
-      const box = node.getBoundingClientRect();
-      const x = e.clientX - box.left;
-      const f = (node.scrollLeft + x) / node.scrollWidth;
+      const x = e.clientX - node.getBoundingClientRect().left;
+      const fraction = (node.scrollLeft + x) / node.scrollWidth;
       setZoom((z) => {
-        const next = Math.min(MAX_ZOOM, Math.max(1, z * Math.exp(-e.deltaY * 0.002)));
-        // Keep the moment under the pointer where it is once the new width is laid out.
-        requestAnimationFrame(() => (node.scrollLeft = f * node.scrollWidth - x));
-        return next;
+        anchor.current = { fraction, x };
+        return Math.min(MAX_ZOOM, Math.max(1, z * Math.exp(-e.deltaY * 0.002)));
       });
     };
     node.addEventListener('wheel', onWheel, { passive: false });
     return () => node.removeEventListener('wheel', onWheel);
   }, []);
+
+  // A playhead that leaves the view (playing, or stepping with the arrow keys) brings the view along.
+  useEffect(() => {
+    const node = scroller.current;
+    if (!node || zoom === 1 || drag.current || overviewDrag.current) return;
+    const fraction = (time - clip.start) / length;
+    const from = node.scrollLeft / node.scrollWidth;
+    const to = (node.scrollLeft + node.clientWidth) / node.scrollWidth;
+    if (fraction < from || fraction > to) node.scrollLeft = fraction * node.scrollWidth - node.clientWidth * 0.1;
+    // Only when the playhead moves: moving the view by hand mustn't pull it back.
+    // eslint-disable-next-line react-hooks/exhaustive-deps
+  }, [time]);
 
   const startLayerDrag = (e: React.PointerEvent, layer: TimedLayer, kind: 'move' | 'start' | 'end') => {
     if (e.button !== 0) return;
@@ -179,44 +269,105 @@ export function ClipTimeline({ clip, assets, keys, pages, selectedId, time }: Pr
     if (d && d.kind !== 'scrub') projectStore.getState().endGesture();
   };
 
+  const startOverviewDrag = (e: React.PointerEvent, kind: OverviewDrag['kind']) => {
+    if (e.button !== 0) return;
+    e.stopPropagation();
+    overview.current!.setPointerCapture(e.pointerId);
+    let current = view;
+    if (kind === 'pan' && e.currentTarget === overview.current) {
+      // Pressed beside the box: the box jumps there first, centred on the pointer.
+      const box = overview.current.getBoundingClientRect();
+      const width = view.to - view.from;
+      const from = Math.min(Math.max((e.clientX - box.left) / box.width - width / 2, 0), 1 - width);
+      current = { from, to: from + width };
+      scroller.current!.scrollLeft = from * scroller.current!.scrollWidth;
+    }
+    overviewDrag.current = { kind, x: e.clientX, view: current };
+  };
+
+  const onOverviewMove = (e: React.PointerEvent) => {
+    const d = overviewDrag.current;
+    if (!d || !overview.current!.hasPointerCapture(e.pointerId)) return;
+    const shift = (e.clientX - d.x) / overview.current!.getBoundingClientRect().width;
+    const smallest = 1 / MAX_ZOOM;
+    if (d.kind === 'pan') {
+      const width = d.view.to - d.view.from;
+      const from = Math.min(Math.max(d.view.from + shift, 0), 1 - width);
+      scroller.current!.scrollLeft = from * scroller.current!.scrollWidth;
+    } else if (d.kind === 'from') {
+      showPart(Math.min(Math.max(d.view.from + shift, 0), d.view.to - smallest), d.view.to);
+    } else {
+      showPart(d.view.from, Math.max(Math.min(d.view.to + shift, 1), d.view.from + smallest));
+    }
+  };
+
+  // The ruler's ticks, in the clip's own time.
+  const trackWidth = viewWidth * zoom;
+  const step = RULER_STEPS.find((s) => (s / length) * trackWidth >= RULER_GAP_PX) ?? RULER_STEPS.at(-1)!;
+  const ticks: number[] = [];
+  if (trackWidth > 0) for (let s = clip.start; s <= clip.end + 1e-6; s += step) ticks.push(s);
+  const inSkip = (s: number) => skips.some((k) => s >= k.start && s < k.end);
+  const tickLabel = (s: number) => {
+    const out = formatClipTime(outputTime(clip, s));
+    // Whole seconds read better without the tenths.
+    return step >= 1 ? out.replace(/\.\d$/, '') : out;
+  };
+
   return (
     <div className="clip-timeline-box">
-      <div className="timeline-labels" aria-label={t('layers.rows')}>
-        {rows.map((layer, i) => (
-          <div key={layer.id} className={`timeline-label${layer.id === selectedId ? ' selected' : ''}`}>
-            <button
-              type="button"
-              className="name"
-              title={t('layers.select', { name: isTimed(layer) ? nameOf(layer) : t('layers.captions') })}
-              onClick={() => selectLayer(isTimed(layer) ? layer.id : null)}
-            >
-              {isTimed(layer) ? nameOf(layer) : t('layers.captions')}
-            </button>
-            <button type="button" className="icon" disabled={i === 0} aria-label={t('layers.up')} title={t('layers.up')} onClick={() => raise(layer.id)}>
-              <svg width="10" height="10" viewBox="0 0 10 10" aria-hidden="true">
-                <path d="M2 6.5l3-3 3 3" fill="none" stroke="currentColor" strokeWidth="1.6" />
-              </svg>
-            </button>
-            <button type="button" className="icon" disabled={i === rows.length - 1} aria-label={t('layers.down')} title={t('layers.down')} onClick={() => lower(layer.id)}>
-              <svg width="10" height="10" viewBox="0 0 10 10" aria-hidden="true">
-                <path d="M2 3.5l3 3 3-3" fill="none" stroke="currentColor" strokeWidth="1.6" />
-              </svg>
-            </button>
+      <div className="timeline-overview-row">
+        <div
+          ref={overview}
+          className="timeline-overview"
+          aria-label={t('timeline.overview')}
+          title={t('timeline.overviewHelp')}
+          onPointerDown={(e) => startOverviewDrag(e, 'pan')}
+          onPointerMove={onOverviewMove}
+          onPointerUp={() => (overviewDrag.current = null)}
+          onLostPointerCapture={() => (overviewDrag.current = null)}
+        >
+          {bands.map((b) => (
+            <div key={b.from} className={`mini band ${b.layout}`} style={span(b.from, b.to)} />
+          ))}
+          {rows.map((layer, i) =>
+            isTimed(layer) ? (
+              <div key={layer.id} className={`mini layer ${barClass(layer)}`} style={{ ...span(layer.start, layer.end), top: `${3 + (i % 3) * 5}px` }} />
+            ) : null,
+          )}
+          {skips.map((s) => (
+            <div key={s.start} className="mini skip" style={span(s.start, s.end)} />
+          ))}
+          <div className="mini playhead" style={{ left: at(time) }} />
+          <div
+            className="overview-box"
+            role="scrollbar"
+            aria-orientation="horizontal"
+            aria-controls="clip-timeline-scroll"
+            aria-label={t('timeline.inView')}
+            aria-valuemin={0}
+            aria-valuemax={100}
+            aria-valuenow={Math.round(view.from * 100)}
+            style={{ left: `${view.from * 100}%`, width: `${(view.to - view.from) * 100}%` }}
+            onPointerDown={(e) => startOverviewDrag(e, 'pan')}
+          >
+            <div className="overview-edge from" onPointerDown={(e) => startOverviewDrag(e, 'from')} />
+            <div className="overview-edge to" onPointerDown={(e) => startOverviewDrag(e, 'to')} />
           </div>
-        ))}
-        <div className={`timeline-label video${selectedId === null ? ' selected' : ''}`}>
-          <button type="button" className="name" onClick={() => selectLayer(null)}>
-            {t('layers.video')}
+        </div>
+        <div className="timeline-zoom" role="group" aria-label={t('timeline.zoom')}>
+          <button type="button" className="icon" disabled={zoom <= 1} aria-label={t('timeline.zoomOut')} title={t('timeline.zoomOut')} onClick={() => zoomBy(1 / ZOOM_STEP)}>
+            −
+          </button>
+          <button type="button" className="icon" disabled={zoom >= MAX_ZOOM} aria-label={t('timeline.zoomIn')} title={t('timeline.zoomIn')} onClick={() => zoomBy(ZOOM_STEP)}>
+            +
+          </button>
+          <button type="button" disabled={zoom === 1} title={t('timeline.wholeHelp')} onClick={() => zoomTo(1, 0, 0)}>
+            {t('timeline.whole')}
           </button>
         </div>
-        {turns && (
-          <div className="timeline-label voices">
-            <span className="name">{t('voices.title')}</span>
-          </div>
-        )}
       </div>
 
-      <div ref={scroller} className="timeline-scroll" title={t('layers.zoomHelp')}>
+      <div ref={scroller} id="clip-timeline-scroll" className="timeline-scroll" title={t('layers.zoomHelp')} onScroll={readView}>
         <div
           ref={track}
           className="clip-timeline"
@@ -237,9 +388,26 @@ export function ClipTimeline({ clip, assets, keys, pages, selectedId, time }: Pr
           onPointerUp={onEnd}
           onLostPointerCapture={onEnd}
         >
-          {rows.map((layer) =>
+          <div className="timeline-ruler" aria-hidden="true">
+            {ticks.map((s) => (
+              <div key={s} className="tick" style={{ left: at(s) }}>
+                {!inSkip(s) && <span>{tickLabel(s)}</span>}
+              </div>
+            ))}
+          </div>
+
+          {rows.map((layer, i) =>
             isTimed(layer) ? (
               <div key={layer.id} className="timeline-row">
+                <button
+                  type="button"
+                  className={`track-tag${layer.id === selectedId ? ' selected' : ''}`}
+                  title={t('layers.select', { name: nameOf(layer) })}
+                  onPointerDown={(e) => e.stopPropagation()}
+                  onClick={() => selectLayer(layer.id)}
+                >
+                  {nameOf(layer)}
+                </button>
                 <div
                   className={`layer-bar ${barClass(layer)}${layer.id === selectedId ? ' selected' : ''}${overLimit.has(layer.id) ? ' over-limit' : ''}`}
                   style={span(layer.start, layer.end)}
@@ -257,6 +425,22 @@ export function ClipTimeline({ clip, assets, keys, pages, selectedId, time }: Pr
               </div>
             ) : (
               <div key={layer.id} className="timeline-row captions">
+                <span className="track-tag" onPointerDown={(e) => e.stopPropagation()}>
+                  <button type="button" className="tag-name" onClick={() => selectLayer(null)}>
+                    {t('layers.captions')}
+                  </button>
+                  {/* Captions aren't selectable on their own, so their order is changed here. */}
+                  <button type="button" className="icon" disabled={i === 0} aria-label={t('layers.up')} title={t('layers.up')} onClick={() => reorderLayer(clip.id, layer.id, 'up')}>
+                    <svg width="10" height="10" viewBox="0 0 10 10" aria-hidden="true">
+                      <path d="M2 6.5l3-3 3 3" fill="none" stroke="currentColor" strokeWidth="1.6" />
+                    </svg>
+                  </button>
+                  <button type="button" className="icon" disabled={i === rows.length - 1} aria-label={t('layers.down')} title={t('layers.down')} onClick={() => reorderLayer(clip.id, layer.id, 'down')}>
+                    <svg width="10" height="10" viewBox="0 0 10 10" aria-hidden="true">
+                      <path d="M2 3.5l3 3 3-3" fill="none" stroke="currentColor" strokeWidth="1.6" />
+                    </svg>
+                  </button>
+                </span>
                 <div className="caption-pages" aria-label={t('captions.pages')}>
                   {pages.map((p) => (
                     <div key={p.start} className="page" style={span(p.start, p.end)} title={p.words.map((w) => w.text).join(' ')} />
@@ -267,16 +451,22 @@ export function ClipTimeline({ clip, assets, keys, pages, selectedId, time }: Pr
           )}
 
           <div className="timeline-row video">
-            {bands
-              .filter((b) => b.to > clip.start && b.from < clip.end)
-              .map((b) => (
-                <div key={b.from} className={`band ${b.layout}`} style={span(b.from, b.to)} title={t(`clipEditor.layouts.${b.layout}`)} />
-              ))}
+            <button
+              type="button"
+              className={`track-tag${selectedId === null ? ' selected' : ''}`}
+              onPointerDown={(e) => e.stopPropagation()}
+              onClick={() => selectLayer(null)}
+            >
+              {t('layers.video')}
+            </button>
+            {bands.map((b) => (
+              <div key={b.from} className={`band ${b.layout}`} style={span(b.from, b.to)} title={t(`clipEditor.layouts.${b.layout}`)} />
+            ))}
             {cuts.map((c) => (
               <div key={c} className="cut" style={{ left: at(c) }} title={t('analysis.cut')} />
             ))}
             <AnalysisProgress />
-            {clip.skips.filter((s) => inClip(s.start, s.end)).map((s) => (
+            {skips.map((s) => (
               <button
                 key={s.start}
                 type="button"
@@ -309,6 +499,7 @@ export function ClipTimeline({ clip, assets, keys, pages, selectedId, time }: Pr
           </div>
           {turns && (
             <div className="timeline-row voices" aria-label={t('voices.title')}>
+              <span className="track-tag">{t('voices.title')}</span>
               {clipTurns.map((v) => (
                 <div
                   key={v.start}
@@ -333,10 +524,12 @@ export function ClipTimeline({ clip, assets, keys, pages, selectedId, time }: Pr
                 ))}
             </div>
           )}
-          {clip.skips.filter((s) => inClip(s.start, s.end)).map((s) => (
+          {skips.map((s) => (
             <div key={s.start} className="skip-shade" style={span(s.start, s.end)} />
           ))}
-          <div className="playhead" style={{ left: at(time) }} />
+          <div className="playhead" style={{ left: at(time) }}>
+            <span className="playhead-time">{formatClipTime(outputTime(clip, time))}</span>
+          </div>
         </div>
       </div>
       {turnMenu && heard && <VoiceTurnMenu {...turnMenu} voices={heard.voices} onClose={() => setTurnMenu(null)} />}
