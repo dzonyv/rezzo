@@ -6,9 +6,11 @@ import { closeProject, save } from '../project/actions.ts';
 import { isDirty, projectStore, useProject } from '../project/store.ts';
 import { EpisodePlayer } from '../player/EpisodePlayer.tsx';
 import { pauseEpisode } from '../player/playback.ts';
+import { Transport } from '../player/Transport.tsx';
 import { TranscriptView } from '../transcript/TranscriptView.tsx';
 import { Brand } from './Brand.tsx';
 import { ClipList } from './ClipList.tsx';
+import { EpisodeStrip } from './EpisodeStrip.tsx';
 import { ReplacementsDialog } from './ReplacementsDialog.tsx';
 import { SourcePanel } from './SourcePanel.tsx';
 import { TranscribePanel } from './TranscribePanel.tsx';
@@ -26,6 +28,8 @@ export function Editor() {
   const clipOpen = openClip !== null && project?.source != null;
   // Until there is a transcript, the video is big and the transcription panel stands beside it.
   const transcribing = project?.source != null && !project.transcript;
+  // With one: the video on the left, the transcript, the clips on the right, and the whole episode under them.
+  const episode = !clipOpen && project?.source != null && project.transcript != null;
   const transcript =
     project?.source && project.transcript ? (
       <TranscriptView transcript={project.transcript} source={project.source} />
@@ -84,13 +88,13 @@ export function Editor() {
           {t('editor.close')}
         </button>
       </header>
-      <section className={clipOpen ? 'workspace with-clip' : transcribing ? 'workspace transcribing' : 'workspace'}>
+      <section className={clipOpen ? 'workspace with-clip' : transcribing ? 'workspace transcribing' : episode ? 'workspace episode' : 'workspace'}>
         {/* Hidden, not removed, while a clip is open: the episode keeps its player. The voices and the clips move into the clip editor. */}
         <div className="side" hidden={clipOpen}>
           {project?.source && <EpisodePlayer key={project.source.fingerprint} source={project.source} />}
+          {project?.source && <Transport duration={project.source.duration} />}
+          {episode && <VoicesPanel project={project} />}
           {project?.source && <SourcePanel source={project.source} />}
-          {!clipOpen && project?.source && project.transcript && <VoicesPanel project={project} />}
-          {!clipOpen && project?.source && project.transcript && <ClipList />}
         </div>
         {openClip && project?.source && (
           <ClipEditor
@@ -103,7 +107,14 @@ export function Editor() {
         )}
         {/* In the same place with a clip open or not, so it keeps its scroll, search and selection. Before there is one, the transcription panel. */}
         {transcript}
+        {episode && (
+          <aside className="episode-clips">
+            <ClipList />
+          </aside>
+        )}
       </section>
+      {/* Also under the transcription screen: the only way to go somewhere in the video before there is a transcript. */}
+      {!clipOpen && project?.source && <EpisodeStrip duration={project.source.duration} clips={project.clips} />}
       <ReplacementsDialog />
     </div>
   );

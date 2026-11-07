@@ -187,7 +187,11 @@
   },
   "player": {
     "preparing": "This video can't be played directly, so Rezzo is making a preview copy: {{percent}}%",
-    "failed": "This video can't be played here: {{detail}}"
+    "failed": "This video can't be played here: {{detail}}",
+    "play": "Play",
+    "pause": "Pause",
+    "playHelp": "Play or pause (Space)",
+    "mute": "Sound off"
   },
   "clips": {
     "title": "Clips",
@@ -201,7 +205,7 @@
     "clearSelection": "Clear",
     "untitled": "Untitled clip",
     "delete": "Delete clip",
-    "length": "{{start}}, {{length}} long",
+    "lasts": "{{length}} long",
     "new": "New clip",
     "newHelp": "Pick words in the transcript to make another clip"
   },
@@ -652,5 +656,9 @@
     "restoreAll": "Restore all cuts",
     "pauseHelp": "Click to keep or remove this pause",
     "skipHelp": "Cut from the clip. Click to bring it back."
+  },
+  "strip": {
+    "title": "Whole episode",
+    "openClip": "Open {{name}}"
   }
 }

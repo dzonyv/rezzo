@@ -11,9 +11,13 @@ import { cutWords } from '../project/skips.ts';
 import { ruleFor } from '../../../shared/replacements.ts';
 import { wordsOfText } from '../../../shared/transcript-edit.ts';
 import { useProject } from '../project/store.ts';
+import { useHeardVoices } from '../project/voices.ts';
+import { voiceColor, voiceLabel } from '../voice-colors.ts';
+import { voiceAt } from '../../../shared/voices.ts';
 import { confirmWord, editWord, joinWords } from '../project/transcript.ts';
 import { isTypingTarget } from '../ui/focus.ts';
 import { acceptOffer, offerRule, openReplacements, useReplacements } from '../ui/replacements.ts';
+import { hitsStore } from './hits.ts';
 import { buildIndex, search, type Match } from './search.ts';
 import { clearSelection, enterWord, pressWord, release, selectedRange, useSelection } from './selection.ts';
 import { startEditing, stopEditing, useEditing, type Finish } from './editing.ts';
@@ -47,6 +51,14 @@ export function TranscriptView({ transcript, source }: { transcript: Transcript;
   const [cursor, setCursor] = useState({ query, current: 0 });
   const current = cursor.query === query && cursor.current < matches.length ? cursor.current : 0;
   const hits = useMemo(() => hitsBySegment(flat, matches, current), [flat, matches, current]);
+
+  // The episode strip marks the same matches.
+  useEffect(() => {
+    hitsStore.setState({ times: matches.map((m) => flat.words[m.first]!.start), current: matches.length > 0 ? current : -1 });
+  }, [flat, matches, current]);
+  useEffect(() => () => hitsStore.setState({ times: [], current: -1 }), []);
+
+  const speakers = useSpeakers(transcript.segments);
 
   const active = useListening((s) => wordAt(flat.words, s.time));
   const activeSegment = active >= 0 ? flat.words[active]!.segment : -1;
@@ -184,27 +196,33 @@ export function TranscriptView({ transcript, source }: { transcript: Transcript;
   return (
     <section className="transcript">
       <div className="transcript-search">
-        <input
-          ref={searchBox}
-          type="search"
-          aria-label={t('transcript.search')}
-          placeholder={t('transcript.search')}
-          value={query}
-          onChange={(e) => setQuery(e.target.value)}
-          onKeyDown={(e) => {
-            if (e.key === 'Enter') {
-              e.preventDefault();
-              step(e.shiftKey ? -1 : 1);
-            } else if (e.key === 'Escape') {
-              setQuery('');
-            }
-          }}
-        />
-        {deferredQuery.trim() !== '' && (
-          <span className="count">
-            {matches.length > 0 ? t('transcript.matches', { current: current + 1, total: matches.length }) : t('transcript.noMatches')}
-          </span>
-        )}
+        <label className="search-box">
+          <svg viewBox="0 0 16 16" aria-hidden="true">
+            <circle cx="7" cy="7" r="4.5" />
+            <path d="M10.5 10.5L14 14" />
+          </svg>
+          <input
+            ref={searchBox}
+            type="search"
+            aria-label={t('transcript.search')}
+            placeholder={t('transcript.search')}
+            value={query}
+            onChange={(e) => setQuery(e.target.value)}
+            onKeyDown={(e) => {
+              if (e.key === 'Enter') {
+                e.preventDefault();
+                step(e.shiftKey ? -1 : 1);
+              } else if (e.key === 'Escape') {
+                setQuery('');
+              }
+            }}
+          />
+          {deferredQuery.trim() !== '' && (
+            <span className="count">
+              {matches.length > 0 ? t('transcript.matches', { current: current + 1, total: matches.length }) : t('transcript.noMatches')}
+            </span>
+          )}
+        </label>
         <button
           type="button"
           className="icon"
@@ -263,11 +281,12 @@ export function TranscriptView({ transcript, source }: { transcript: Transcript;
               key={row.key}
               data-index={row.index}
               ref={virtualizer.measureElement}
-              className="segment-row"
+              className={row.index === activeSegment ? 'segment-row here' : 'segment-row'}
               style={{ transform: `translateY(${row.start}px)` }}
             >
               <SegmentRow
                 segment={transcript.segments[row.index]!}
+                speaker={speakers[row.index]}
                 firstWord={flat.segmentStart[row.index]!}
                 active={row.index === activeSegment ? active : -1}
                 hits={hits.get(row.index)}
@@ -393,8 +412,34 @@ function SelectionBar({ words, source }: { words: FlatWord[]; source: Source }) 
   );
 }
 
+/** Who talks in a segment, as the transcript shows it. */
+interface Speaker {
+  name: string;
+  color: string;
+}
+
+/**
+ * Who starts each segment, once the voices are told apart; nothing for a
+ * segment nobody's voice covers. The same object for a voice in every
+ * segment, so a row only draws again when its speaker changes.
+ */
+function useSpeakers(segments: readonly Segment[]): readonly (Speaker | undefined)[] {
+  const { t } = useTranslation();
+  const heard = useHeardVoices();
+  return useMemo(() => {
+    if (!heard) return [];
+    const byVoice = new Map(heard.voices.map((v) => [v.id, { name: voiceLabel(t, v), color: voiceColor(v.id) }]));
+    return segments.map((segment) => {
+      const first = segment.words[0];
+      const voice = first ? voiceAt(heard.turns, (first.start + first.end) / 2) : null;
+      return voice === null ? undefined : byVoice.get(voice);
+    });
+  }, [heard, segments, t]);
+}
+
 const SegmentRow = memo(function SegmentRow({
   segment,
+  speaker,
   firstWord,
   active,
   hits,
@@ -404,6 +449,7 @@ const SegmentRow = memo(function SegmentRow({
   onFinish,
 }: {
   segment: Segment;
+  speaker: Speaker | undefined;
   firstWord: number;
   active: number;
   hits: Hits | undefined;
@@ -415,8 +461,15 @@ const SegmentRow = memo(function SegmentRow({
 }) {
   return (
     <>
-      <span className="segment-time" data-time={segment.start}>
-        {formatDuration(segment.start)}
+      <span className="segment-meta">
+        {speaker && (
+          <b className="segment-speaker" style={{ color: speaker.color }}>
+            {speaker.name}
+          </b>
+        )}
+        <span className="segment-time" data-time={segment.start}>
+          {formatDuration(segment.start)}
+        </span>
       </span>
       <p className="segment-text">
         {segment.words.map((w, i) => {

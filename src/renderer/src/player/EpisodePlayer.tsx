@@ -41,7 +41,7 @@ export function EpisodePlayer({ source }: { source: Source }) {
       // With a clip open, Space plays the clip.
       if (clipUiStore.getState().openClipId) return;
       // These already do something with Space.
-      if (['SELECT', 'BUTTON', 'VIDEO'].includes((e.target as HTMLElement).tagName)) return;
+      if (['SELECT', 'BUTTON'].includes((e.target as HTMLElement).tagName)) return;
       e.preventDefault();
       togglePlay();
     };
@@ -74,8 +74,9 @@ export function EpisodePlayer({ source }: { source: Source }) {
         <video
           ref={attachVideo}
           src={url}
-          controls
           preload="auto"
+          // The transport under the picture and the episode strip stand in for the native controls.
+          onClick={togglePlay}
           onError={() => void fallBackToPreview()}
           // Audio plays but the picture can't be decoded (e.g. HEVC without hardware support).
           onLoadedMetadata={(e) => e.currentTarget.videoWidth === 0 && void fallBackToPreview()}

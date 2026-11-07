@@ -83,15 +83,44 @@ describe('transcript', () => {
     await expect.poll(() => page.locator('.w.active').textContent()).toBe('Ćevapi ');
   });
 
+  it('plays, pauses and mutes from the transport under the picture', async () => {
+    const video = page.locator('video');
+    await page.getByRole('button', { name: 'Play', exact: true }).click();
+    await expect.poll(() => video.evaluate((v: { paused: boolean }) => v.paused)).toBe(false);
+    await page.getByRole('button', { name: 'Pause', exact: true }).click();
+    await expect.poll(() => video.evaluate((v: { paused: boolean }) => v.paused)).toBe(true);
+
+    await page.getByRole('button', { name: 'Sound off' }).click();
+    await expect.poll(() => video.evaluate((v: { muted: boolean }) => v.muted)).toBe(true);
+    await page.getByRole('button', { name: 'Sound off' }).click();
+    await expect.poll(() => video.evaluate((v: { muted: boolean }) => v.muted)).toBe(false);
+  });
+
+  it('goes where the episode strip is pressed, and steps along it with the arrow keys', async () => {
+    const strip = page.getByRole('slider', { name: 'Whole episode' });
+    const box = (await strip.boundingBox())!;
+    // Three quarters of a 12 s episode.
+    await page.mouse.click(box.x + box.width * 0.75, box.y + box.height / 2);
+    await expect.poll(() => page.locator('video').evaluate((v: { currentTime: number }) => v.currentTime)).toBeCloseTo(9, 0);
+    await strip.press('ArrowLeft');
+    await expect.poll(() => page.locator('video').evaluate((v: { currentTime: number }) => v.currentTime)).toBeCloseTo(4, 0);
+    expect(await strip.getAttribute('aria-valuetext')).toBe('0:04');
+  });
+
   it('searches without diacritics and steps through results', async () => {
     await page.keyboard.press('Control+F');
     await page.keyboard.type('djokovic');
     await expect.poll(() => page.locator('.transcript-search .count').textContent()).toBe('1 of 2');
     expect(await page.locator('.w.hit.current').textContent()).toBe('Đokoviću. ');
 
+    // The episode strip marks both, the one shown more strongly.
+    expect(await page.locator('.episode-strip .hit').count()).toBe(2);
+    expect(await page.locator('.episode-strip .hit').nth(0).getAttribute('class')).toBe('hit current');
+
     await search(page).press('Enter');
     await expect.poll(() => page.locator('.transcript-search .count').textContent()).toBe('2 of 2');
     expect(await page.locator('.w.hit.current').textContent()).toBe('Đoković? ');
+    await expect.poll(() => page.locator('.episode-strip .hit').nth(1).getAttribute('class')).toBe('hit current');
 
     await search(page).fill('pricamo o');
     await expect.poll(() => page.locator('.transcript-search .count').textContent()).toBe('1 of 1');

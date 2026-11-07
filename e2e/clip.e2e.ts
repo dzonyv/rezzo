@@ -378,4 +378,10 @@ describe('clips', () => {
     await expect.poll(() => page.locator('.clip-list li').count()).toBe(1);
     expect(await page.locator('.w.in-clip').count()).toBe(5);
   });
+
+  it('shows the clip on the episode screen, with a picture, and opens it from the episode strip', async () => {
+    await expect.poll(() => page.locator('.episode-clips .thumb img').evaluate((img: { naturalWidth: number }) => img.naturalWidth), { timeout: 20_000 }).toBeGreaterThan(0);
+    await page.getByRole('button', { name: 'Open Danas pričamo o kadriranju klipova' }).click();
+    await expect.poll(() => page.getByRole('textbox', { name: 'Clip name' }).inputValue()).toBe('Danas pričamo o kadriranju klipova');
+  });
 });
