@@ -85,6 +85,10 @@ button[aria-pressed='true'] {
   color: var(--bg);
 }
 
+button[aria-pressed='true']:hover:not(:disabled) {
+  background: #e2ddd0;
+}
+
 select,
 input,
 textarea {
@@ -103,7 +107,7 @@ textarea:hover {
 }
 
 select:focus,
-input:focus,
+input:not([type='checkbox'], [type='radio'], [type='range']):focus,
 textarea:focus {
   border-color: var(--accent);
   outline: none;
@@ -121,11 +125,6 @@ h1,
 h2,
 h3 {
   font-weight: 600;
-}
-
-.mono,
-time {
-  font-family: var(--font-mono);
 }
 
 .home {
@@ -665,6 +664,12 @@ button.icon {
   color: var(--accent-text);
 }
 
+/* The word being spoken, inside a selection: yellow text wouldn't show on yellow. */
+.w.selected.active {
+  text-decoration: underline 2px;
+  text-underline-offset: 3px;
+}
+
 .w.editing:hover {
   background: none;
 }
@@ -902,8 +907,6 @@ button.icon {
   min-width: 64px;
 }
 
-
-
 .transport .time {
   white-space: nowrap;
   font-family: var(--font-mono);
@@ -1098,16 +1101,17 @@ button.icon {
   opacity: 0.35;
 }
 
+/* Not yellow: the playhead runs over these. */
 .clip-timeline .band.follow {
-  background: var(--accent);
+  background: var(--text);
 }
 
 .clip-timeline .band.split {
-  background: #6f8cff;
+  background: #d2b8ff;
 }
 
 .clip-timeline .band.full {
-  background: #4cc38a;
+  background: #ffc98a;
 }
 
 .clip-timeline .cut {
@@ -1704,7 +1708,7 @@ button.icon {
   gap: 4px;
   min-width: 0;
   padding: 8px 4px 6px;
-  background: #3a3f47;
+  background: var(--surface-3);
   font-size: 11px;
 }
 
