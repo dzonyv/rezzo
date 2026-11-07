@@ -1,9 +1,11 @@
+import { useEffect } from 'react';
 import { useTranslation } from 'react-i18next';
 import { ClipEditor } from '../clip/ClipEditor.tsx';
 import { useOpenClip } from '../clip/state.ts';
 import { closeProject, save } from '../project/actions.ts';
 import { isDirty, projectStore, useProject } from '../project/store.ts';
 import { EpisodePlayer } from '../player/EpisodePlayer.tsx';
+import { pauseEpisode } from '../player/playback.ts';
 import { TranscriptView } from '../transcript/TranscriptView.tsx';
 import { Brand } from './Brand.tsx';
 import { ClipList } from './ClipList.tsx';
@@ -21,6 +23,19 @@ export function Editor() {
   const redoLabel = useProject((s) => s.redoLabel);
   const openClip = useOpenClip();
   const store = projectStore.getState();
+  const clipOpen = openClip !== null && project?.source != null;
+  const transcript =
+    project?.source && project.transcript ? (
+      <TranscriptView transcript={project.transcript} source={project.source} />
+    ) : (
+      <p className="transcript-empty">{t('transcript.empty')}</p>
+    );
+
+  // The episode stops when a clip opens: its player is hidden then.
+  const openId = openClip?.id;
+  useEffect(() => {
+    if (openId) pauseEpisode();
+  }, [openId]);
 
   return (
     <div className="editor">
@@ -65,20 +80,26 @@ export function Editor() {
           {t('editor.close')}
         </button>
       </header>
-      <section className={openClip ? 'workspace with-clip' : 'workspace'}>
-        <div className="side">
+      <section className={clipOpen ? 'workspace with-clip' : 'workspace'}>
+        {/* Hidden, not removed, while a clip is open: the episode keeps its player. The voices and the clips move into the clip editor. */}
+        <div className="side" hidden={clipOpen}>
           {project?.source && <EpisodePlayer key={project.source.fingerprint} source={project.source} />}
           {project?.source && <SourcePanel source={project.source} />}
           {project?.source && !project.transcript && <TranscribePanel project={project} />}
-          {project?.source && project.transcript && <VoicesPanel project={project} />}
-          {project?.source && project.transcript && <ClipList />}
+          {!clipOpen && project?.source && project.transcript && <VoicesPanel project={project} />}
+          {!clipOpen && project?.source && project.transcript && <ClipList />}
         </div>
-        {project?.source && project.transcript ? (
-          <TranscriptView transcript={project.transcript} source={project.source} />
-        ) : (
-          <p className="transcript-empty">{t('transcript.empty')}</p>
+        {openClip && project?.source && (
+          <ClipEditor
+            key={openClip.id}
+            clip={openClip}
+            source={project.source}
+            voices={project.transcript && <VoicesPanel project={project} />}
+            side={<ClipList />}
+          />
         )}
-        {openClip && project?.source && <ClipEditor key={openClip.id} clip={openClip} source={project.source} />}
+        {/* In the same place with a clip open or not, so it keeps its scroll, search and selection. */}
+        {transcript}
       </section>
       <ReplacementsDialog />
     </div>

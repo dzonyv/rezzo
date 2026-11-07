@@ -43,12 +43,12 @@ export function segmentOf(start: number, end: number): Segment {
   return { start, end: words.at(-1)!.end, words };
 }
 
-/** Puts the playhead `seconds` into a clip of `length` seconds by pressing on the timeline. */
+/** Puts the playhead `seconds` into a clip of `length` seconds by pressing on the timeline's ruler. */
 export async function seekTimeline(page: Page, seconds: number, length: number): Promise<void> {
   const timeline = page.locator('.clip-timeline');
   await timeline.scrollIntoViewIfNeeded();
   const box = (await timeline.boundingBox())!;
-  await timeline.click({ position: { x: (box.width * seconds) / length, y: box.height - 4 } });
+  await timeline.click({ position: { x: (box.width * seconds) / length, y: 8 } });
 }
 
 export const ffmpegExe = (): string => path.join(ffmpegBin(), 'ffmpeg.exe');

@@ -203,7 +203,7 @@ describe('clips', () => {
 
   it('deletes the keyframe at the playhead with the Delete key, but never the last one', async () => {
     const follows = async () => videoLayerOf((await saved()).clips[0]!).follow.length;
-    await page.getByRole('button', { name: 'Add keyframe' }).first().click();
+    await page.locator('.dock-context').getByRole('button', { name: 'Add keyframe' }).click();
     await expect.poll(follows).toBe(2);
     await page.keyboard.press('Delete');
     await expect.poll(follows).toBe(1);
@@ -211,7 +211,7 @@ describe('clips', () => {
 
     await page.getByRole('button', { name: 'Undo' }).click();
     await expect.poll(follows).toBe(2);
-    await page.getByRole('button', { name: 'Delete keyframe' }).first().click();
+    await page.locator('.dock-context').getByRole('button', { name: 'Delete keyframe' }).click();
     await expect.poll(follows).toBe(1);
 
     // Away from a keyframe, the key does nothing.

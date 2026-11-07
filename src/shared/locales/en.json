@@ -228,7 +228,30 @@
     "wordStrip": "Word timing",
     "wordHelp": "Click to go to the word, double-click to correct it. Drag an edge to move its start or end; Alt+←/→ moves the start nearest the playhead by a frame.",
     "wordStart": "Start of “{{word}}”",
-    "wordEnd": "End of “{{word}}”"
+    "wordEnd": "End of “{{word}}”",
+    "back": "Episode",
+    "settings": "Clip settings",
+    "keyframes": "Keyframes"
+  },
+  "timeline": {
+    "overview": "The whole clip",
+    "overviewHelp": "The whole clip in small. Drag the box to move along it, drag its edges to zoom.",
+    "inView": "Part of the clip in view",
+    "zoom": "Timeline zoom",
+    "zoomIn": "Zoom in",
+    "zoomOut": "Zoom out",
+    "whole": "Whole clip",
+    "wholeHelp": "Show the whole clip",
+    "resize": "Drag to make the timeline taller or shorter",
+    "size": "Timeline size",
+    "sizes": {
+      "compact": "Compact",
+      "normal": "Normal",
+      "full": "Full timeline",
+      "compactHelp": "Just the rows, the most room for the picture",
+      "normalHelp": "The rows and the word timing; drag the top edge to resize",
+      "fullHelp": "The timeline fills the window, the picture moves into a column beside it"
+    }
   },
   "export": {
     "button": "Export",
