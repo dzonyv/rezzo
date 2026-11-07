@@ -11,7 +11,13 @@
     "noRecent": "Ovde će se pojaviti projekti koje otvoriš ili sačuvaš.",
     "recovered": "Nesačuvan rad od prošlog puta",
     "restore": "Vrati",
-    "discard": "Odbaci"
+    "discard": "Odbaci",
+    "changelog": "Izmene po verzijama",
+    "free": "Besplatan i otvorenog koda (GPL-3.0). Bez watermarka, bez pretplate.",
+    "madeBy": "Napravio",
+    "links": "O Rezzu",
+    "report": "Prijavi problem",
+    "licenses": "Licence"
   },
   "editor": {
     "projectName": "Naziv projekta",
@@ -121,7 +127,8 @@
     }
   },
   "common": {
-    "dismiss": "Zatvori"
+    "dismiss": "Zatvori",
+    "close": "Zatvori"
   },
   "settings": {
     "uiLanguage": "Jezik interfejsa"

@@ -1,9 +1,15 @@
 import { useEffect, useState } from 'react';
 import { useTranslation } from 'react-i18next';
+import { version } from '../../../../package.json';
 import type { RecentProject, RecoveredProject } from '../../../shared/api.ts';
 import { createProject, openProject, restoreProject } from '../project/actions.ts';
+import { ChangelogDialog } from './ChangelogDialog.tsx';
 import { LanguagePicker } from './LanguagePicker.tsx';
 import { shortName } from './short-name.ts';
+
+/** Names, not words to translate. */
+const REPOSITORY = { name: 'GitHub', url: 'https://github.com/dzonyv/rezzo' };
+const AUTHOR = { name: 'Nikola', url: 'https://github.com/dzonyv' };
 
 /**
  * The first screen: a big yellow slab to drop a video on (cut like the
@@ -13,6 +19,7 @@ export function Home() {
   const { t, i18n } = useTranslation();
   const [recent, setRecent] = useState<RecentProject[]>([]);
   const [recovered, setRecovered] = useState<RecoveredProject[]>([]);
+  const [changelog, setChangelog] = useState(false);
 
   useEffect(() => {
     void window.rezzo.invoke('project:recent').then(setRecent);
@@ -53,6 +60,40 @@ export function Home() {
             </button>
           </div>
         </div>
+        {/* On the slab's lower part. Links open in the browser (see setWindowOpenHandler in main). */}
+        <footer className="hero-foot">
+          <div className="line">
+            <button
+              type="button"
+              className="version"
+              title={t('home.changelog')}
+              aria-description={t('home.changelog')}
+              onClick={() => setChangelog(true)}
+            >
+              {version}
+            </button>
+            <span>{t('home.free')}</span>
+          </div>
+          <div className="line credits">
+            <span>
+              {t('home.madeBy')}{' '}
+              <a href={AUTHOR.url} target="_blank" rel="noreferrer">
+                {AUTHOR.name}
+              </a>
+            </span>
+            <nav className="links" aria-label={t('home.links')}>
+              <a href={REPOSITORY.url} target="_blank" rel="noreferrer">
+                {REPOSITORY.name}
+              </a>
+              <a href={`${REPOSITORY.url}/issues/new`} target="_blank" rel="noreferrer">
+                {t('home.report')}
+              </a>
+              <button type="button" className="link" onClick={() => void window.rezzo.invoke('app:licenses')}>
+                {t('home.licenses')}
+              </button>
+            </nav>
+          </div>
+        </footer>
       </section>
 
       <aside className="home-side">
@@ -103,6 +144,7 @@ export function Home() {
 
         <LanguagePicker />
       </aside>
+      <ChangelogDialog open={changelog} onClose={() => setChangelog(false)} />
     </main>
   );
 }

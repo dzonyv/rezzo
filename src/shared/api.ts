@@ -187,6 +187,9 @@ export interface InvokeApi {
   /** Opens the last exported file in the default player. */
   'export:open': () => void;
 
+  /** Opens the third-party licenses that ship with this copy of the app. */
+  'app:licenses': () => void;
+
   /** Asks for a TTF or OTF file and adds it to the fonts captions can use. Null: cancelled. */
   'fonts:add': () => AddFontResult | null;
   /** The bytes of an added font, by its `file` in the settings. */
@@ -257,6 +260,7 @@ export const INVOKE_CHANNELS = {
   'export:cancel': true,
   'export:reveal': true,
   'export:open': true,
+  'app:licenses': true,
   'fonts:add': true,
   'fonts:read': true,
   'asset:add': true,

@@ -19,6 +19,19 @@ import { cancelVoices, startVoices } from './voices.ts';
 import { stopWorker } from './worker-host.ts';
 import { projectSchema } from '../shared/project.ts';
 
+/**
+ * The licenses next to the app (electron-builder copies them to
+ * resources/licenses), so they match this version and work offline. With no
+ * program for .md files, the same file on GitHub.
+ */
+async function openLicenses(): Promise<void> {
+  const file = app.isPackaged
+    ? path.join(process.resourcesPath, 'licenses', 'THIRD_PARTY_NOTICES.md')
+    : path.join(__dirname, '..', '..', 'THIRD_PARTY_NOTICES.md');
+  const failed = await shell.openPath(file);
+  if (failed) await shell.openExternal('https://github.com/dzonyv/rezzo/blob/main/THIRD_PARTY_NOTICES.md');
+}
+
 // Tests run the app against a throwaway profile.
 const userDataOverride = process.env['REZZO_USER_DATA'];
 if (userDataOverride) app.setPath('userData', userDataOverride);
@@ -86,6 +99,8 @@ function registerHandlers(): void {
   handle('export:cancel', () => cancelExport());
   handle('export:reveal', () => revealExport());
   handle('export:open', () => openExport());
+
+  handle('app:licenses', () => openLicenses());
 
   handle('fonts:add', ({ window }) => addFont(window));
   handle('fonts:read', (_ctx, file) => readCustomFont(file));

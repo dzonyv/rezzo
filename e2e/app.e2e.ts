@@ -54,6 +54,35 @@ describe('app', () => {
     expect(await page.evaluate(() => typeof (globalThis as PageGlobal).rezzo.invoke)).toBe('function');
   });
 
+  it('shows the changelog from the version, and opens links in the browser', async () => {
+    const launched = await launch();
+    const page = await launched.firstWindow();
+    const { version } = JSON.parse(await readFile('package.json', 'utf8')) as { version: string };
+    await page.getByRole('button', { name: version }).click();
+    const dialog = page.getByRole('dialog', { name: 'Changelog' });
+    await dialog.waitFor();
+    expect(await dialog.locator('h3').first().textContent()).toBe(version);
+    await page.keyboard.press('Escape');
+    await expect.poll(() => dialog.isVisible()).toBe(false);
+
+    // The browser gets the link; the app's page stays where it is.
+    await launched.evaluate(({ shell }) => {
+      (globalThis as { opened?: string[] }).opened = [];
+      shell.openExternal = async (url: string) => void (globalThis as { opened?: string[] }).opened!.push(url);
+    });
+    await page.getByRole('link', { name: 'Nikola' }).click();
+    await expect.poll(() => launched.evaluate(() => (globalThis as { opened?: string[] }).opened)).toEqual(['https://github.com/dzonyv']);
+    // The licenses are the copy next to the app, not a web page.
+    await launched.evaluate(({ shell }) => {
+      (globalThis as { paths?: string[] }).paths = [];
+      shell.openPath = async (file: string) => ((globalThis as { paths?: string[] }).paths!.push(file), '');
+    });
+    await page.getByRole('button', { name: 'Licenses' }).click();
+    await expect.poll(() => launched.evaluate(() => (globalThis as { paths?: string[] }).paths?.[0] ?? '')).toMatch(/THIRD_PARTY_NOTICES.md$/);
+    await expect.poll(() => launched.evaluate(() => (globalThis as { opened?: string[] }).opened)).toEqual(['https://github.com/dzonyv']);
+    expect(page.url()).not.toContain('github.com');
+  });
+
   // Playwright doesn't finish launching an installed app until its page has loaded.
   it.skipIf(process.env['REZZO_E2E_EXECUTABLE'])('closes straight away while the page is still loading', async () => {
     // A page that never arrives, so the renderer can't be listening yet.

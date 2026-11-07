@@ -11,7 +11,13 @@
     "noRecent": "Projects you open or save show up here.",
     "recovered": "Unsaved work from last time",
     "restore": "Restore",
-    "discard": "Discard"
+    "discard": "Discard",
+    "changelog": "Changelog",
+    "free": "Free and open source (GPL-3.0). No watermark, no subscription.",
+    "madeBy": "Made by",
+    "links": "About Rezzo",
+    "report": "Report a problem",
+    "licenses": "Licenses"
   },
   "editor": {
     "projectName": "Project name",
@@ -121,7 +127,8 @@
     }
   },
   "common": {
-    "dismiss": "Dismiss"
+    "dismiss": "Dismiss",
+    "close": "Close"
   },
   "settings": {
     "uiLanguage": "Interface language"

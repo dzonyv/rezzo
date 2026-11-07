@@ -209,10 +209,7 @@ button.on-slab {
   color: var(--accent);
 }
 
-button.on-slab:hover:not(:disabled) {
-  background: #2e2a12;
-}
-
+button.on-slab:hover:not(:disabled),
 button.on-slab.outline {
   background: none;
   color: var(--accent-text);
@@ -225,6 +222,97 @@ button.on-slab.outline:hover:not(:disabled) {
 
 button.on-slab:focus-visible {
   outline-color: var(--accent-text);
+}
+
+/* On the slab's lower part, which starts lower on the left: the cut slopes up to the right. */
+.hero-foot {
+  position: absolute;
+  left: 66px;
+  right: 40px;
+  bottom: 26px;
+  display: flex;
+  flex-direction: column;
+  gap: 8px;
+  color: var(--accent-text);
+  font-size: 13px;
+}
+
+.hero-foot .line {
+  display: flex;
+  flex-wrap: wrap;
+  align-items: center;
+  gap: 6px 12px;
+}
+
+.hero-foot .credits {
+  justify-content: space-between;
+}
+
+.hero-foot a,
+.hero-foot button.link {
+  color: inherit;
+  font-weight: 600;
+  text-decoration: underline;
+  text-decoration-thickness: 1px;
+  text-underline-offset: 3px;
+}
+
+.hero-foot a:hover,
+.hero-foot button.link:hover {
+  text-decoration-thickness: 2px;
+}
+
+.hero-foot button.link:hover:not(:disabled) {
+  background: none;
+}
+
+.hero-foot a:focus-visible,
+.hero-foot button:focus-visible {
+  outline-color: var(--accent-text);
+}
+
+button.version {
+  padding: 4px 12px;
+  background: var(--accent-text);
+  color: var(--accent);
+  font-family: var(--font-mono);
+  font-weight: 500;
+  font-size: 12px;
+}
+
+button.version:hover:not(:disabled) {
+  background: #2e2a12;
+}
+
+.hero-foot .links {
+  display: flex;
+  flex-wrap: wrap;
+  gap: 16px;
+}
+
+.changelog {
+  width: min(520px, 90vw);
+}
+
+.changelog .releases {
+  max-height: min(60vh, 480px);
+  overflow: auto;
+  margin-bottom: 18px;
+}
+
+.changelog h3 {
+  margin: 0 0 6px;
+  font-family: var(--font-mono);
+  font-weight: 500;
+  font-size: 13px;
+  color: var(--accent);
+}
+
+.changelog ul {
+  margin: 0 0 14px;
+  padding-left: 18px;
+  color: var(--text-soft);
+  line-height: 1.55;
 }
 
 .home-side {
