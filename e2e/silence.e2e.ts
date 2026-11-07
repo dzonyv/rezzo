@@ -13,7 +13,7 @@ import type { ElectronApplication, Page } from 'playwright-core';
 import { afterAll, beforeAll, describe, expect, it } from 'vitest';
 import { defaultVideoLayer } from '../src/shared/framing.ts';
 import type { Clip, Project } from '../src/shared/project.ts';
-import { analysisDone, answerOpenDialog, answerSaveDialog, ffmpegExe, ffprobeExe, launchApp, makeNumberedVideo, NUMBER_BIT_WIDTH, NUMBER_STRIP_HEIGHT, stopApp, until } from './helpers.ts';
+import { analysisDone, answerOpenDialog, answerSaveDialog, ffmpegExe, ffprobeExe, launchApp, makeNumberedVideo, NUMBER_BIT_WIDTH, NUMBER_STRIP_HEIGHT, openTool, stopApp, until } from './helpers.ts';
 
 const run = promisify(execFile);
 
@@ -105,6 +105,7 @@ beforeAll(async () => {
   await page.getByRole('button', { name: /numbered/ }).click();
   await page.locator('.clip-list li').first().waitFor();
   await page.locator('.clip-list li .name').first().click();
+  await openTool(page, 'Pauses');
   await panel().getByRole('button', { name: 'Find pauses' }).and(page.locator(':enabled')).waitFor({ timeout: 60_000 });
   await analysisDone(page);
 });
@@ -198,6 +199,7 @@ describe('removing pauses', () => {
 
 describe('cutting words', () => {
   it('cuts the selected words from the open clip and marks them in the transcript', async () => {
+    await openTool(page, 'Text');
     const from = await page.locator('.w', { hasText: 'druga' }).boundingBox();
     const to = await page.locator('.w', { hasText: 'treća' }).boundingBox();
     await page.mouse.move(from!.x + 5, from!.y + from!.height / 2);

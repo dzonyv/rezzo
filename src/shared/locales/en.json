@@ -230,7 +230,6 @@
     "wordStart": "Start of “{{word}}”",
     "wordEnd": "End of “{{word}}”",
     "back": "Episode",
-    "settings": "Clip settings",
     "keyframes": "Keyframes"
   },
   "timeline": {
@@ -252,6 +251,31 @@
       "normalHelp": "The rows and the word timing; drag the top edge to resize",
       "fullHelp": "The timeline fills the window, the picture moves into a column beside it"
     }
+  },
+  "tools": {
+    "title": "Tools",
+    "close": "Close",
+    "names": {
+      "framing": "Framing",
+      "captions": "Captions",
+      "layers": "Layers",
+      "effects": "Effects",
+      "pauses": "Pauses",
+      "voices": "Voices",
+      "text": "Text"
+    },
+    "help": {
+      "framing": "Move and zoom the picture",
+      "captions": "Caption style, size and place",
+      "layers": "Images, videos and animations over the picture",
+      "effects": "Effects over the picture",
+      "pauses": "Find and cut pauses",
+      "voices": "Who talks, and the episode's voices",
+      "text": "The episode's transcript"
+    },
+    "layersHint": "Added from the playhead on. Press a layer on the timeline to change it.",
+    "effectsHint": "Added from the playhead on. Press an effect on the timeline to change it.",
+    "voicesHint": "Turn on Show people under the picture to say who talks."
   },
   "export": {
     "button": "Export",
@@ -380,7 +404,6 @@
     "joinPageHelp": "This word starts a caption page; join it with the page before"
   },
   "layers": {
-    "add": "Add",
     "addHelp": "Add a layer over the picture, from the playhead on",
     "kinds": {
       "image": "Image",

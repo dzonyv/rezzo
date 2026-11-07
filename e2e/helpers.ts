@@ -43,6 +43,12 @@ export function segmentOf(start: number, end: number): Segment {
   return { start, end: words.at(-1)!.end, words };
 }
 
+/** Opens a tool's drawer in the clip editor (the rail left of the picture), unless it's open already. */
+export async function openTool(page: Page, name: string): Promise<void> {
+  const button = page.locator('.tool-rail').getByRole('button', { name, exact: true });
+  if ((await button.getAttribute('aria-pressed')) !== 'true') await button.click();
+}
+
 /** Puts the playhead `seconds` into a clip of `length` seconds by pressing on the timeline's ruler. */
 export async function seekTimeline(page: Page, seconds: number, length: number): Promise<void> {
   const timeline = page.locator('.clip-timeline');

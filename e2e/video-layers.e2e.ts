@@ -24,7 +24,7 @@ import { defaultVideoLayer } from '../src/shared/framing.ts';
 import { DEFAULT_MOTION } from '../src/shared/motion.ts';
 import type { OverlayLayer, Project } from '../src/shared/project.ts';
 import { fingerprint } from '../src/workers/media/fingerprint.ts';
-import { analysisDone, answerOpenDialog, answerSaveDialog, ffmpegExe, launchApp, makeNumberedVideo, stopApp } from './helpers.ts';
+import { analysisDone, answerOpenDialog, answerSaveDialog, ffmpegExe, launchApp, makeNumberedVideo, openTool, stopApp } from './helpers.ts';
 
 const run = promisify(execFile);
 
@@ -280,8 +280,8 @@ describe('editing video layers', () => {
   it('adds a video from the playhead on, as long as the file', async () => {
     await goTo(2.5);
     await answerOpenDialog(app!, greenFile);
-    await page.locator('.add-menu summary').click();
-    await page.locator('.add-menu').getByRole('button', { name: 'Video' }).click();
+    await openTool(page, 'Layers');
+    await page.locator('.add-tiles').getByRole('button', { name: 'Video' }).click();
     await page.getByRole('heading', { name: 'Video: green.mp4' }).waitFor();
     const added = (await layers()).at(-1)!;
     expect(added.start).toBeCloseTo(2.5, 5);
@@ -294,8 +294,8 @@ describe('editing video layers', () => {
   it('refuses a fifth video at the same moment', async () => {
     await goTo(4.2);
     await answerOpenDialog(app!, greenFile);
-    await page.locator('.add-menu summary').click();
-    await page.locator('.add-menu').getByRole('button', { name: 'Video' }).click();
+    await openTool(page, 'Layers');
+    await page.locator('.add-tiles').getByRole('button', { name: 'Video' }).click();
     await page.locator('.notice', { hasText: 'At most 4 videos' }).waitFor();
     expect(await layers()).toHaveLength(4);
   });
@@ -337,8 +337,8 @@ describe('editing video layers', () => {
     await run(ffmpegExe(), ['-y', '-v', 'error', '-f', 'lavfi', '-i', 'testsrc2=s=320x180:r=30:d=200', '-c:v', 'libx264', '-preset', 'ultrafast', '-pix_fmt', 'yuv420p', long]);
     await goTo(START);
     await answerOpenDialog(app!, long);
-    await page.locator('.add-menu summary').click();
-    await page.locator('.add-menu').getByRole('button', { name: 'Video' }).click();
+    await openTool(page, 'Layers');
+    await page.locator('.add-tiles').getByRole('button', { name: 'Video' }).click();
     await page.getByRole('heading', { name: 'Video: long.mp4' }).waitFor();
 
     // Quick changes of where it starts: only the last one is converted.

@@ -14,7 +14,7 @@ import type { ElectronApplication, Page } from 'playwright-core';
 import { afterAll, beforeAll, describe, expect, it } from 'vitest';
 import { defaultVideoLayer } from '../src/shared/framing.ts';
 import { PROJECT_FORMAT, type Project } from '../src/shared/project.ts';
-import { analysisDone, answerOpenDialog, answerSaveDialog, ffmpegExe, launchApp, makeNumberedVideo, stopApp } from './helpers.ts';
+import { analysisDone, answerOpenDialog, answerSaveDialog, ffmpegExe, launchApp, makeNumberedVideo, openTool, stopApp } from './helpers.ts';
 import { zip } from './zip.ts';
 
 const run = promisify(execFile);
@@ -105,8 +105,7 @@ async function saved(): Promise<Project> {
 }
 
 async function addEffect(name: string): Promise<void> {
-  await page.locator('.add-menu summary').click();
-  await page.locator('.add-menu').getByRole('button', { name: /^Effect/ }).click();
+  await openTool(page, 'Effects');
   await page.locator('.effect-library').getByRole('button', { name, exact: true }).click();
   await page.getByRole('heading', { name: `Effect: ${name}` }).waitFor();
 }
@@ -174,8 +173,8 @@ afterAll(async () => {
 describe('Lottie layers', () => {
   it('adds an animation and draws the frame the clip is at, with its transparency', async () => {
     await answerOpenDialog(app!, animation);
-    await page.locator('.add-menu summary').click();
-    await page.locator('.add-menu').getByRole('button', { name: 'Animation' }).click();
+    await openTool(page, 'Layers');
+    await page.locator('.add-tiles').getByRole('button', { name: 'Animation' }).click();
     await page.getByRole('heading', { name: 'Animation: bar.json' }).waitFor();
 
     // Frame 0: the bar is on the left half; the rest of the animation is clear.
@@ -211,8 +210,8 @@ describe('Lottie layers', () => {
     const withImages = path.join(dir, 'images.json');
     await writeFile(withImages, JSON.stringify({ ...ANIMATION, assets: [{ id: 'img_0', w: 10, h: 10, u: 'images/', p: 'img_0.png', e: 0 }] }));
     await answerOpenDialog(app!, withImages);
-    await page.locator('.add-menu summary').click();
-    await page.locator('.add-menu').getByRole('button', { name: 'Animation' }).click();
+    await openTool(page, 'Layers');
+    await page.locator('.add-tiles').getByRole('button', { name: 'Animation' }).click();
     await page.getByText('That animation shows image files kept next to it.', { exact: false }).waitFor();
     expect(await page.locator('.clip-timeline .layer-bar').count()).toBe(1);
   });

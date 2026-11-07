@@ -14,7 +14,7 @@ import type { ElectronApplication, Page } from 'playwright-core';
 import { afterAll, beforeAll, describe, expect, it } from 'vitest';
 import { defaultVideoLayer } from '../src/shared/framing.ts';
 import type { ImageLayer, Project } from '../src/shared/project.ts';
-import { analysisDone, answerOpenDialog, answerSaveDialog, ffmpegExe, launchApp, makeNumberedVideo, stopApp } from './helpers.ts';
+import { analysisDone, answerOpenDialog, answerSaveDialog, ffmpegExe, launchApp, makeNumberedVideo, openTool, stopApp } from './helpers.ts';
 
 const run = promisify(execFile);
 
@@ -128,8 +128,8 @@ describe('image layers', () => {
     // One second in: the image starts there.
     await page.keyboard.press('Shift+ArrowRight');
     await answerOpenDialog(app!, image);
-    await page.locator('.add-menu summary').click();
-    await page.locator('.add-menu').getByRole('button', { name: 'Image' }).click();
+    await openTool(page, 'Layers');
+    await page.locator('.add-tiles').getByRole('button', { name: 'Image' }).click();
     await page.getByRole('heading', { name: 'Image: red.png' }).waitFor();
     expect(await page.locator('.clip-timeline .layer-bar').count()).toBe(1);
 

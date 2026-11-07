@@ -17,7 +17,7 @@ import { retimeWord } from '../project/transcript.ts';
 import { flatOf, refOf, wordAt } from '../transcript/words.ts';
 import { useSettings } from '../settings.ts';
 import { isTypingTarget } from '../ui/focus.ts';
-import { AddLayerMenu } from './AddLayerMenu.tsx';
+import { EffectLibrary, LayerTiles } from './AddLayers.tsx';
 import { AutoFramePanel } from './AutoFramePanel.tsx';
 import { ClipDock } from './ClipDock.tsx';
 import { SilencePanel } from './SilencePanel.tsx';
@@ -33,18 +33,19 @@ import { WhoTalks } from './WhoTalks.tsx';
 import { EffectPanel } from './EffectPanel.tsx';
 import { LayerPanel } from './LayerPanel.tsx';
 import { currentPlayer, seekClip, toggleClip, useClipPlayback } from './playback.ts';
-import { clipUiStore, openClip, selectLayer, useSelectedLayerId } from './state.ts';
+import { clipUiStore, openClip, selectLayer, setTool, useSelectedLayerId, useTool, type ClipTool } from './state.ts';
+import { ToolRail } from './ToolRail.tsx';
 import { WordStrip } from './WordStrip.tsx';
 
 const EDGES = ['start', 'end'] as const;
 
 /**
  * The open clip, filling the workspace: the 9:16 preview in the middle with
- * play and the layouts under it, the settings of what's selected on the
- * left (the picture's framing and captions, or a layer over it, then the
- * episode's `voices`), `side` on the right (the clips; the workspace puts
- * the transcript under them), and the timeline across the bottom in its
- * dock.
+ * play and the layouts under it, the tool rail on the left with the open
+ * tool's drawer beside it (framing, captions, layers, effects, pauses, the
+ * episode's `voices`, or the transcript, which the workspace puts there),
+ * `side` on the right (the clips), and the timeline across the bottom in
+ * its dock.
  */
 export function ClipEditor({ clip, source, side, voices }: { clip: Clip; source: Source; side: ReactNode; voices: ReactNode }) {
   const { t } = useTranslation();
@@ -62,6 +63,11 @@ export function ClipEditor({ clip, source, side, voices }: { clip: Clip; source:
   const selected = clip.layers.find((l) => l.id === selectedId);
   const selectedLayer = selected && isTimed(selected) ? selected : null;
   const dock = useSettings((s) => s.clipDock) ?? DEFAULT_CLIP_DOCK;
+  const tool = useTool();
+  const selectedDrawer = selectedLayer ? (selectedLayer.kind === 'effect' ? 'effects' : 'layers') : null;
+  useEffect(() => {
+    if (selectedDrawer) setTool(selectedDrawer);
+  }, [selectedId, selectedDrawer]);
 
   const rate = workingFrameRate(source);
   const frame = 1 / fps(rate);
@@ -138,7 +144,7 @@ export function ClipEditor({ clip, source, side, voices }: { clip: Clip; source:
   }, [frame, rate, half, clip.id]);
 
   return (
-    <section className={`clip-editor dock-${dock.size}`}>
+    <section className={`clip-editor dock-${dock.size}`} data-tool={tool ?? undefined}>
       <div className="clip-stage">
         <header>
           <button type="button" className="back" title={t('clipEditor.close')} onClick={() => openClip(null)}>
@@ -156,7 +162,6 @@ export function ClipEditor({ clip, source, side, voices }: { clip: Clip; source:
             onBlur={() => store.endGesture()}
             onKeyDown={(e) => e.key === 'Enter' && e.currentTarget.blur()}
           />
-          <AddLayerMenu clipId={clip.id} time={time} />
           <button type="button" className="primary" title={t('export.buttonHelp')} disabled={exporting} onClick={() => void exportClip(clip, source)}>
             {t('export.button')}
           </button>
@@ -198,24 +203,21 @@ export function ClipEditor({ clip, source, side, voices }: { clip: Clip; source:
         </div>
       </div>
 
-      <aside className="clip-settings" aria-label={t('clipEditor.settings')}>
-        {showPeople && <WhoTalks time={time} />}
-        {selectedLayer?.kind === 'effect' ? (
-          <EffectPanel clipId={clip.id} layer={selectedLayer} time={time} rate={rate} />
-        ) : selectedLayer ? (
-          <LayerPanel
-            clipId={clip.id}
-            layer={selectedLayer}
-            asset={assets.find((a) => a.id === selectedLayer.assetId)}
-            time={time}
-            rate={rate}
-            overLimit={videoLayersOverLimit(clip).has(selectedLayer.id)}
-          />
-        ) : (
-          pictureSettings()
-        )}
-        {voices && <div className="clip-voices">{voices}</div>}
-      </aside>
+      <ToolRail tool={tool} />
+      {/* The Text drawer is the episode's transcript, which the workspace puts here. */}
+      {tool && tool !== 'text' && (
+        <aside className="clip-drawer" aria-label={t(`tools.names.${tool}`)}>
+          <header>
+            <h2>{t(`tools.names.${tool}`)}</h2>
+            <button type="button" className="icon" aria-label={t('tools.close')} title={t('tools.close')} onClick={() => setTool(null)}>
+              <svg width="12" height="12" viewBox="0 0 12 12" aria-hidden="true">
+                <path d="M3 3l6 6M9 3l-6 6" fill="none" stroke="currentColor" strokeWidth="1.6" />
+              </svg>
+            </button>
+          </header>
+          {drawer(tool)}
+        </aside>
+      )}
 
       <aside className="clip-side">{side}</aside>
 
@@ -296,8 +298,52 @@ export function ClipEditor({ clip, source, side, voices }: { clip: Clip; source:
     );
   }
 
-  /** The source video's framing and the captions: what's edited when no layer is selected. */
-  function pictureSettings() {
+  /** What a tool's drawer holds. A selected layer shows in Layers or Effects. */
+  function drawer(open: Exclude<ClipTool, 'text'>) {
+    switch (open) {
+      case 'framing':
+        return framing();
+      case 'captions':
+        return <CaptionPanel clipId={clip.id} layer={captions} track={captionTrackFor(layout)} time={time} rate={rate} />;
+      case 'layers':
+        return (
+          <>
+            {selectedLayer && selectedLayer.kind !== 'effect' ? (
+              <LayerPanel
+                clipId={clip.id}
+                layer={selectedLayer}
+                asset={assets.find((a) => a.id === selectedLayer.assetId)}
+                time={time}
+                rate={rate}
+                overLimit={videoLayersOverLimit(clip).has(selectedLayer.id)}
+              />
+            ) : (
+              <p className="dim hint">{t('tools.layersHint')}</p>
+            )}
+            <LayerTiles clipId={clip.id} time={time} />
+          </>
+        );
+      case 'effects':
+        return (
+          <>
+            {selectedLayer?.kind === 'effect' ? <EffectPanel clipId={clip.id} layer={selectedLayer} time={time} rate={rate} /> : <p className="dim hint">{t('tools.effectsHint')}</p>}
+            <EffectLibrary clipId={clip.id} time={time} />
+          </>
+        );
+      case 'pauses':
+        return <SilencePanel clip={clip} />;
+      case 'voices':
+        return (
+          <>
+            {showPeople ? <WhoTalks time={time} /> : <p className="dim hint">{t('tools.voicesHint')}</p>}
+            {voices}
+          </>
+        );
+    }
+  }
+
+  /** The source video's framing: how to move it, and its zoom. */
+  function framing() {
     return (
       <>
         <p className="dim hint">
@@ -324,9 +370,6 @@ export function ClipEditor({ clip, source, side, voices }: { clip: Clip; source:
             }}
           />
         </label>
-
-        <SilencePanel clip={clip} />
-        <CaptionPanel clipId={clip.id} layer={captions} track={captionTrackFor(layout)} time={time} rate={rate} />
       </>
     );
   }

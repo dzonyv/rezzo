@@ -230,7 +230,6 @@
     "wordStart": "Početak reči „{{word}}”",
     "wordEnd": "Kraj reči „{{word}}”",
     "back": "Epizoda",
-    "settings": "Podešavanja klipa",
     "keyframes": "Ključni kadrovi"
   },
   "timeline": {
@@ -252,6 +251,31 @@
       "normalHelp": "Redovi i vreme reči; povuci gornju ivicu da promeniš visinu",
       "fullHelp": "Vremenska linija zauzima prozor, a slika ide u kolonu pored nje"
     }
+  },
+  "tools": {
+    "title": "Alati",
+    "close": "Zatvori",
+    "names": {
+      "framing": "Kadar",
+      "captions": "Titlovi",
+      "layers": "Slojevi",
+      "effects": "Efekti",
+      "pauses": "Pauze",
+      "voices": "Glasovi",
+      "text": "Tekst"
+    },
+    "help": {
+      "framing": "Pomeri i zumiraj sliku",
+      "captions": "Stil, veličina i mesto titlova",
+      "layers": "Slike, video snimci i animacije preko slike",
+      "effects": "Efekti preko slike",
+      "pauses": "Nađi i iseci pauze",
+      "voices": "Ko govori, i glasovi epizode",
+      "text": "Transkript epizode"
+    },
+    "layersHint": "Dodaje se od playheada nadalje. Pritisni sloj na vremenskoj liniji da ga menjaš.",
+    "effectsHint": "Dodaje se od playheada nadalje. Pritisni efekat na vremenskoj liniji da ga menjaš.",
+    "voicesHint": "Uključi Prikaži ljude ispod slike da kažeš ko govori."
   },
   "export": {
     "button": "Izvezi",
@@ -380,7 +404,6 @@
     "joinPageHelp": "Od ove reči počinje strana titla; spoji je sa prethodnom"
   },
   "layers": {
-    "add": "Dodaj",
     "addHelp": "Dodaj sloj preko slike, od playheada nadalje",
     "kinds": {
       "image": "Slika",

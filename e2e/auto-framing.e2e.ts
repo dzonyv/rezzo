@@ -14,7 +14,7 @@ import { afterAll, beforeAll, describe, expect, it } from 'vitest';
 import { ANALYSIS_VERSION, type ClipAnalysis, type Seat } from '../src/shared/analysis.ts';
 import { clipFromWords } from '../src/shared/clips.ts';
 import { videoLayerOf, type Project } from '../src/shared/project.ts';
-import { answerOpenDialog, answerSaveDialog, ffmpegExe, launchApp, seekTimeline, segmentOf, stopApp, until } from './helpers.ts';
+import { answerOpenDialog, answerSaveDialog, ffmpegExe, launchApp, openTool, seekTimeline, segmentOf, stopApp, until } from './helpers.ts';
 
 const run = promisify(execFile);
 
@@ -92,6 +92,7 @@ beforeAll(async () => {
   const analysis: ClipAnalysis = { version: ANALYSIS_VERSION, start: 0, end: 12, width: 1280, height: 720, shots, seats: [seat(0, 320), seat(1, 960)] };
   await page.evaluate((a) => (globalThis as PageGlobal).__rezzoAnalysis.set(a), analysis);
   await page.getByRole('button', { name: 'Show people' }).click();
+  await openTool(page, 'Voices');
 });
 
 afterAll(async () => {
