@@ -3,7 +3,7 @@ import { useTranslation } from 'react-i18next';
 import type { Asset } from '../../../shared/assets.ts';
 import type { CaptionPage } from '../../../shared/captions.ts';
 import { EFFECTS } from '../../../shared/effects.ts';
-import { ASSET_KIND_OF, isTimed, keyframesOf, videoLayerOf, type Animated, type Clip, type TimedLayer } from '../../../shared/project.ts';
+import { isTimed, keyframesOf, videoLayerOf, type Animated, type Clip, type TimedLayer } from '../../../shared/project.ts';
 import { outputTime } from '../../../shared/skips.ts';
 import { moveLayer, reorderLayer, trimLayer } from '../project/layers.ts';
 import { restoreSkip } from '../project/skips.ts';
@@ -16,6 +16,7 @@ import { useHeardVoices } from '../project/voices.ts';
 import { useOverlayFile } from '../render/overlay-files.ts';
 import { voiceColor, voiceLabel } from '../voice-colors.ts';
 import { pauseClip, seekClip } from './playback.ts';
+import { layerName, rowsOf } from './layer-names.ts';
 import { useStretches } from './speakers.ts';
 import { selectLayer, toggleFoundPause, useFoundPauses } from './state.ts';
 import { VoiceTurnMenu } from './VoiceTurnMenu.tsx';
@@ -50,6 +51,9 @@ interface View {
   to: number;
 }
 
+const viewOf = (node: HTMLElement): View =>
+  node.scrollWidth === 0 ? { from: 0, to: 1 } : { from: node.scrollLeft / node.scrollWidth, to: (node.scrollLeft + node.clientWidth) / node.scrollWidth };
+
 /** Dragging the box on the overview: moving it, or one of its edges (which zooms). */
 interface OverviewDrag {
   kind: 'pan' | 'from' | 'to';
@@ -64,7 +68,8 @@ interface OverviewDrag {
  * framing being edited, with the camera cuts the analysis found. Below it,
  * who talks when (the episode's voices), where the user said who it is, and
  * where nobody knows yet. Each row's name stays at its left edge as the
- * timeline scrolls; press it to select the layer.
+ * timeline scrolls; the pointer goes through it to what's underneath.
+ * Press a layer to select it, and the video row to select the picture.
  *
  * Above the rows, a ruler in the clip's own time (what plays, without the
  * cut parts) and the playhead's time. Above that, the whole clip in small
@@ -84,7 +89,6 @@ export function ClipTimeline({ clip, assets, keys, pages, selectedId, time }: Pr
   /** Where to scroll once a new zoom is laid out: keep `fraction` of the clip `x` pixels into the view. */
   const anchor = useRef<{ fraction: number; x: number } | null>(null);
   const [zoom, setZoom] = useState(1);
-  const [view, setView] = useState<View>({ from: 0, to: 1 });
   const [viewWidth, setViewWidth] = useState(0);
   const [turnMenu, setTurnMenu] = useState<{ turn: VoiceTurn; at: number; x: number; y: number } | null>(null);
   const length = clip.end - clip.start;
@@ -116,11 +120,9 @@ export function ClipTimeline({ clip, assets, keys, pages, selectedId, time }: Pr
   const bands = layout
     .map((k, i) => ({ from: Math.max(k.t, clip.start), to: layout[i + 1]?.t ?? clip.end, layout: k.value }))
     .filter((b) => b.to > clip.start && b.from < clip.end);
-  // Top row first: the layer drawn last.
-  const rows = clip.layers.slice(1).reverse();
+  const rows = rowsOf(clip);
   const overLimit = videoLayersOverLimit(clip);
-  const nameOf = (layer: TimedLayer) =>
-    layer.kind === 'effect' ? t(`effects.names.${layer.effect}`) : (assets.find((a) => a.id === layer.assetId)?.name ?? t(`layers.kinds.${ASSET_KIND_OF[layer.kind]}`));
+  const nameOf = (layer: TimedLayer) => layerName(t, layer, assets);
   /** Effects' bars have their group's colour. */
   const barClass = (layer: TimedLayer) => (layer.kind === 'effect' ? `effect ${EFFECTS[layer.effect].group}` : layer.kind);
 
@@ -152,12 +154,10 @@ export function ClipTimeline({ clip, assets, keys, pages, selectedId, time }: Pr
     return best;
   };
 
-  /** Reads which part of the clip is in view from the scroller. */
-  const readView = () => {
+  /** The ruler needs the view's width; the part in view is read when needed, not kept, so scrolling doesn't redraw the rows. */
+  const readWidth = () => {
     const node = scroller.current;
-    if (!node || node.scrollWidth === 0) return;
-    setView({ from: node.scrollLeft / node.scrollWidth, to: (node.scrollLeft + node.clientWidth) / node.scrollWidth });
-    setViewWidth(node.clientWidth);
+    if (node) setViewWidth(node.clientWidth);
   };
 
   /** Zooms so that `fraction` of the clip ends up `x` pixels into the view. */
@@ -176,6 +176,7 @@ export function ClipTimeline({ clip, assets, keys, pages, selectedId, time }: Pr
   /** Zooms around the middle of the view (the zoom buttons). */
   const zoomBy = (factor: number) => {
     const node = scroller.current!;
+    const view = viewOf(node);
     zoomTo(zoom * factor, (view.from + view.to) / 2, node.clientWidth / 2);
   };
 
@@ -189,12 +190,11 @@ export function ClipTimeline({ clip, assets, keys, pages, selectedId, time }: Pr
       node.scrollLeft = anchor.current.fraction * node.scrollWidth - anchor.current.x;
       anchor.current = null;
     }
-    readView();
   }, [zoom]);
 
   useEffect(() => {
     const node = scroller.current!;
-    const resize = new ResizeObserver(readView);
+    const resize = new ResizeObserver(readWidth);
     resize.observe(node);
     return () => resize.disconnect();
   }, []);
@@ -273,11 +273,11 @@ export function ClipTimeline({ clip, assets, keys, pages, selectedId, time }: Pr
     if (e.button !== 0) return;
     e.stopPropagation();
     overview.current!.setPointerCapture(e.pointerId);
-    let current = view;
+    let current = viewOf(scroller.current!);
     if (kind === 'pan' && e.currentTarget === overview.current) {
       // Pressed beside the box: the box jumps there first, centred on the pointer.
       const box = overview.current.getBoundingClientRect();
-      const width = view.to - view.from;
+      const width = current.to - current.from;
       const from = Math.min(Math.max((e.clientX - box.left) / box.width - width / 2, 0), 1 - width);
       current = { from, to: from + width };
       scroller.current!.scrollLeft = from * scroller.current!.scrollWidth;
@@ -338,21 +338,7 @@ export function ClipTimeline({ clip, assets, keys, pages, selectedId, time }: Pr
             <div key={s.start} className="mini skip" style={span(s.start, s.end)} />
           ))}
           <div className="mini playhead" style={{ left: at(time) }} />
-          <div
-            className="overview-box"
-            role="scrollbar"
-            aria-orientation="horizontal"
-            aria-controls="clip-timeline-scroll"
-            aria-label={t('timeline.inView')}
-            aria-valuemin={0}
-            aria-valuemax={100}
-            aria-valuenow={Math.round(view.from * 100)}
-            style={{ left: `${view.from * 100}%`, width: `${(view.to - view.from) * 100}%` }}
-            onPointerDown={(e) => startOverviewDrag(e, 'pan')}
-          >
-            <div className="overview-edge from" onPointerDown={(e) => startOverviewDrag(e, 'from')} />
-            <div className="overview-edge to" onPointerDown={(e) => startOverviewDrag(e, 'to')} />
-          </div>
+          <OverviewBox scroller={scroller} zoom={zoom} onPress={startOverviewDrag} />
         </div>
         <div className="timeline-zoom" role="group" aria-label={t('timeline.zoom')}>
           <button type="button" className="icon" disabled={zoom <= 1} aria-label={t('timeline.zoomOut')} title={t('timeline.zoomOut')} onClick={() => zoomBy(1 / ZOOM_STEP)}>
@@ -367,7 +353,7 @@ export function ClipTimeline({ clip, assets, keys, pages, selectedId, time }: Pr
         </div>
       </div>
 
-      <div ref={scroller} id="clip-timeline-scroll" className="timeline-scroll" title={t('layers.zoomHelp')} onScroll={readView}>
+      <div ref={scroller} id="clip-timeline-scroll" className="timeline-scroll" title={t('layers.zoomHelp')}>
         <div
           ref={track}
           className="clip-timeline"
@@ -381,6 +367,7 @@ export function ClipTimeline({ clip, assets, keys, pages, selectedId, time }: Pr
           onPointerDown={(e) => {
             if (e.button !== 0) return;
             e.currentTarget.setPointerCapture(e.pointerId);
+            if ((e.target as Element).closest('.timeline-row.video')) selectLayer(null);
             drag.current = { kind: 'scrub' };
             seekClip(timeAt(e.clientX));
           }}
@@ -402,8 +389,7 @@ export function ClipTimeline({ clip, assets, keys, pages, selectedId, time }: Pr
                 <button
                   type="button"
                   className={`track-tag${layer.id === selectedId ? ' selected' : ''}`}
-                  title={t('layers.select', { name: nameOf(layer) })}
-                  onPointerDown={(e) => e.stopPropagation()}
+                  aria-label={t('layers.select', { name: nameOf(layer) })}
                   onClick={() => selectLayer(layer.id)}
                 >
                   {nameOf(layer)}
@@ -425,7 +411,7 @@ export function ClipTimeline({ clip, assets, keys, pages, selectedId, time }: Pr
               </div>
             ) : (
               <div key={layer.id} className="timeline-row captions">
-                <span className="track-tag" onPointerDown={(e) => e.stopPropagation()}>
+                <span className="track-tag tools" onPointerDown={(e) => e.stopPropagation()}>
                   <button type="button" className="tag-name" onClick={() => selectLayer(null)}>
                     {t('layers.captions')}
                   </button>
@@ -451,12 +437,7 @@ export function ClipTimeline({ clip, assets, keys, pages, selectedId, time }: Pr
           )}
 
           <div className="timeline-row video">
-            <button
-              type="button"
-              className={`track-tag${selectedId === null ? ' selected' : ''}`}
-              onPointerDown={(e) => e.stopPropagation()}
-              onClick={() => selectLayer(null)}
-            >
+            <button type="button" className={`track-tag${selectedId === null ? ' selected' : ''}`} onClick={() => selectLayer(null)}>
               {t('layers.video')}
             </button>
             {bands.map((b) => (
@@ -533,6 +514,49 @@ export function ClipTimeline({ clip, assets, keys, pages, selectedId, time }: Pr
         </div>
       </div>
       {turnMenu && heard && <VoiceTurnMenu {...turnMenu} voices={heard.voices} onClose={() => setTurnMenu(null)} />}
+    </div>
+  );
+}
+
+/**
+ * The box on the overview around the part of the clip in view. It follows
+ * the scroller by itself, so scrolling only redraws the box.
+ */
+function OverviewBox({ scroller, zoom, onPress }: { scroller: React.RefObject<HTMLDivElement | null>; zoom: number; onPress: (e: React.PointerEvent, kind: OverviewDrag['kind']) => void }) {
+  const { t } = useTranslation();
+  const [view, setView] = useState<View>({ from: 0, to: 1 });
+  // Not a layout effect: the scroller comes after this in the page, so its ref is only set once layout effects are done.
+  useEffect(() => {
+    const node = scroller.current!;
+    const read = () => setView((v) => {
+      const next = viewOf(node);
+      return next.from === v.from && next.to === v.to ? v : next;
+    });
+    read();
+    node.addEventListener('scroll', read, { passive: true });
+    const resize = new ResizeObserver(read);
+    resize.observe(node);
+    return () => {
+      node.removeEventListener('scroll', read);
+      resize.disconnect();
+    };
+    // A new zoom changes the width without a scroll event.
+  }, [scroller, zoom]);
+  return (
+    <div
+      className="overview-box"
+      role="scrollbar"
+      aria-orientation="horizontal"
+      aria-controls="clip-timeline-scroll"
+      aria-label={t('timeline.inView')}
+      aria-valuemin={0}
+      aria-valuemax={100}
+      aria-valuenow={Math.round(view.from * 100)}
+      style={{ left: `${view.from * 100}%`, width: `${(view.to - view.from) * 100}%` }}
+      onPointerDown={(e) => onPress(e, 'pan')}
+    >
+      <div className="overview-edge from" onPointerDown={(e) => onPress(e, 'from')} />
+      <div className="overview-edge to" onPointerDown={(e) => onPress(e, 'to')} />
     </div>
   );
 }

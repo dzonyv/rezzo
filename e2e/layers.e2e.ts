@@ -206,7 +206,7 @@ describe('image layers', () => {
     const moved = path.join(dir, 'moved.png');
     await rename(image, moved);
     await reopenProject();
-    await page.locator('.track-tag', { hasText: 'red.png' }).click();
+    await page.locator('.clip-timeline .layer-bar', { hasText: 'red.png' }).click();
     await page.getByText("red.png isn't at", { exact: false }).waitFor();
     await answerOpenDialog(app!, moved);
     await page.getByRole('button', { name: 'Find it…' }).click();

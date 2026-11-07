@@ -23,7 +23,7 @@ export function ClipDock({ dock, tools, children }: { dock: Dock; tools: ReactNo
   const [dragging, setDragging] = useState(false);
   const height = dragged ?? dock.height;
 
-  const maxHeight = () => (box.current?.parentElement?.clientHeight ?? window.innerHeight) - PICTURE_PX;
+  const maxHeight = () => (box.current?.closest('.workspace')?.clientHeight ?? window.innerHeight) - PICTURE_PX;
   const clamp = (h: number) => Math.round(Math.max(MIN_PX, Math.min(h, maxHeight())));
 
   const onPointerDown = (e: React.PointerEvent) => {
@@ -31,13 +31,13 @@ export function ClipDock({ dock, tools, children }: { dock: Dock; tools: ReactNo
     e.currentTarget.setPointerCapture(e.pointerId);
     const current = box.current!.getBoundingClientRect().height;
     drag.current = { y: e.clientY, height: current, moved: false };
-    setDragged(clamp(current));
-    setDragging(true);
   };
   const onPointerMove = (e: React.PointerEvent) => {
     const d = drag.current;
     if (!d) return;
-    if (Math.abs(e.clientY - d.y) >= 2) d.moved = true;
+    if (!d.moved && Math.abs(e.clientY - d.y) < 2) return;
+    d.moved = true;
+    setDragging(true);
     setDragged(clamp(d.height - (e.clientY - d.y)));
   };
   const onPointerUp = () => {
@@ -63,8 +63,9 @@ export function ClipDock({ dock, tools, children }: { dock: Dock; tools: ReactNo
         onPointerUp={onPointerUp}
         onLostPointerCapture={onPointerUp}
       />
-      <div className="dock-tools">
-        {tools}
+      <div className="dock-body">
+        <div className="dock-tools">
+          {tools}
         <div className="dock-sizes" role="group" aria-label={t('timeline.size')}>
           {DOCK_SIZES.map((size) => (
             <button
@@ -72,14 +73,18 @@ export function ClipDock({ dock, tools, children }: { dock: Dock; tools: ReactNo
               type="button"
               aria-pressed={dock.size === size}
               title={t(`timeline.sizes.${size}Help`)}
-              onClick={() => void setSettings({ clipDock: { ...dock, size } })}
+              onClick={() => {
+                setDragged(null);
+                void setSettings({ clipDock: { ...dock, height, size } });
+              }}
             >
               {t(`timeline.sizes.${size}`)}
             </button>
           ))}
         </div>
+        </div>
+        {children}
       </div>
-      {children}
     </div>
   );
 }

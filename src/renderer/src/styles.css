@@ -781,33 +781,53 @@ button.icon {
 }
 
 /* With a clip open, the clip editor is the whole workspace. */
-.workspace.with-clip {
-  grid-template-columns: minmax(0, 1fr);
-}
-
 /*
- * The open clip: its settings, the picture, the clips and the transcript,
- * and the timeline dock across the bottom.
+ * The open clip: its settings, the picture, the clips over the transcript,
+ * and the timeline dock across the bottom. The clip editor's parts are laid
+ * out in the workspace's grid (it is display: contents), so the transcript
+ * stays where it is in the page and isn't made again when a clip opens.
  */
-.clip-editor {
-  min-height: 0;
-  display: grid;
+.workspace.with-clip {
   grid-template-columns: minmax(250px, 310px) minmax(0, 1fr) minmax(260px, 27%);
-  grid-template-rows: minmax(0, 1fr) auto;
+  grid-template-rows: auto minmax(0, 1fr) auto;
   grid-template-areas:
     'settings stage side'
+    'settings stage transcript'
     'dock dock dock';
 }
 
+.clip-editor {
+  display: contents;
+}
+
 /* Full timeline: the picture in a narrow column, the timeline beside it. */
-.clip-editor.dock-full {
+.workspace.with-clip:has(> .clip-editor.dock-full) {
   grid-template-columns: 300px minmax(0, 1fr);
   grid-template-rows: minmax(0, 1fr);
   grid-template-areas: 'stage dock';
 }
 
 .clip-editor.dock-full .clip-settings,
-.clip-editor.dock-full .clip-voices {
+.clip-editor.dock-full .clip-side,
+.workspace.with-clip:has(> .clip-editor.dock-full) > .transcript {
+  display: none;
+}
+
+.workspace.with-clip > .transcript {
+  grid-area: transcript;
+  min-width: 0;
+  margin: 0 12px 10px 0;
+  background: var(--surface);
+  border-radius: var(--radius-card);
+  overflow: hidden;
+}
+
+.workspace.with-clip > .transcript .segment-row {
+  grid-template-columns: 52px 1fr;
+  padding: 6px 12px;
+}
+
+.clip-voices {
   margin-top: 6px;
   padding-top: 12px;
   border-top: 1px solid var(--border);
@@ -815,10 +835,6 @@ button.icon {
 
 .clip-voices .voices-panel {
   margin: 0;
-}
-
-.clip-side {
-  display: none;
 }
 
 .clip-stage {
@@ -876,31 +892,14 @@ button.icon {
 .clip-side {
   grid-area: side;
   min-width: 0;
-  min-height: 0;
-  margin: 8px 12px 10px 0;
-  display: flex;
-  flex-direction: column;
-  gap: 8px;
+  max-height: 30vh;
+  overflow: auto;
+  margin: 8px 12px 8px 0;
 }
 
 .clip-side .clip-list {
-  flex: none;
-  max-height: 32%;
   margin: 0;
   max-width: none;
-  overflow: auto;
-}
-
-.clip-side .transcript {
-  flex: 1;
-  background: var(--surface);
-  border-radius: var(--radius-card);
-  overflow: hidden;
-}
-
-.clip-side .segment-row {
-  grid-template-columns: 52px 1fr;
-  padding: 6px 12px;
 }
 
 /* The timeline and its tools, across the bottom of the clip editor. */
@@ -909,15 +908,23 @@ button.icon {
   position: relative;
   min-width: 0;
   min-height: 0;
-  overflow-y: auto;
   max-height: calc(100vh - 330px);
   margin: 0 12px;
-  padding: 12px 14px 12px;
+  display: flex;
+  flex-direction: column;
+  background: var(--surface);
+  border-radius: var(--radius-card) var(--radius-card) 0 0;
+}
+
+/* The part that scrolls when the dock is short; the handle stays outside it. */
+.dock-body {
+  flex: 1;
+  min-height: 0;
+  overflow-y: auto;
+  padding: 12px 14px;
   display: flex;
   flex-direction: column;
   gap: 8px;
-  background: var(--surface);
-  border-radius: var(--radius-card) var(--radius-card) 0 0;
 }
 
 .clip-dock.full {
@@ -1197,6 +1204,7 @@ button.icon {
 }
 
 .clip-timeline-box {
+  --ruler: 20px;
   --row: 26px;
   --video-row: 34px;
   --voices-row: 18px;
@@ -1349,7 +1357,7 @@ button.icon {
 .timeline-ruler {
   position: relative;
   flex: none;
-  height: 20px;
+  height: var(--ruler);
 }
 
 .timeline-ruler .tick {
@@ -1390,15 +1398,16 @@ button.icon {
   font-weight: 600;
   text-overflow: ellipsis;
   white-space: nowrap;
+  /* The start of a bar or a keyframe may be under it. */
+  pointer-events: none;
+  opacity: 0.9;
 }
 
-button.track-tag:hover:not(:disabled) {
-  background: var(--surface-3);
-  color: var(--text);
+.track-tag.tools {
+  pointer-events: auto;
 }
 
-.track-tag.selected,
-button.track-tag.selected:hover:not(:disabled) {
+.track-tag.selected {
   background: var(--accent);
   color: var(--accent-text);
 }
@@ -1648,7 +1657,7 @@ button.track-tag.selected:hover:not(:disabled) {
 
 .clip-timeline .skip-shade {
   position: absolute;
-  top: 20px;
+  top: var(--ruler);
   bottom: 0;
   background: rgb(0 0 0 / 0.6);
   pointer-events: none;

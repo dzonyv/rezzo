@@ -6,7 +6,7 @@ import { videoLayersOverLimit } from '../../../shared/overlay-files.ts';
 import { DEFAULT_CLIP_DOCK } from '../../../shared/settings.ts';
 import { captionPages, captionTrackFor } from '../../../shared/captions.ts';
 import { keptLength, outputTime } from '../../../shared/skips.ts';
-import { ASSET_KIND_OF, captionLayerOf, isTimed, LAYOUTS, MAX_ZOOM, videoLayerOf, type Clip, type Source } from '../../../shared/project.ts';
+import { captionLayerOf, isTimed, LAYOUTS, MAX_ZOOM, videoLayerOf, type Clip, type Source } from '../../../shared/project.ts';
 import { exportClip, isExporting, useExport } from '../export/state.ts';
 import { formatClipTime } from '../format.ts';
 import { nudgeClip, renameClip } from '../project/clips.ts';
@@ -26,6 +26,7 @@ import { CaptionPanel } from './CaptionPanel.tsx';
 import { ClipPreview } from './ClipPreview.tsx';
 import { ClipTimeline } from './ClipTimeline.tsx';
 import { FramingOverlay, propertyFor, regionFor, zoomed } from './FramingOverlay.tsx';
+import { layerName, rowsOf } from './layer-names.ts';
 import { LayerOverlay } from './LayerOverlay.tsx';
 import { PeopleOverlay } from './PeopleOverlay.tsx';
 import { WhoTalks } from './WhoTalks.tsx';
@@ -41,9 +42,9 @@ const EDGES = ['start', 'end'] as const;
  * The open clip, filling the workspace: the 9:16 preview in the middle with
  * play and the layouts under it, the settings of what's selected on the
  * left (the picture's framing and captions, or a layer over it, then the
- * episode's `voices`), `side`
- * on the right (the clips and the transcript), and the timeline across
- * the bottom in its dock.
+ * episode's `voices`), `side` on the right (the clips; the workspace puts
+ * the transcript under them), and the timeline across the bottom in its
+ * dock.
  */
 export function ClipEditor({ clip, source, side, voices }: { clip: Clip; source: Source; side: ReactNode; voices: ReactNode }) {
   const { t } = useTranslation();
@@ -231,7 +232,7 @@ export function ClipEditor({ clip, source, side, voices }: { clip: Clip; source:
    * with a layer, its name and its place in the stack.
    */
   function dockTools() {
-    const rows = clip.layers.slice(1).reverse();
+    const rows = rowsOf(clip);
     const row = selectedLayer ? rows.findIndex((l) => l.id === selectedLayer.id) : -1;
     return (
       <>
@@ -252,7 +253,7 @@ export function ClipEditor({ clip, source, side, voices }: { clip: Clip; source:
         <div className="dock-context">
           {selectedLayer ? (
             <>
-              <span className="selected-name">{selectedLayerName(selectedLayer)}</span>
+              <span className="selected-name">{layerName(t, selectedLayer, assets)}</span>
               <button type="button" disabled={row <= 0} onClick={() => reorderLayer(clip.id, selectedLayer.id, 'up')}>
                 {t('layers.up')}
               </button>
@@ -269,11 +270,6 @@ export function ClipEditor({ clip, source, side, voices }: { clip: Clip; source:
         </div>
       </>
     );
-  }
-
-  /** What the selected layer is called, as on its row. */
-  function selectedLayerName(l: NonNullable<typeof selectedLayer>) {
-    return l.kind === 'effect' ? t(`effects.names.${l.effect}`) : (assets.find((a) => a.id === l.assetId)?.name ?? t(`layers.kinds.${ASSET_KIND_OF[l.kind]}`));
   }
 
   /** The picture's keyframes, next to the timeline that shows them. */
