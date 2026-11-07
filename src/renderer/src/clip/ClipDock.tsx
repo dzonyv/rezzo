@@ -66,7 +66,7 @@ export function ClipDock({ dock, tools, children }: { dock: Dock; tools: ReactNo
       <div className="dock-body">
         <div className="dock-tools">
           {tools}
-        <div className="dock-sizes" role="group" aria-label={t('timeline.size')}>
+        <div className="segmented dock-sizes" role="group" aria-label={t('timeline.size')}>
           {DOCK_SIZES.map((size) => (
             <button
               key={size}

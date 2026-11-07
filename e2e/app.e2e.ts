@@ -49,9 +49,38 @@ describe('app', () => {
     const page = await (await launch()).firstWindow();
     // Not expect.poll: its one second is about what a start takes on CI, and sometimes less.
     await page.locator('h1').waitFor();
-    expect(await page.locator('h1').textContent()).toBe('Rezzo');
+    expect(await page.locator('.wordmark').textContent()).toBe('Rezzo');
     expect(await page.evaluate(() => typeof (globalThis as PageGlobal).require)).toBe('undefined');
     expect(await page.evaluate(() => typeof (globalThis as PageGlobal).rezzo.invoke)).toBe('function');
+  });
+
+  it('shows the changelog from the version, and opens links in the browser', async () => {
+    const launched = await launch();
+    const page = await launched.firstWindow();
+    const { version } = JSON.parse(await readFile('package.json', 'utf8')) as { version: string };
+    await page.getByRole('button', { name: version }).click();
+    const dialog = page.getByRole('dialog', { name: 'Changelog' });
+    await dialog.waitFor();
+    expect(await dialog.locator('h3').first().textContent()).toBe(version);
+    await page.keyboard.press('Escape');
+    await expect.poll(() => dialog.isVisible()).toBe(false);
+
+    // The browser gets the link; the app's page stays where it is.
+    await launched.evaluate(({ shell }) => {
+      (globalThis as { opened?: string[] }).opened = [];
+      shell.openExternal = async (url: string) => void (globalThis as { opened?: string[] }).opened!.push(url);
+    });
+    await page.getByRole('link', { name: 'Nikola' }).click();
+    await expect.poll(() => launched.evaluate(() => (globalThis as { opened?: string[] }).opened)).toEqual(['https://github.com/dzonyv']);
+    // The licenses are the copy next to the app, not a web page.
+    await launched.evaluate(({ shell }) => {
+      (globalThis as { paths?: string[] }).paths = [];
+      shell.openPath = async (file: string) => ((globalThis as { paths?: string[] }).paths!.push(file), '');
+    });
+    await page.getByRole('button', { name: 'Licenses' }).click();
+    await expect.poll(() => launched.evaluate(() => (globalThis as { paths?: string[] }).paths?.[0] ?? '')).toMatch(/THIRD_PARTY_NOTICES.md$/);
+    await expect.poll(() => launched.evaluate(() => (globalThis as { opened?: string[] }).opened)).toEqual(['https://github.com/dzonyv']);
+    expect(page.url()).not.toContain('github.com');
   });
 
   // Playwright doesn't finish launching an installed app until its page has loaded.
@@ -99,7 +128,7 @@ describe('app', () => {
 
   it('switches the UI language and remembers it', async () => {
     let page = await (await launch()).firstWindow();
-    await page.locator('.language select').selectOption('sh');
+    await page.getByRole('group', { name: 'Interface language' }).getByRole('button', { name: 'BCS' }).click();
     await expect.poll(() => page.locator('.tagline').textContent()).toBe('Vertikalni klipovi iz podkasta i tok-šoua');
 
     const stored = JSON.parse(await readFile(path.join(userData, 'settings.json'), 'utf8'));

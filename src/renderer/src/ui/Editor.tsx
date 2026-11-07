@@ -24,9 +24,13 @@ export function Editor() {
   const openClip = useOpenClip();
   const store = projectStore.getState();
   const clipOpen = openClip !== null && project?.source != null;
+  // Until there is a transcript, the video is big and the transcription panel stands beside it.
+  const transcribing = project?.source != null && !project.transcript;
   const transcript =
     project?.source && project.transcript ? (
       <TranscriptView transcript={project.transcript} source={project.source} />
+    ) : project?.source ? (
+      <TranscribePanel project={project} />
     ) : (
       <p className="transcript-empty">{t('transcript.empty')}</p>
     );
@@ -80,12 +84,11 @@ export function Editor() {
           {t('editor.close')}
         </button>
       </header>
-      <section className={clipOpen ? 'workspace with-clip' : 'workspace'}>
+      <section className={clipOpen ? 'workspace with-clip' : transcribing ? 'workspace transcribing' : 'workspace'}>
         {/* Hidden, not removed, while a clip is open: the episode keeps its player. The voices and the clips move into the clip editor. */}
         <div className="side" hidden={clipOpen}>
           {project?.source && <EpisodePlayer key={project.source.fingerprint} source={project.source} />}
           {project?.source && <SourcePanel source={project.source} />}
-          {project?.source && !project.transcript && <TranscribePanel project={project} />}
           {!clipOpen && project?.source && project.transcript && <VoicesPanel project={project} />}
           {!clipOpen && project?.source && project.transcript && <ClipList />}
         </div>
@@ -98,7 +101,7 @@ export function Editor() {
             side={<ClipList strip />}
           />
         )}
-        {/* In the same place with a clip open or not, so it keeps its scroll, search and selection. */}
+        {/* In the same place with a clip open or not, so it keeps its scroll, search and selection. Before there is one, the transcription panel. */}
         {transcript}
       </section>
       <ReplacementsDialog />
