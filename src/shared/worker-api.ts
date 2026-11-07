@@ -137,6 +137,8 @@ export interface WorkerMethods {
   diarize(request: VoicesRequest): EpisodeVoices;
   /** Writes a 480p H.264 copy of the source to `out` unless it exists; reports 0..1. */
   makePreview(request: { sourcePath: string; duration: number; out: string }): void;
+  /** Writes one frame of the source at `time` to `out` as a small JPEG, unless it exists. */
+  makeThumbnail(request: { sourcePath: string; time: number; out: string }): void;
   /** Writes a working file to `request.out` unless it exists; reports 0..1. */
   makeWorkingFile(request: WorkingFileRequest): void;
   /** Writes a video layer's working file to `request.out` unless it exists; reports 0..1. */

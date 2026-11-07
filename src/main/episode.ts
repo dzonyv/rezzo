@@ -2,6 +2,7 @@
 import { dialog, type BrowserWindow, type WebContents } from 'electron';
 import { stat } from 'node:fs/promises';
 import path from 'node:path';
+import { z } from 'zod';
 import type { ImportResult, LocateResult, SourceStatus } from '../shared/api.ts';
 import { sourceSchema, type Source } from '../shared/project.ts';
 import { translate } from '../shared/translate.ts';
@@ -84,4 +85,26 @@ export async function makePreview(sender: WebContents, source: unknown): Promise
     },
   });
   return allowMedia(out);
+}
+
+/** Thumbnails being made, by output file, so two cards asking for the same one share the work. */
+const makingThumbnails = new Map<string, Promise<string>>();
+/** One at a time: a project with many clips shouldn't start an FFmpeg for each at once. */
+let thumbnailQueue: Promise<unknown> = Promise.resolve();
+
+/** A small picture of the source at `time`, made once per source and time, in the cache. */
+export function episodeThumbnail(source: unknown, time: unknown): Promise<string> {
+  const { path: file, fingerprint, duration } = sourceSchema.parse(source);
+  const at = Math.min(Math.max(z.number().finite().parse(time), 0), duration);
+  sourceUrl(file); // the same check: only a source we know
+  const out = path.join(cacheDir(), fingerprint, 'thumbnails', `${Math.round(at * 1000)}.jpg`);
+  let making = makingThumbnails.get(out);
+  if (!making) {
+    making = thumbnailQueue.then(() => callWorker('makeThumbnail', [{ sourcePath: file, time: at, out }])).then(() => allowMedia(out));
+    thumbnailQueue = making.catch(() => undefined);
+    makingThumbnails.set(out, making);
+    // A failure can be tried again; a success stays, the file is in the cache anyway.
+    making.catch(() => makingThumbnails.delete(out));
+  }
+  return making;
 }

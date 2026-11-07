@@ -95,7 +95,7 @@ export function Editor() {
             clip={openClip}
             source={project.source}
             voices={project.transcript && <VoicesPanel project={project} />}
-            side={<ClipList />}
+            side={<ClipList strip />}
           />
         )}
         {/* In the same place with a clip open or not, so it keeps its scroll, search and selection. */}

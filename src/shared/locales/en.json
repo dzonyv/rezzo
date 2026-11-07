@@ -188,7 +188,9 @@
     "clearSelection": "Clear",
     "untitled": "Untitled clip",
     "delete": "Delete clip",
-    "length": "{{start}}, {{length}} long"
+    "length": "{{start}}, {{length}} long",
+    "new": "New clip",
+    "newHelp": "Pick words in the transcript to make another clip"
   },
   "clipEditor": {
     "name": "Clip name",
