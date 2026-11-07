@@ -17,6 +17,9 @@ import { answerOpenDialog, answerSaveDialog, stopApp } from './helpers.ts';
 
 const video = process.env['REZZO_E2E_VIDEO'];
 const language = process.env['REZZO_E2E_LANGUAGE'] ?? 'sr';
+/** The spoken languages' buttons, as the English UI names them. */
+const LANGUAGE_NAMES: Record<string, string> = { sr: 'Serbian', hr: 'Croatian', bs: 'Bosnian' };
+if (!LANGUAGE_NAMES[language]) throw new Error(`REZZO_E2E_LANGUAGE must be one of ${Object.keys(LANGUAGE_NAMES).join(', ')}`);
 let app: ElectronApplication | undefined;
 let profile: string | undefined;
 
@@ -35,7 +38,7 @@ describe.skipIf(!video)('transcription (real footage)', () => {
     const page = await app.firstWindow();
     await answerOpenDialog(app, video!);
     await page.getByRole('button', { name: 'New project' }).click();
-    await page.getByRole('combobox', { name: 'Spoken language' }).selectOption(language);
+    await page.getByRole('group', { name: 'Spoken language' }).getByRole('button', { name: LANGUAGE_NAMES[language], exact: true }).click();
 
     const started = Date.now();
     await page.getByRole('button', { name: 'Transcribe', exact: true }).click();

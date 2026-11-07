@@ -1,16 +1,23 @@
 {
   "app": {
     "name": "Rezzo",
-    "tagline": "Vertical clips from podcasts and talk shows"
+    "tagline": "From a full episode to vertical clips for Reels, TikTok and Shorts"
   },
   "home": {
     "newProject": "New project",
     "openProject": "Open project…",
+    "drop": "Drop a video here",
     "recent": "Recent projects",
+    "noRecent": "Projects you open or save show up here.",
     "recovered": "Unsaved work from last time",
     "restore": "Restore",
     "discard": "Discard",
-    "dropHint": "or drop a video here"
+    "changelog": "Changelog",
+    "free": "Free and open source (GPL-3.0). No watermark, no subscription.",
+    "madeBy": "Made by",
+    "links": "About Rezzo",
+    "report": "Report a problem",
+    "licenses": "Licenses"
   },
   "editor": {
     "projectName": "Project name",
@@ -120,7 +127,8 @@
     }
   },
   "common": {
-    "dismiss": "Dismiss"
+    "dismiss": "Dismiss",
+    "close": "Close"
   },
   "settings": {
     "uiLanguage": "Interface language"
@@ -128,6 +136,10 @@
   "language": {
     "en": "English",
     "sh": "BCS (bosanski, hrvatski, srpski)"
+  },
+  "languageShort": {
+    "en": "English",
+    "sh": "BCS"
   },
   "episode": {
     "duration": "Length",
@@ -158,9 +170,10 @@
     "phase": {
       "starting": "Starting…",
       "download": "Downloading speech recognition: {{received}} / {{total}} MB",
-      "audio": "Preparing audio: {{percent}}%",
-      "transcribe": "Transcribing: {{percent}}%"
-    }
+      "audio": "Preparing audio",
+      "transcribe": "Transcribing"
+    },
+    "busy": "Another project is being transcribed. This one can start when that one is done."
   },
   "transcript": {
     "search": "Search the transcript (Ctrl+F)",
