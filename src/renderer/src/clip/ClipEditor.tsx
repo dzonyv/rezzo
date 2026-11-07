@@ -1,8 +1,9 @@
-import { useEffect, useMemo, useState } from 'react';
+import { useEffect, useMemo, useState, type ReactNode } from 'react';
 import { useTranslation } from 'react-i18next';
 import { keyAt, valueAt } from '../../../shared/framing.ts';
 import { fps, workingFrameRate } from '../../../shared/frames.ts';
 import { videoLayersOverLimit } from '../../../shared/overlay-files.ts';
+import { DEFAULT_CLIP_DOCK } from '../../../shared/settings.ts';
 import { captionPages, captionTrackFor } from '../../../shared/captions.ts';
 import { keptLength, outputTime } from '../../../shared/skips.ts';
 import { captionLayerOf, isTimed, LAYOUTS, MAX_ZOOM, videoLayerOf, type Clip, type Source } from '../../../shared/project.ts';
@@ -10,19 +11,22 @@ import { exportClip, isExporting, useExport } from '../export/state.ts';
 import { formatClipTime } from '../format.ts';
 import { nudgeClip, renameClip } from '../project/clips.ts';
 import { addKeyframe, deleteKeyframe, setFraming, setLayout, setSmooth } from '../project/framing.ts';
-import { deleteLayer } from '../project/layers.ts';
+import { deleteLayer, reorderLayer } from '../project/layers.ts';
 import { projectStore, useProject } from '../project/store.ts';
 import { retimeWord } from '../project/transcript.ts';
 import { flatOf, refOf, wordAt } from '../transcript/words.ts';
+import { useSettings } from '../settings.ts';
 import { isTypingTarget } from '../ui/focus.ts';
 import { AddLayerMenu } from './AddLayerMenu.tsx';
 import { AutoFramePanel } from './AutoFramePanel.tsx';
+import { ClipDock } from './ClipDock.tsx';
 import { SilencePanel } from './SilencePanel.tsx';
 import { CaptionOverlay } from './CaptionOverlay.tsx';
 import { CaptionPanel } from './CaptionPanel.tsx';
 import { ClipPreview } from './ClipPreview.tsx';
 import { ClipTimeline } from './ClipTimeline.tsx';
 import { FramingOverlay, propertyFor, regionFor, zoomed } from './FramingOverlay.tsx';
+import { layerName, rowsOf } from './layer-names.ts';
 import { LayerOverlay } from './LayerOverlay.tsx';
 import { PeopleOverlay } from './PeopleOverlay.tsx';
 import { WhoTalks } from './WhoTalks.tsx';
@@ -35,11 +39,14 @@ import { WordStrip } from './WordStrip.tsx';
 const EDGES = ['start', 'end'] as const;
 
 /**
- * The open clip: its range, the 9:16 preview, the timeline of its layers,
- * and the settings of what's selected: the picture (framing, layouts,
- * keyframes) with its captions, or a layer over it.
+ * The open clip, filling the workspace: the 9:16 preview in the middle with
+ * play and the layouts under it, the settings of what's selected on the
+ * left (the picture's framing and captions, or a layer over it, then the
+ * episode's `voices`), `side` on the right (the clips; the workspace puts
+ * the transcript under them), and the timeline across the bottom in its
+ * dock.
  */
-export function ClipEditor({ clip, source }: { clip: Clip; source: Source }) {
+export function ClipEditor({ clip, source, side, voices }: { clip: Clip; source: Source; side: ReactNode; voices: ReactNode }) {
   const { t } = useTranslation();
   const store = projectStore.getState();
   const [half, setHalf] = useState<'top' | 'bottom'>('top');
@@ -54,6 +61,7 @@ export function ClipEditor({ clip, source }: { clip: Clip; source: Source }) {
   const selectedId = useSelectedLayerId();
   const selected = clip.layers.find((l) => l.id === selectedId);
   const selectedLayer = selected && isTimed(selected) ? selected : null;
+  const dock = useSettings((s) => s.clipDock) ?? DEFAULT_CLIP_DOCK;
 
   const rate = workingFrameRate(source);
   const frame = 1 / fps(rate);
@@ -130,108 +138,161 @@ export function ClipEditor({ clip, source }: { clip: Clip; source: Source }) {
   }, [frame, rate, half, clip.id]);
 
   return (
-    <section className="clip-editor">
-      <header>
-        <input
-          className="clip-name"
-          aria-label={t('clipEditor.name')}
-          value={clip.name}
-          onFocus={() => store.beginGesture('history.renameClip')}
-          onChange={(e) => renameClip(clip.id, e.target.value)}
-          onBlur={() => store.endGesture()}
-          onKeyDown={(e) => e.key === 'Enter' && e.currentTarget.blur()}
-        />
-        <button type="button" className="primary" title={t('export.buttonHelp')} disabled={exporting} onClick={() => void exportClip(clip, source)}>
-          {t('export.button')}
-        </button>
-        <button type="button" className="icon" aria-label={t('clipEditor.close')} title={t('clipEditor.close')} onClick={() => openClip(null)}>
-          <svg width="12" height="12" viewBox="0 0 12 12" aria-hidden="true">
-            <path d="M3 3l6 6M9 3l-6 6" fill="none" stroke="currentColor" strokeWidth="1.6" />
-          </svg>
-        </button>
-      </header>
+    <section className={`clip-editor dock-${dock.size}`}>
+      <div className="clip-stage">
+        <header>
+          <button type="button" className="back" title={t('clipEditor.close')} onClick={() => openClip(null)}>
+            <svg width="12" height="12" viewBox="0 0 12 12" aria-hidden="true">
+              <path d="M7.5 2.5L4 6l3.5 3.5" fill="none" stroke="currentColor" strokeWidth="1.8" />
+            </svg>
+            {t('clipEditor.back')}
+          </button>
+          <input
+            className="clip-name"
+            aria-label={t('clipEditor.name')}
+            value={clip.name}
+            onFocus={() => store.beginGesture('history.renameClip')}
+            onChange={(e) => renameClip(clip.id, e.target.value)}
+            onBlur={() => store.endGesture()}
+            onKeyDown={(e) => e.key === 'Enter' && e.currentTarget.blur()}
+          />
+          <AddLayerMenu clipId={clip.id} time={time} />
+          <button type="button" className="primary" title={t('export.buttonHelp')} disabled={exporting} onClick={() => void exportClip(clip, source)}>
+            {t('export.button')}
+          </button>
+        </header>
 
-      <div className="clip-range">
-        {EDGES.map((edge) => (
-          <div key={edge} className="edge">
-            <span className="dim">{t(`clipEditor.${edge}`)}</span>
-            <button type="button" className="icon" aria-label={t('clipEditor.earlier', { what: t(`clipEditor.${edge}`) })} title={t('clipEditor.earlier', { what: t(`clipEditor.${edge}`) })} onClick={() => nudgeClip(clip.id, edge, -trimStep)}>
-              ‹
-            </button>
-            <span className="value">{formatClipTime(clip[edge])}</span>
-            <button type="button" className="icon" aria-label={t('clipEditor.later', { what: t(`clipEditor.${edge}`) })} title={t('clipEditor.later', { what: t(`clipEditor.${edge}`) })} onClick={() => nudgeClip(clip.id, edge, trimStep)}>
-              ›
-            </button>
+        <div className="clip-frame">
+          <ClipPreview clip={clip} source={source}>
+            <FramingOverlay clipId={clip.id} layout={layout} half={half} onHalf={setHalf} time={time} sourceSize={sourceSize} />
+            <LayerOverlay clip={clip} assets={assets} selectedId={selectedLayer?.id ?? null} time={time} />
+            {showPeople && <PeopleOverlay layer={layer} time={time} sourceSize={sourceSize} />}
+            {captions && <CaptionOverlay clipId={clip.id} layer={captions} track={captionTrackFor(layout)} time={time} />}
+          </ClipPreview>
+        </div>
+
+        <div className="transport">
+          <button type="button" className="play" disabled={status !== 'ready'} onClick={toggleClip}>
+            {playing ? t('clipEditor.pause') : t('clipEditor.play')}
+          </button>
+          <span className="time">
+            {t('clipEditor.time', { current: formatClipTime(outputTime(clip, time)), total: formatClipTime(keptLength(clip)) })}
+          </span>
+          <div className="layouts" role="group" aria-label={t('clipEditor.layout')}>
+            {LAYOUTS.map((l) => (
+              <button
+                key={l}
+                type="button"
+                aria-pressed={layout === l}
+                className={layout === l ? 'selected' : undefined}
+                title={t(`clipEditor.layoutHelp.${l}`)}
+                onClick={() => setLayout(clip.id, time, l)}
+              >
+                {t(`clipEditor.layouts.${l}`)}
+              </button>
+            ))}
           </div>
-        ))}
+          <button type="button" aria-pressed={showPeople} title={t('analysis.showPeopleHelp')} onClick={() => setShowPeople((v) => !v)}>
+            {t('analysis.showPeople')}
+          </button>
+        </div>
       </div>
 
-      <ClipPreview clip={clip} source={source}>
-        <FramingOverlay clipId={clip.id} layout={layout} half={half} onHalf={setHalf} time={time} sourceSize={sourceSize} />
-        <LayerOverlay clip={clip} assets={assets} selectedId={selectedLayer?.id ?? null} time={time} />
-        {showPeople && <PeopleOverlay layer={layer} time={time} sourceSize={sourceSize} />}
-        {captions && <CaptionOverlay clipId={clip.id} layer={captions} track={captionTrackFor(layout)} time={time} />}
-      </ClipPreview>
+      <aside className="clip-settings" aria-label={t('clipEditor.settings')}>
+        {showPeople && <WhoTalks time={time} />}
+        {selectedLayer?.kind === 'effect' ? (
+          <EffectPanel clipId={clip.id} layer={selectedLayer} time={time} rate={rate} />
+        ) : selectedLayer ? (
+          <LayerPanel
+            clipId={clip.id}
+            layer={selectedLayer}
+            asset={assets.find((a) => a.id === selectedLayer.assetId)}
+            time={time}
+            rate={rate}
+            overLimit={videoLayersOverLimit(clip).has(selectedLayer.id)}
+          />
+        ) : (
+          pictureSettings()
+        )}
+        {voices && <div className="clip-voices">{voices}</div>}
+      </aside>
 
-      <div className="transport">
-        <button type="button" disabled={status !== 'ready'} onClick={toggleClip}>
-          {playing ? t('clipEditor.pause') : t('clipEditor.play')}
-        </button>
-        <span className="time">
-          {t('clipEditor.time', { current: formatClipTime(outputTime(clip, time)), total: formatClipTime(keptLength(clip)) })}
-        </span>
-        <button type="button" aria-pressed={showPeople} title={t('analysis.showPeopleHelp')} onClick={() => setShowPeople((v) => !v)}>
-          {t('analysis.showPeople')}
-        </button>
-        <AddLayerMenu clipId={clip.id} time={time} />
-      </div>
-      {showPeople && <WhoTalks time={time} />}
-      <AutoFramePanel clip={clip} time={time} />
-      <ClipTimeline clip={clip} assets={assets} keys={keys} pages={pages} selectedId={selectedLayer?.id ?? null} time={time} />
-      {!selectedLayer && keyframeControls()}
-      {transcript && <WordStrip clip={clip} transcript={transcript} time={time} rate={rate} captions={captions !== null} />}
+      <aside className="clip-side">{side}</aside>
 
-      {selectedLayer?.kind === 'effect' ? (
-        <EffectPanel clipId={clip.id} layer={selectedLayer} time={time} rate={rate} />
-      ) : selectedLayer ? (
-        <LayerPanel
-          clipId={clip.id}
-          layer={selectedLayer}
-          asset={assets.find((a) => a.id === selectedLayer.assetId)}
-          time={time}
-          rate={rate}
-          overLimit={videoLayersOverLimit(clip).has(selectedLayer.id)}
-        />
-      ) : (
-        pictureSettings()
-      )}
+      <ClipDock dock={dock} tools={dockTools()}>
+        <ClipTimeline clip={clip} assets={assets} keys={keys} pages={pages} selectedId={selectedLayer?.id ?? null} time={time} />
+        {transcript && dock.size !== 'compact' && <WordStrip clip={clip} transcript={transcript} time={time} rate={rate} captions={captions !== null} />}
+      </ClipDock>
     </section>
   );
+
+  /**
+   * The tools above the timeline: the clip's start and end, then what fits
+   * the selection. With the picture selected, Auto frame and its keyframes;
+   * with a layer, its name and its place in the stack.
+   */
+  function dockTools() {
+    const rows = rowsOf(clip);
+    const row = selectedLayer ? rows.findIndex((l) => l.id === selectedLayer.id) : -1;
+    return (
+      <>
+        <div className="clip-range">
+          {EDGES.map((edge) => (
+            <div key={edge} className="edge">
+              <span className="dim">{t(`clipEditor.${edge}`)}</span>
+              <button type="button" className="icon" aria-label={t('clipEditor.earlier', { what: t(`clipEditor.${edge}`) })} title={t('clipEditor.earlier', { what: t(`clipEditor.${edge}`) })} onClick={() => nudgeClip(clip.id, edge, -trimStep)}>
+                ‹
+              </button>
+              <span className="value">{formatClipTime(clip[edge])}</span>
+              <button type="button" className="icon" aria-label={t('clipEditor.later', { what: t(`clipEditor.${edge}`) })} title={t('clipEditor.later', { what: t(`clipEditor.${edge}`) })} onClick={() => nudgeClip(clip.id, edge, trimStep)}>
+                ›
+              </button>
+            </div>
+          ))}
+        </div>
+        <div className="dock-context">
+          {selectedLayer ? (
+            <>
+              <span className="selected-name">{layerName(t, selectedLayer, assets)}</span>
+              <button type="button" disabled={row <= 0} onClick={() => reorderLayer(clip.id, selectedLayer.id, 'up')}>
+                {t('layers.up')}
+              </button>
+              <button type="button" disabled={row < 0 || row === rows.length - 1} onClick={() => reorderLayer(clip.id, selectedLayer.id, 'down')}>
+                {t('layers.down')}
+              </button>
+            </>
+          ) : (
+            <>
+              <AutoFramePanel clip={clip} time={time} />
+              {keyframeControls()}
+            </>
+          )}
+        </div>
+      </>
+    );
+  }
 
   /** The picture's keyframes, next to the timeline that shows them. */
   function keyframeControls() {
     return (
-      <>
-        <div className="keyframes">
-          <button type="button" disabled={keyIndex >= 0} onClick={() => addKeyframe(clip.id, property, time)}>
-            <span className="diamond" aria-hidden="true" />
-            {t('clipEditor.addKeyframe')}
-          </button>
-          <label className={keyIndex < 0 || keyIndex === keys.length - 1 ? 'disabled' : undefined}>
-            <input
-              type="checkbox"
-              disabled={keyIndex < 0 || keyIndex === keys.length - 1}
-              checked={keyIndex >= 0 && keys[keyIndex]!.ease === 'smooth'}
-              onChange={(e) => setSmooth(clip.id, property, keyIndex, e.target.checked)}
-            />
-            {t('clipEditor.smooth')}
-          </label>
-          <button type="button" title={t('clipEditor.deleteKeyframeHelp')} disabled={keyIndex < 0 || keys.length === 1} onClick={() => deleteKeyframe(clip.id, property, keyIndex)}>
-            {t('clipEditor.deleteKeyframe')}
-          </button>
-        </div>
-        <p className="dim hint">{t('clipEditor.keyframeHelp')}</p>
-      </>
+      <div className="keyframes" role="group" aria-label={t('clipEditor.keyframes')} title={t('clipEditor.keyframeHelp')}>
+        <button type="button" disabled={keyIndex >= 0} onClick={() => addKeyframe(clip.id, property, time)}>
+          <span className="diamond" aria-hidden="true" />
+          {t('clipEditor.addKeyframe')}
+        </button>
+        <label className={keyIndex < 0 || keyIndex === keys.length - 1 ? 'disabled' : undefined}>
+          <input
+            type="checkbox"
+            disabled={keyIndex < 0 || keyIndex === keys.length - 1}
+            checked={keyIndex >= 0 && keys[keyIndex]!.ease === 'smooth'}
+            onChange={(e) => setSmooth(clip.id, property, keyIndex, e.target.checked)}
+          />
+          {t('clipEditor.smooth')}
+        </label>
+        <button type="button" title={t('clipEditor.deleteKeyframeHelp')} disabled={keyIndex < 0 || keys.length === 1} onClick={() => deleteKeyframe(clip.id, property, keyIndex)}>
+          {t('clipEditor.deleteKeyframe')}
+        </button>
+      </div>
     );
   }
 
@@ -239,47 +300,33 @@ export function ClipEditor({ clip, source }: { clip: Clip; source: Source }) {
   function pictureSettings() {
     return (
       <>
-      <SilencePanel clip={clip} />
-      <div className="layouts" role="group" aria-label={t('clipEditor.layout')}>
-        {LAYOUTS.map((l) => (
-          <button
-            key={l}
-            type="button"
-            aria-pressed={layout === l}
-            className={layout === l ? 'selected' : undefined}
-            title={t(`clipEditor.layoutHelp.${l}`)}
-            onClick={() => setLayout(clip.id, time, l)}
-          >
-            {t(`clipEditor.layouts.${l}`)}
-          </button>
-        ))}
-      </div>
-      <p className="dim hint">
-        {t('clipEditor.dragHint')}
-        {layout === 'split' && ` ${t('clipEditor.editing', { what: t(`clipEditor.${half}`) })}`}
-      </p>
+        <p className="dim hint">
+          {t('clipEditor.dragHint')}
+          {layout === 'split' && ` ${t('clipEditor.editing', { what: t(`clipEditor.${half}`) })}`}
+        </p>
 
-      <label className="zoom">
-        <span>{t('clipEditor.zoom')}</span>
-        <input
-          type="range"
-          min={1}
-          max={MAX_ZOOM}
-          step={0.01}
-          value={value.zoom}
-          disabled={!sourceSize}
-          onPointerDown={() => store.beginGesture('history.zoomFrame')}
-          onPointerUp={() => store.endGesture()}
-          onChange={(e) => {
-            if (!sourceSize) return;
-            const region = regionFor(layout, half);
-            const next = zoomed(value, property, region, sourceSize, Number(e.target.value), region.x + region.w / 2, region.y + region.h / 2);
-            setFraming(clip.id, 'history.zoomFrame', property, time, next);
-          }}
-        />
-      </label>
+        <label className="zoom">
+          <span>{t('clipEditor.zoom')}</span>
+          <input
+            type="range"
+            min={1}
+            max={MAX_ZOOM}
+            step={0.01}
+            value={value.zoom}
+            disabled={!sourceSize}
+            onPointerDown={() => store.beginGesture('history.zoomFrame')}
+            onPointerUp={() => store.endGesture()}
+            onChange={(e) => {
+              if (!sourceSize) return;
+              const region = regionFor(layout, half);
+              const next = zoomed(value, property, region, sourceSize, Number(e.target.value), region.x + region.w / 2, region.y + region.h / 2);
+              setFraming(clip.id, 'history.zoomFrame', property, time, next);
+            }}
+          />
+        </label>
 
-      <CaptionPanel clipId={clip.id} layer={captions} track={captionTrackFor(layout)} time={time} rate={rate} />
+        <SilencePanel clip={clip} />
+        <CaptionPanel clipId={clip.id} layer={captions} track={captionTrackFor(layout)} time={time} rate={rate} />
       </>
     );
   }

@@ -8,6 +8,18 @@ import { replacementSchema } from './replacements.ts';
 export const UI_LANGUAGES = ['en', 'sh'] as const;
 export type UiLanguage = (typeof UI_LANGUAGES)[number];
 
+/** How much room the clip editor's timeline takes: a strip, a resizable dock, or all of it beside a small picture. */
+export const DOCK_SIZES = ['compact', 'normal', 'full'] as const;
+export type DockSize = (typeof DOCK_SIZES)[number];
+
+export const clipDockSchema = z.object({
+  size: z.enum(DOCK_SIZES),
+  /** The dock's height in 'normal', in CSS pixels, as last dragged. */
+  height: z.number().min(120).max(4000),
+});
+export type ClipDock = z.infer<typeof clipDockSchema>;
+export const DEFAULT_CLIP_DOCK: ClipDock = { size: 'normal', height: 360 };
+
 export const settingsSchema = z.object({
   uiLanguage: z.enum(UI_LANGUAGES),
   /** The language picked for the last transcription, offered again next time. */
@@ -22,6 +34,8 @@ export const settingsSchema = z.object({
   defaultCaptionStyle: captionStyleSchema,
   /** Fonts the user added; only the main process adds them, after checking the file. */
   fonts: z.array(customFontSchema).max(200),
+  /** The clip editor's timeline, as the user left it. */
+  clipDock: clipDockSchema,
 });
 export type Settings = z.infer<typeof settingsSchema>;
 
@@ -37,6 +51,7 @@ export function defaultSettings(uiLanguage: UiLanguage): Settings {
     captionStyles: [],
     defaultCaptionStyle: DEFAULT_CAPTION_STYLE,
     fonts: [],
+    clipDock: DEFAULT_CLIP_DOCK,
   };
 }
 

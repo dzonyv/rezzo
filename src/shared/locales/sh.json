@@ -228,7 +228,30 @@
     "wordStrip": "Tajming reči",
     "wordHelp": "Klik vodi na reč, dupli klik je ispravlja. Prevuci ivicu da pomeriš početak ili kraj; Alt+←/→ pomera početak najbliži playhead-u za jedan kadar.",
     "wordStart": "Početak reči „{{word}}”",
-    "wordEnd": "Kraj reči „{{word}}”"
+    "wordEnd": "Kraj reči „{{word}}”",
+    "back": "Epizoda",
+    "settings": "Podešavanja klipa",
+    "keyframes": "Ključni kadrovi"
+  },
+  "timeline": {
+    "overview": "Ceo klip",
+    "overviewHelp": "Ceo klip u malom. Povuci okvir da se pomeraš kroz klip, a njegove ivice da zumiraš.",
+    "inView": "Deo klipa koji se vidi",
+    "zoom": "Zum vremenske linije",
+    "zoomIn": "Približi",
+    "zoomOut": "Udalji",
+    "whole": "Ceo klip",
+    "wholeHelp": "Prikaži ceo klip",
+    "resize": "Povuci da vremenska linija bude viša ili niža",
+    "size": "Veličina vremenske linije",
+    "sizes": {
+      "compact": "Sažeto",
+      "normal": "Obično",
+      "full": "Cela traka",
+      "compactHelp": "Samo redovi, najviše mesta za sliku",
+      "normalHelp": "Redovi i vreme reči; povuci gornju ivicu da promeniš visinu",
+      "fullHelp": "Vremenska linija zauzima prozor, a slika ide u kolonu pored nje"
+    }
   },
   "export": {
     "button": "Izvezi",
