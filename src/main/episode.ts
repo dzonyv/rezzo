@@ -95,7 +95,8 @@ let thumbnailQueue: Promise<unknown> = Promise.resolve();
 /** A small picture of the source at `time`, made once per source and time, in the cache. */
 export function episodeThumbnail(source: unknown, time: unknown): Promise<string> {
   const { path: file, fingerprint, duration } = sourceSchema.parse(source);
-  const at = Math.min(Math.max(z.number().finite().parse(time), 0), duration);
+  // Not the very end: FFmpeg has no frame to give there.
+  const at = Math.min(Math.max(z.number().finite().parse(time), 0), Math.max(0, duration - 0.5));
   sourceUrl(file); // the same check: only a source we know
   const out = path.join(cacheDir(), fingerprint, 'thumbnails', `${Math.round(at * 1000)}.jpg`);
   let making = makingThumbnails.get(out);

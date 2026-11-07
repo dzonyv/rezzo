@@ -3,6 +3,7 @@ import { useTranslation } from 'react-i18next';
 import { valueAt } from '../../../shared/framing.ts';
 import { videoLayerOf, type Clip, type Source } from '../../../shared/project.ts';
 import { keptLength, keptPieces } from '../../../shared/skips.ts';
+import { useClipPlayback } from '../clip/playback.ts';
 import { openClip, setTool, useOpenClipId } from '../clip/state.ts';
 import { exportClip, isExporting, useExport } from '../export/state.ts';
 import { formatDuration } from '../format.ts';
@@ -103,9 +104,13 @@ function thumbnailOf(source: Source, time: number): Promise<string> {
  * the clip. Full frame shows the whole picture.
  */
 function ClipThumb({ clip, source }: { clip: Clip; source: Source }) {
-  const time = keptPieces(clip)[0]?.start ?? clip.start;
+  // On a half-second grid, so trimming the start a step at a time keeps the same picture.
+  const time = Math.ceil((keptPieces(clip)[0]?.start ?? clip.start) * 2) / 2;
   const [url, setUrl] = useState<string | null>(null);
+  // The open clip's working file comes first: both are made by FFmpeg in the same worker.
+  const preparing = useClipPlayback((s) => s.status === 'preparing');
   useEffect(() => {
+    if (preparing) return;
     let current = true;
     thumbnailOf(source, time).then(
       (u) => current && setUrl(u),
@@ -114,7 +119,7 @@ function ClipThumb({ clip, source }: { clip: Clip; source: Source }) {
     return () => {
       current = false;
     };
-  }, [source, time]);
+  }, [source, time, preparing]);
 
   const video = videoLayerOf(clip);
   const layout = valueAt(video.layout, time);
