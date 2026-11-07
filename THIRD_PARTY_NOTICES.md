@@ -27,6 +27,14 @@ Fonts for captions. Their licenses are in `licenses/fonts` in the installed app,
 
 Fonts you add yourself are copied into the app's settings folder and never leave your computer.
 
+The app's own interface uses three more fonts. They come from the same commit and are under the same license. In the installed app their licenses are in `licenses/fonts/ui`, and in the source repository they sit next to the fonts in `src/renderer/src/ui/fonts`.
+
+| Font | Version | Files | Copyright |
+|---|---|---|---|
+| Onest | 2.001 | Variable weight (`Onest[wght].ttf`) | The Onest Project Authors |
+| Unbounded | 1.701 | Variable weight (`Unbounded[wght].ttf`) | The Unbounded Project Authors |
+| DM Mono | 1.000 | Regular, Medium | The DM Mono Project Authors |
+
 ## JavaScript libraries
 
 These are compiled into the app's code:

@@ -47,6 +47,11 @@ extraResources:
     to: licenses/fonts
     filter:
       - '*/OFL.txt'
+  # So are the fonts of the interface itself.
+  - from: src/renderer/src/ui/fonts
+    to: licenses/fonts/ui
+    filter:
+      - '*/OFL.txt'
 win:
   icon: resources/icon.png
   target:
