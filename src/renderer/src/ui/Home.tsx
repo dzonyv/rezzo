@@ -62,37 +62,38 @@ export function Home() {
         </div>
         {/* On the slab's lower part. Links open in the browser (see setWindowOpenHandler in main). */}
         <footer className="hero-foot">
-          <div className="line">
-            <button
-              type="button"
-              className="version"
-              title={t('home.changelog')}
-              aria-description={t('home.changelog')}
-              onClick={() => setChangelog(true)}
-            >
-              {version}
-            </button>
+          <div className="about">
             <span>{t('home.free')}</span>
+            <div className="credits">
+              <span>
+                {t('home.madeBy')}{' '}
+                <a href={AUTHOR.url} target="_blank" rel="noreferrer">
+                  {AUTHOR.name}
+                </a>
+              </span>
+              <nav className="links" aria-label={t('home.links')}>
+                <a href={REPOSITORY.url} target="_blank" rel="noreferrer">
+                  {REPOSITORY.name}
+                </a>
+                <a href={`${REPOSITORY.url}/issues/new`} target="_blank" rel="noreferrer">
+                  {t('home.report')}
+                </a>
+                <button type="button" className="link" onClick={() => void window.rezzo.invoke('app:licenses')}>
+                  {t('home.licenses')}
+                </button>
+              </nav>
+            </div>
           </div>
-          <div className="line credits">
-            <span>
-              {t('home.madeBy')}{' '}
-              <a href={AUTHOR.url} target="_blank" rel="noreferrer">
-                {AUTHOR.name}
-              </a>
-            </span>
-            <nav className="links" aria-label={t('home.links')}>
-              <a href={REPOSITORY.url} target="_blank" rel="noreferrer">
-                {REPOSITORY.name}
-              </a>
-              <a href={`${REPOSITORY.url}/issues/new`} target="_blank" rel="noreferrer">
-                {t('home.report')}
-              </a>
-              <button type="button" className="link" onClick={() => void window.rezzo.invoke('app:licenses')}>
-                {t('home.licenses')}
-              </button>
-            </nav>
-          </div>
+          {/* In the corner, where a version is looked for. */}
+          <button
+            type="button"
+            className="version"
+            title={t('home.changelog')}
+            aria-description={t('home.changelog')}
+            onClick={() => setChangelog(true)}
+          >
+            {version}
+          </button>
         </footer>
       </section>
 

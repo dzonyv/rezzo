@@ -188,10 +188,13 @@ h3 {
   font-size: clamp(34px, 4.6vw, 62px);
   line-height: 1.04;
   letter-spacing: -0.02em;
+  text-wrap: balance;
 }
 
 .hero .tagline {
   margin: -4px 0 4px;
+  max-width: 640px;
+  text-wrap: balance;
   font-size: 18px;
   font-weight: 500;
 }
@@ -231,21 +234,26 @@ button.on-slab:focus-visible {
   right: 40px;
   bottom: 26px;
   display: flex;
-  flex-direction: column;
-  gap: 8px;
+  align-items: flex-end;
+  justify-content: space-between;
+  gap: 20px;
   color: var(--accent-text);
   font-size: 13px;
 }
 
-.hero-foot .line {
+.hero-foot .about {
+  min-width: 0;
   display: flex;
-  flex-wrap: wrap;
-  align-items: center;
-  gap: 6px 12px;
+  flex-direction: column;
+  gap: 6px;
+  text-wrap: pretty;
 }
 
 .hero-foot .credits {
-  justify-content: space-between;
+  display: flex;
+  flex-wrap: wrap;
+  align-items: center;
+  gap: 6px 16px;
 }
 
 .hero-foot a,
@@ -272,6 +280,7 @@ button.on-slab:focus-visible {
 }
 
 button.version {
+  flex: none;
   padding: 4px 12px;
   background: var(--accent-text);
   color: var(--accent);

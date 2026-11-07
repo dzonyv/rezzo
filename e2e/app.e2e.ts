@@ -129,7 +129,7 @@ describe('app', () => {
   it('switches the UI language and remembers it', async () => {
     let page = await (await launch()).firstWindow();
     await page.getByRole('group', { name: 'Interface language' }).getByRole('button', { name: 'BCS' }).click();
-    await expect.poll(() => page.locator('.tagline').textContent()).toBe('Vertikalni klipovi iz podkasta i tok-šoua');
+    await expect.poll(() => page.locator('.tagline').textContent()).toBe('Od cele epizode do vertikalnih klipova za Reels, TikTok i Shorts');
 
     const stored = JSON.parse(await readFile(path.join(userData, 'settings.json'), 'utf8'));
     expect(stored.uiLanguage).toBe('sh');
