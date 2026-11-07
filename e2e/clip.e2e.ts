@@ -119,6 +119,8 @@ describe('clips', () => {
     await expect.poll(() => page.locator('.clip-list li').count()).toBe(1);
     expect(await page.getByRole('textbox', { name: 'Clip name' }).inputValue()).toBe('Danas pričamo o kadriranju klipova');
     expect(await page.locator('.w.in-open-clip').count()).toBe(5);
+    // Its card beside the editor has a picture from the source.
+    await expect.poll(() => page.locator('.clip-list.strip .thumb img').evaluate((img: { naturalWidth: number }) => img.naturalWidth), { timeout: 20_000 }).toBeGreaterThan(0);
   });
 
   it('shows the exact first frame of the clip', async () => {

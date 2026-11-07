@@ -138,6 +138,8 @@ export interface InvokeApi {
   'episode:media-url': (source: Source) => string;
   /** Makes (once) a playable 480p copy of the source; progress as episode:preview-progress. */
   'episode:preview': (source: Source) => string;
+  /** A small picture of the source at `time` seconds (a clip's card), made once and kept in the cache. */
+  'episode:thumbnail': (source: Source, time: number) => string;
 
   'transcribe:status': () => TranscriptionStatus;
   /** Runs until the transcript is ready; progress comes as transcribe:progress events. */
@@ -239,6 +241,7 @@ export const INVOKE_CHANNELS = {
   'episode:locate': true,
   'episode:media-url': true,
   'episode:preview': true,
+  'episode:thumbnail': true,
   'transcribe:status': true,
   'transcribe:start': true,
   'transcribe:cancel': true,

@@ -6,7 +6,7 @@ import { prepareClip } from './clip.ts';
 import { cancelOverlay, prepareOverlay } from './overlay.ts';
 import { cancelExport, openExport, revealExport, startExport } from './export.ts';
 import { addFont, readCustomFont } from './fonts.ts';
-import { checkEpisode, chooseEpisode, episodeMediaUrl, importEpisode, locateEpisode, makePreview } from './episode.ts';
+import { checkEpisode, chooseEpisode, episodeMediaUrl, episodeThumbnail, importEpisode, locateEpisode, makePreview } from './episode.ts';
 import { handleMediaProtocol, registerMediaScheme } from './media-protocol.ts';
 import { broadcast, handle, trustPagesFrom } from './ipc.ts';
 import {
@@ -65,6 +65,7 @@ function registerHandlers(): void {
   handle('episode:locate', ({ window }, source) => locateEpisode(window, source));
   handle('episode:media-url', (_ctx, source) => episodeMediaUrl(source));
   handle('episode:preview', ({ window }, source) => makePreview(window.webContents, source));
+  handle('episode:thumbnail', (_ctx, source, time) => episodeThumbnail(source, time));
 
   handle('transcribe:status', () => transcriptionStatus());
   handle('transcribe:start', ({ window }, request) => startTranscription(window.webContents, request));

@@ -9,6 +9,7 @@ import { encodeExport, pickEncoder } from './export.ts';
 import { fingerprint } from './fingerprint.ts';
 import { makePreview } from './preview.ts';
 import { probe, probeVideo } from './probe.ts';
+import { makeThumbnail } from './thumbnail.ts';
 import { transcribe } from './transcribe.ts';
 import { diarize } from './voices.ts';
 import { makeOverlayFile, makeWorkingFile } from './working.ts';
@@ -34,6 +35,7 @@ const handlers: Handlers = {
   transcribe: (ctx, request) => transcribe(ctx, request),
   diarize: (ctx, request) => diarize(ctx, request),
   makePreview: (ctx, request) => makePreview(ctx, request),
+  makeThumbnail: (ctx, request) => makeThumbnail(ctx, request),
   makeWorkingFile: (ctx, request) => makeWorkingFile(ctx, request),
   makeOverlayFile: (ctx, request) => makeOverlayFile(ctx, request),
   pickEncoder: () => pickEncoder(),

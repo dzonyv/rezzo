@@ -188,7 +188,9 @@
     "clearSelection": "Poništi",
     "untitled": "Klip bez naziva",
     "delete": "Obriši klip",
-    "length": "{{start}}, traje {{length}}"
+    "length": "{{start}}, traje {{length}}",
+    "new": "Novi klip",
+    "newHelp": "Izaberi reči u transkriptu da napraviš još jedan klip"
   },
   "clipEditor": {
     "name": "Naziv klipa",
