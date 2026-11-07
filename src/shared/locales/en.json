@@ -6,11 +6,12 @@
   "home": {
     "newProject": "New project",
     "openProject": "Open project…",
+    "drop": "Drop a video here",
     "recent": "Recent projects",
+    "noRecent": "Projects you open or save show up here.",
     "recovered": "Unsaved work from last time",
     "restore": "Restore",
-    "discard": "Discard",
-    "dropHint": "or drop a video here"
+    "discard": "Discard"
   },
   "editor": {
     "projectName": "Project name",
@@ -129,6 +130,10 @@
     "en": "English",
     "sh": "BCS (bosanski, hrvatski, srpski)"
   },
+  "languageShort": {
+    "en": "English",
+    "sh": "BCS"
+  },
   "episode": {
     "duration": "Length",
     "video": "Video",
@@ -158,9 +163,10 @@
     "phase": {
       "starting": "Starting…",
       "download": "Downloading speech recognition: {{received}} / {{total}} MB",
-      "audio": "Preparing audio: {{percent}}%",
-      "transcribe": "Transcribing: {{percent}}%"
-    }
+      "audio": "Preparing audio",
+      "transcribe": "Transcribing"
+    },
+    "busy": "Another project is being transcribed. This one can start when that one is done."
   },
   "transcript": {
     "search": "Search the transcript (Ctrl+F)",

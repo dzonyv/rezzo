@@ -3,7 +3,12 @@ import { useTranslation } from 'react-i18next';
 import type { RecentProject, RecoveredProject } from '../../../shared/api.ts';
 import { createProject, openProject, restoreProject } from '../project/actions.ts';
 import { LanguagePicker } from './LanguagePicker.tsx';
+import { shortName } from './short-name.ts';
 
+/**
+ * The first screen: a big yellow slab to drop a video on (cut like the
+ * icon), and beside it unsaved work from last time and recent projects.
+ */
 export function Home() {
   const { t, i18n } = useTranslation();
   const [recent, setRecent] = useState<RecentProject[]>([]);
@@ -32,56 +37,72 @@ export function Home() {
         if (file) void createProject(window.rezzo.pathForFile(file));
       }}
     >
-      <h1>{t('app.name')}</h1>
-      <p className="tagline">{t('app.tagline')}</p>
+      <section className="hero" aria-labelledby="home-title">
+        <div className="slab lower" aria-hidden="true" />
+        <div className="slab" aria-hidden="true" />
+        <div className="hero-content">
+          <span className="wordmark">{t('app.name')}</span>
+          <h1 id="home-title">{t('home.drop')}</h1>
+          <p className="tagline">{t('app.tagline')}</p>
+          <div className="actions">
+            <button type="button" className="on-slab" onClick={() => void createProject()}>
+              {t('home.newProject')}
+            </button>
+            <button type="button" className="on-slab outline" onClick={() => void openProject()}>
+              {t('home.openProject')}
+            </button>
+          </div>
+        </div>
+      </section>
 
-      <div className="actions">
-        <button type="button" className="primary" onClick={() => void createProject()}>
-          {t('home.newProject')}
-        </button>
-        <button type="button" onClick={() => void openProject()}>
-          {t('home.openProject')}
-        </button>
-      </div>
-      <p className="hint">{t('home.dropHint')}</p>
+      <aside className="home-side">
+        {recovered.length > 0 && (
+          <section className="recovered">
+            <h2>{t('home.recovered')}</h2>
+            <ul>
+              {recovered.map((r) => (
+                <li key={r.project.id}>
+                  <span className="text">
+                    <span className="name">{r.project.name}</span>
+                    <span className="meta">{when(r.savedAt)}</span>
+                  </span>
+                  <button type="button" className="primary" onClick={() => void restoreProject(r.project, r.filePath)}>
+                    {t('home.restore')}
+                  </button>
+                  <button type="button" onClick={() => void discard(r.project.id)}>
+                    {t('home.discard')}
+                  </button>
+                </li>
+              ))}
+            </ul>
+          </section>
+        )}
 
-      {recovered.length > 0 && (
-        <section className="home-list recovered">
-          <h2>{t('home.recovered')}</h2>
-          <ul>
-            {recovered.map((r) => (
-              <li key={r.project.id}>
-                <span className="name">{r.project.name}</span>
-                <span className="meta">{when(r.savedAt)}</span>
-                <button type="button" onClick={() => void restoreProject(r.project, r.filePath)}>
-                  {t('home.restore')}
-                </button>
-                <button type="button" onClick={() => void discard(r.project.id)}>
-                  {t('home.discard')}
-                </button>
-              </li>
-            ))}
-          </ul>
-        </section>
-      )}
-
-      {recent.length > 0 && (
-        <section className="home-list">
+        <section className="recent">
           <h2>{t('home.recent')}</h2>
-          <ul>
-            {recent.map((r) => (
-              <li key={r.path}>
-                <button type="button" className="link" title={r.path} onClick={() => void openProject(r.path)}>
-                  <span className="name">{r.name}</span>
-                  <span className="meta">{r.path}</span>
-                </button>
-              </li>
-            ))}
-          </ul>
+          {recent.length === 0 ? (
+            <p className="dim">{t('home.noRecent')}</p>
+          ) : (
+            <ul>
+              {recent.map((r) => (
+                <li key={r.path}>
+                  <button type="button" className="project" title={r.path} onClick={() => void openProject(r.path)}>
+                    <span className="badge" aria-hidden="true">
+                      {shortName(r.name)}
+                    </span>
+                    <span className="text">
+                      <span className="name">{r.name}</span>
+                      <span className="meta">{r.path}</span>
+                    </span>
+                  </button>
+                </li>
+              ))}
+            </ul>
+          )}
         </section>
-      )}
 
-      <LanguagePicker />
+        <LanguagePicker />
+      </aside>
     </main>
   );
 }

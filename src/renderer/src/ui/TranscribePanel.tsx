@@ -5,7 +5,11 @@ import { TRANSCRIPT_LANGUAGES, type Project, type TranscriptLanguage } from '../
 import type { TranscribeProgress } from '../../../shared/worker-api.ts';
 import { cancelTranscription, startTranscription, useTranscription } from '../project/transcription.ts';
 
-/** Shown until the project has a transcript: pick the language, start, watch it run. */
+/**
+ * Beside the video until the project has a transcript: pick the spoken
+ * language, start, watch it run. The episode screen takes over by itself
+ * when the transcript is in.
+ */
 export function TranscribePanel({ project }: { project: Project }) {
   const { t } = useTranslation();
   const runningFor = useTranscription((s) => s.projectId);
@@ -18,46 +22,40 @@ export function TranscribePanel({ project }: { project: Project }) {
     void window.rezzo.invoke('settings:get').then((s) => setLanguage((l) => l ?? s.transcriptLanguage));
   }, [runningFor]);
 
-  if (!project.source?.audio) {
-    return <section className="transcribe-panel">{t('transcribe.noAudio')}</section>;
-  }
-
   const running = runningFor === project.id;
   const busyElsewhere = runningFor !== null && !running;
 
   return (
-    <section className="transcribe-panel">
-      <h2>{t('transcribe.title')}</h2>
-      {running ? (
+    <section className="transcribe-panel" aria-labelledby="transcribe-title">
+      <h2 id="transcribe-title">{t('transcribe.title')}</h2>
+      {!project.source?.audio ? (
+        <p>{t('transcribe.noAudio')}</p>
+      ) : running ? (
         <>
-          <ProgressLine progress={progress} />
+          <Progress progress={progress} />
           <button type="button" onClick={cancelTranscription}>
             {t('transcribe.cancel')}
           </button>
         </>
       ) : (
         <>
-          <p className="dim">{t('transcribe.languageHelp')}</p>
-          <div className="row">
-            <label>
-              {t('transcribe.language')}
-              <select value={language ?? TRANSCRIPT_LANGUAGES[0]} onChange={(e) => setLanguage(e.target.value as TranscriptLanguage)}>
-                {TRANSCRIPT_LANGUAGES.map((l) => (
-                  <option key={l} value={l}>
-                    {t(`transcribe.languages.${l}`)}
-                  </option>
-                ))}
-              </select>
-            </label>
-            <button
-              type="button"
-              className="primary"
-              disabled={!language || busyElsewhere}
-              onClick={() => language && void startTranscription(language)}
-            >
-              {t('transcribe.start')}
-            </button>
+          <p>{t('transcribe.languageHelp')}</p>
+          <div className="spoken-languages" role="group" aria-label={t('transcribe.language')}>
+            {TRANSCRIPT_LANGUAGES.map((l) => (
+              <button key={l} type="button" aria-pressed={language === l} onClick={() => setLanguage(l)}>
+                {t(`transcribe.languages.${l}`)}
+              </button>
+            ))}
           </div>
+          <button
+            type="button"
+            className="primary"
+            disabled={!language || busyElsewhere}
+            onClick={() => language && void startTranscription(language)}
+          >
+            {t('transcribe.start')}
+          </button>
+          {busyElsewhere && <p className="dim">{t('transcribe.busy')}</p>}
           {status && status.downloadBytes > 0 && (
             <p className="dim">{t('transcribe.download', { size: (status.downloadBytes / 1e9).toFixed(1) })}</p>
           )}
@@ -68,10 +66,11 @@ export function TranscribePanel({ project }: { project: Project }) {
   );
 }
 
-function ProgressLine({ progress }: { progress: TranscribeProgress | null }) {
+/** What it's doing, a big percentage, and a bar. */
+function Progress({ progress }: { progress: TranscribeProgress | null }) {
   const { t } = useTranslation();
   let label = t('transcribe.phase.starting');
-  let fraction = 0;
+  let fraction: number | null = null;
   if (progress?.phase === 'download') {
     fraction = progress.received / progress.total;
     label = t('transcribe.phase.download', {
@@ -80,12 +79,15 @@ function ProgressLine({ progress }: { progress: TranscribeProgress | null }) {
     });
   } else if (progress) {
     fraction = progress.fraction;
-    label = t(`transcribe.phase.${progress.phase}`, { percent: Math.round(progress.fraction * 100) });
+    label = t(`transcribe.phase.${progress.phase}`);
   }
   return (
-    <div className="progress-line">
-      <span>{label}</span>
-      <progress max={1} value={fraction} />
+    <div className="big-progress">
+      <div className="label">
+        <span>{label}</span>
+        {fraction !== null && <b className="percent">{Math.round(fraction * 100)}%</b>}
+      </div>
+      <progress aria-label={label} max={1} value={fraction ?? undefined} />
     </div>
   );
 }

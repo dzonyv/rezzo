@@ -6,11 +6,12 @@
   "home": {
     "newProject": "Novi projekat",
     "openProject": "Otvori projekat…",
+    "drop": "Prevuci video ovde",
     "recent": "Nedavni projekti",
+    "noRecent": "Ovde će se pojaviti projekti koje otvoriš ili sačuvaš.",
     "recovered": "Nesačuvan rad od prošlog puta",
     "restore": "Vrati",
-    "discard": "Odbaci",
-    "dropHint": "ili prevuci video ovde"
+    "discard": "Odbaci"
   },
   "editor": {
     "projectName": "Naziv projekta",
@@ -129,6 +130,10 @@
     "en": "English",
     "sh": "BCS (bosanski, hrvatski, srpski)"
   },
+  "languageShort": {
+    "en": "English",
+    "sh": "BCS"
+  },
   "episode": {
     "duration": "Trajanje",
     "video": "Slika",
@@ -158,9 +163,10 @@
     "phase": {
       "starting": "Pokrećem…",
       "download": "Preuzimam prepoznavanje govora: {{received}} / {{total}} MB",
-      "audio": "Pripremam zvuk: {{percent}}%",
-      "transcribe": "Transkribujem: {{percent}}%"
-    }
+      "audio": "Pripremam zvuk",
+      "transcribe": "Transkribujem"
+    },
+    "busy": "Transkribuje se drugi projekat. Ovaj može da počne kad se taj završi."
   },
   "transcript": {
     "search": "Pretraži transkript (Ctrl+F)",
