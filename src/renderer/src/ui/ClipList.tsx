@@ -12,9 +12,10 @@ import { deleteClip } from '../project/clips.ts';
 import { useProject } from '../project/store.ts';
 
 /**
- * The project's clips in the order they appear in the episode. As a
- * `strip` (beside an open clip) each one is a card with a picture from its
- * start, and a last button leads to the transcript to make another.
+ * The project's clips in the order they appear in the episode, each a card
+ * with a picture from its start. On the episode screen the picture sits
+ * beside the name and times; as a `strip` (beside an open clip) it sits
+ * above them, and a last button leads to the transcript to make another.
  */
 export function ClipList({ strip = false }: { strip?: boolean }) {
   const { t } = useTranslation();
@@ -41,15 +42,20 @@ export function ClipList({ strip = false }: { strip?: boolean }) {
                   seek(clip.start);
                 }}
               >
-                {strip && source && <ClipThumb clip={clip} source={source} />}
+                {source && <ClipThumb clip={clip} source={source} />}
                 <span className="title">{clip.name || t('clips.untitled')}</span>
               </button>
-              <span className="meta">
-                {strip ? formatDuration(keptLength(clip)) : t('clips.length', { start: formatDuration(clip.start), length: formatDuration(keptLength(clip)) })}
-              </span>
+              {strip ? (
+                <span className="meta">{formatDuration(keptLength(clip))}</span>
+              ) : (
+                <span className="meta">
+                  <span>{formatDuration(clip.start)}</span>
+                  <span>{t('clips.lasts', { length: formatDuration(keptLength(clip)) })}</span>
+                </span>
+              )}
               <button
                 type="button"
-                className="link"
+                className={strip ? 'link export' : 'export'}
                 title={t('export.buttonHelp')}
                 disabled={exporting || !source}
                 onClick={() => source && void exportClip(clip, source)}
@@ -108,7 +114,9 @@ function ClipThumb({ clip, source }: { clip: Clip; source: Source }) {
   const time = Math.ceil((keptPieces(clip)[0]?.start ?? clip.start) * 2) / 2;
   const [url, setUrl] = useState<string | null>(null);
   // The open clip's working file comes first: both are made by FFmpeg in the same worker.
-  const preparing = useClipPlayback((s) => s.status === 'preparing');
+  // With no clip open (the episode screen) nothing is being made, whatever the status last said.
+  const clipOpen = useOpenClipId() !== null;
+  const preparing = useClipPlayback((s) => s.status === 'preparing') && clipOpen;
   useEffect(() => {
     if (preparing) return;
     let current = true;

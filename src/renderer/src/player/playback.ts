@@ -9,9 +9,10 @@ import { createStore } from 'zustand/vanilla';
 interface PlaybackState {
   time: number;
   playing: boolean;
+  muted: boolean;
 }
 
-export const playbackStore = createStore<PlaybackState>()(() => ({ time: 0, playing: false }));
+export const playbackStore = createStore<PlaybackState>()(() => ({ time: 0, playing: false, muted: false }));
 
 export function usePlayback<T>(select: (s: PlaybackState) => T): T {
   return useStore(playbackStore, select);
@@ -37,6 +38,7 @@ const onPause = () => {
 };
 // Only the time; while playing, the running loop carries on by itself.
 const onSeeked = () => playbackStore.setState({ time: video?.currentTime ?? 0 });
+const onVolume = () => playbackStore.setState({ muted: video?.muted ?? false });
 
 /** Connects the <video> element; pass null when it goes away. */
 export function attachVideo(el: HTMLVideoElement | null): void {
@@ -45,14 +47,18 @@ export function attachVideo(el: HTMLVideoElement | null): void {
     video.removeEventListener('play', onPlay);
     video.removeEventListener('pause', onPause);
     video.removeEventListener('seeked', onSeeked);
+    video.removeEventListener('volumechange', onVolume);
     cancelAnimationFrame(frame);
   }
   video = el;
+  // A new element (a preview copy in place of the source) keeps the sound as it was set.
+  if (el) el.muted = playbackStore.getState().muted;
   playbackStore.setState({ time: el?.currentTime ?? 0, playing: el ? !el.paused : false });
   if (el) {
     el.addEventListener('play', onPlay);
     el.addEventListener('pause', onPause);
     el.addEventListener('seeked', onSeeked);
+    el.addEventListener('volumechange', onVolume);
   }
 }
 
@@ -71,4 +77,8 @@ export function togglePlay(): void {
   if (!video) return;
   if (video.paused) void video.play();
   else video.pause();
+}
+
+export function toggleMute(): void {
+  if (video) video.muted = !video.muted;
 }

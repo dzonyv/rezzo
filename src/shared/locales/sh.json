@@ -187,7 +187,11 @@
   },
   "player": {
     "preparing": "Ovaj video ne može da se pusti direktno, pa Rezzo pravi kopiju za pregled: {{percent}}%",
-    "failed": "Ovaj video ne može da se pusti ovde: {{detail}}"
+    "failed": "Ovaj video ne može da se pusti ovde: {{detail}}",
+    "play": "Pusti",
+    "pause": "Pauza",
+    "playHelp": "Pusti ili pauziraj (razmaknica)",
+    "mute": "Bez zvuka"
   },
   "clips": {
     "title": "Klipovi",
@@ -201,7 +205,7 @@
     "clearSelection": "Poništi",
     "untitled": "Klip bez naziva",
     "delete": "Obriši klip",
-    "length": "{{start}}, traje {{length}}",
+    "lasts": "traje {{length}}",
     "new": "Novi klip",
     "newHelp": "Izaberi reči u transkriptu da napraviš još jedan klip"
   },
@@ -652,5 +656,9 @@
     "restoreAll": "Vrati sve isečeno",
     "pauseHelp": "Klikni da zadržiš ili ukloniš ovu pauzu",
     "skipHelp": "Isečeno iz klipa. Klikni da vratiš."
+  },
+  "strip": {
+    "title": "Cela epizoda",
+    "openClip": "Otvori {{name}}"
   }
 }
