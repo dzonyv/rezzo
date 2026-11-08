@@ -4,7 +4,8 @@
  * which the preload script builds from these channel lists.
  */
 import type { ClipAnalysis } from './analysis.ts';
-import type { Asset, AssetFile, AssetKind, AssetStatus, AudioInfo, VideoAsset, VideoInfo } from './assets.ts';
+import type { Asset, AssetFile, AssetKind, AssetStatus, AudioAsset, AudioInfo, VideoAsset, VideoInfo } from './assets.ts';
+import type { Loudness } from './loudness.ts';
 import type { SoundName } from './sounds.ts';
 import type { LottieInfo } from './lottie.ts';
 import type { OverlayLayout } from './overlay-files.ts';
@@ -205,6 +206,13 @@ export interface InvokeApi {
   'asset:url': (asset: AssetFile) => string;
   /** A rezzo-media:// URL the page can read a sound from the library from. */
   'sound:url': (name: SoundName) => string;
+  /**
+   * How loud the clip's own sound is over what it plays (shared/loudness.ts);
+   * null when the source has none or the clip's working file isn't made yet.
+   */
+  'loudness:clip': (source: Source, clip: Clip) => Loudness | null;
+  /** How loud a sound file of the user's is. */
+  'loudness:asset': (asset: AudioAsset) => Loudness;
 
   /** The renderer listens for close requests from now on. Until then a window closes without asking it. */
   'app:listening': () => void;
@@ -271,6 +279,8 @@ export const INVOKE_CHANNELS = {
   'asset:locate': true,
   'asset:url': true,
   'sound:url': true,
+  'loudness:clip': true,
+  'loudness:asset': true,
   'app:listening': true,
   'app:close': true,
 } as const satisfies Record<InvokeChannel, true>;

@@ -2,7 +2,9 @@ import { beforeEach, describe, expect, it } from 'vitest';
 import type { AssetFile } from '../../../shared/assets.ts';
 import { defaultVideoLayer } from '../../../shared/framing.ts';
 import { newProject, projectSchema, type ImageLayer, type Project } from '../../../shared/project.ts';
-import { addImageLayer, addLibrarySound, addSoundFile, deleteLayer, duplicateLayer, moveLayer, reorderLayer, setTransform, trimLayer } from './layers.ts';
+import {
+  addImageLayer, addLibrarySound, addSoundFile, deleteLayer, duplicateLayer, moveLayer, reorderLayer, setClipEvenLoudness, setSoundSettings, setTransform, trimLayer,
+} from './layers.ts';
 import { projectStore } from './store.ts';
 
 const CLIP = '0b6f2a52-9d0c-4f39-8f39-7f0e2c9b1a11';
@@ -20,7 +22,7 @@ function project(): Project {
       video: { codec: 'h264', width: 1920, height: 1080, frameRate: [30, 1], variableFrameRate: false, colorSpace: null },
       audio: null,
     },
-    clips: [{ id: CLIP, name: 'x', start: 10, end: 20, skips: [], layers: [defaultVideoLayer(10)] }],
+    clips: [{ id: CLIP, name: 'x', start: 10, end: 20, skips: [], evenLoudness: false, layers: [defaultVideoLayer(10)] }],
   };
 }
 
@@ -139,6 +141,25 @@ describe('layer edits', () => {
     expect(() => projectSchema.parse(state().project)).not.toThrow();
     deleteLayer(CLIP, file);
     expect(state().project!.assets).toEqual([]);
+  });
+
+  it('evens out a sound file of your own from the start, not one from the library', () => {
+    const library = addLibrarySound(CLIP, 'ding', 12)!;
+    const file = addSoundFile(CLIP, { ...FILE, name: 'tema.mp3', fingerprint: 'e'.repeat(64) }, { codec: 'mp3', duration: 4 }, 11)!;
+    const layer = (id: string) => clip().layers.find((l) => l.id === id);
+    expect(layer(library)).toMatchObject({ evenLoudness: false });
+    expect(layer(file)).toMatchObject({ evenLoudness: true });
+    setSoundSettings(CLIP, file, { evenLoudness: false });
+    expect(layer(file)).toMatchObject({ evenLoudness: false });
+    expect(state().undoLabel).toBe('history.soundSettings');
+  });
+
+  it("switches evening out the clip's own sound, one undo step", () => {
+    setClipEvenLoudness(CLIP, true);
+    expect(clip().evenLoudness).toBe(true);
+    expect(state().undoLabel).toBe('history.evenLoudness');
+    state().undo();
+    expect(clip().evenLoudness).toBe(false);
   });
 
   it('drops the file with its last image, and undo brings both back', () => {

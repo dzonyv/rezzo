@@ -53,7 +53,7 @@ export function clipFromWords(
   const range = rangeForWords(words, source);
   const layers: Clip['layers'] = [defaultVideoLayer(range.start)];
   if (captions) layers.push(newCaptionLayer(range.start, captions));
-  return { id, name: clipName(words), ...range, skips: [], layers };
+  return { id, name: clipName(words), ...range, skips: [], evenLoudness: true, layers };
 }
 
 /**

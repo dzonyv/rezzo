@@ -14,7 +14,9 @@ import { analyse } from '../analysis/store.ts';
 import { Compositor, type LayerImage } from '../render/compositor.ts';
 import { forgetOverlayFile, overlayFilesStore, prepareOverlayFiles, readyFiles, retryFailedOverlayFiles, WorkingFileGoneError, type OverlayFile } from '../render/overlay-files.ts';
 import { layerSounds } from '../render/layer-sound.ts';
-import { soundLayersOf } from '../../../shared/sound-mix.ts';
+import { evenGain } from '../../../shared/loudness.ts';
+import { evensLoudness, soundLayersOf } from '../../../shared/sound-mix.ts';
+import { assetLoudnessOf, loudnessStore, measuredLoudness, requestAssetLoudness, useClipLoudness } from '../render/loudness.ts';
 import type { LottieData } from '../render/lottie.ts';
 import { assetsOf, loadImages, loadLotties, SceneRenderer } from '../render/scene-renderer.ts';
 import { useSettings } from '../settings.ts';
@@ -60,6 +62,17 @@ export function ClipPreview({ clip, source, children }: { clip: Clip; source: So
   const sounds = useRef<LayerSound[]>([]);
   /** Asks for the video layers' working files again, as they are now. */
   const prepareFiles = useRef(() => {});
+  // The clip's own sound, evened out once it's measured.
+  const clipLoudness = useClipLoudness(source, clip, status === 'ready');
+  const clipGain = evenGain(measuredLoudness(clipLoudness), clip.evenLoudness);
+  /** The same, for a player that loads later. */
+  const clipGainNow = useRef(clipGain);
+  const heardSounds = soundLayersOf(clip, allAssets ?? []);
+  const measured = useStore(loudnessStore, (s) => s.measured);
+  // Sound files that are evened out, by layer id: turned up or down once they're measured.
+  const gains = Object.fromEntries(
+    heardSounds.flatMap(({ layer, asset }) => (asset && evensLoudness(layer) ? [[layer.id, evenGain(measuredLoudness(assetLoudnessOf(measured, asset)), true)]] : [])),
+  );
   // What the layers' sound depends on, as a value that changes only when that does (not when a layer moves on screen).
   const soundJson = JSON.stringify({
     clip: {
@@ -74,10 +87,14 @@ export function ClipPreview({ clip, source, children }: { clip: Clip; source: So
             : [],
       ),
     },
-    assets: [...videoLayersOf(clip, allAssets ?? []), ...soundLayersOf(clip, allAssets ?? [])].flatMap(({ asset }) => (asset ? [asset] : [])),
+    assets: [...videoLayersOf(clip, allAssets ?? []), ...heardSounds].flatMap(({ asset }) => (asset ? [asset] : [])),
     files: [...overlays].filter(([id]) => clip.layers.some((l) => l.id === id)),
+    gains,
   });
-  const soundInput = useMemo(() => JSON.parse(soundJson) as { clip: Clip; assets: Asset[]; files: [string, OverlayFile][] }, [soundJson]);
+  const soundInput = useMemo(
+    () => JSON.parse(soundJson) as { clip: Clip; assets: Asset[]; files: [string, OverlayFile][]; gains: Record<string, number> },
+    [soundJson],
+  );
 
   // The files the layers show, as a value that changes only when they do (not when a layer moves).
   const usedJson = JSON.stringify(assetsOf(clip, allAssets ?? []));
@@ -167,6 +184,7 @@ export function ClipPreview({ clip, source, children }: { clip: Clip; source: So
           player.onError = (e) => clipPlaybackStore.setState({ status: 'failed', error: String(e) });
           player.setScene(drawAt.current, prepareAt.current);
           player.setSounds(sounds.current);
+          player.setClipGain(clipGainNow.current);
           setPlayer(player);
           clipPlaybackStore.setState({ status: 'ready' });
           // Cuts and people for the timeline and the "show people" view; in the background.
@@ -227,7 +245,8 @@ export function ClipPreview({ clip, source, children }: { clip: Clip; source: So
   useEffect(() => {
     let current = true;
     const onFile = (a: Asset, there: boolean) => current && markMissing(a.id, !there);
-    void layerSounds(soundInput.clip, soundInput.assets, new Map(soundInput.files), onFile).then((s) => {
+    for (const { layer, asset } of soundLayersOf(soundInput.clip, soundInput.assets)) if (asset && evensLoudness(layer)) requestAssetLoudness(asset);
+    void layerSounds(soundInput.clip, soundInput.assets, new Map(soundInput.files), soundInput.gains, onFile).then((s) => {
       if (!current) return;
       sounds.current = s;
       currentPlayer()?.setSounds(s);
@@ -236,6 +255,11 @@ export function ClipPreview({ clip, source, children }: { clip: Clip; source: So
       current = false;
     };
   }, [soundInput]);
+
+  useEffect(() => {
+    clipGainNow.current = clipGain;
+    currentPlayer()?.setClipGain(clipGain);
+  }, [clipGain]);
 
   // Anything in the clip changed: redraw the frame on screen.
   useEffect(() => {

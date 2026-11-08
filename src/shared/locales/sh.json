@@ -87,7 +87,8 @@
     "addSound": "dodavanje zvuka",
     "replaceSound": "zamena zvučnog fajla",
     "soundSettings": "podešavanje zvuka",
-    "soundStart": "početak zvuka"
+    "soundStart": "početak zvuka",
+    "evenLoudness": "ujednačavanje glasnoće"
   },
   "files": {
     "project": "Rezzo projekat",
@@ -604,6 +605,20 @@
     "ownFileHelp": "Muzika ili bilo koji zvučni fajl: MP3, WAV, M4A, OGG, FLAC",
     "listen": "Poslušaj: {{name}}",
     "addHelp": "Dodaj kod playheada",
+    "loudness": {
+      "clipTitle": "Zvuk klipa",
+      "even": "Ujednači glasnoću",
+      "clipHelp": "Govor dobija istu glasnoću u svakom klipu, otprilike koliko ga puštaju aplikacije za kratke video snimke. Vrhovi ostaju ispod −1 dB.",
+      "fileHelp": "Na 100 % je glasno kao ujednačen govor. Za muziku ispod govora obično je dobro 20–30 %.",
+      "noSound": "Video ovog klipa nema zvuk.",
+      "measuring": "Meri se…",
+      "failed": "Nije moglo da se izmeri",
+      "unmeasurable": "Previše tiho ili kratko za merenje",
+      "measured": "izmereno {{lufs}} LUFS",
+      "up": "pojačano {{db}} dB",
+      "down": "utišano {{db}} dB",
+      "same": "ostaje kako je"
+    },
     "errors": {
       "play": "Zvuk nije mogao da se pusti: {{detail}}"
     },

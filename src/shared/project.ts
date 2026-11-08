@@ -19,7 +19,7 @@ import { MAX_FADE_SECONDS, soundSourceSchema } from './sounds.ts';
 import { speakerCountSchema, speakerPickSchema, voiceEditSchema } from './voices.ts';
 
 /** Bumped when the file format changes in a way older files need migrating for. */
-export const PROJECT_FORMAT = 12;
+export const PROJECT_FORMAT = 13;
 export const PROJECT_EXTENSION = 'rezzo';
 
 export const TRANSCRIPT_LANGUAGES = ['sr', 'hr', 'bs'] as const;
@@ -282,7 +282,9 @@ const fade = z.number().min(0).max(MAX_FADE_SECONDS);
  * is on and stops otherwise, and goes on through the clip's skips. It
  * fades in over `fadeIn` seconds and out over `fadeOut` before it stops
  * (shared/sound-mix.ts). It draws nothing, so where it is in `layers`
- * doesn't matter; new ones go at the end.
+ * doesn't matter; new ones go at the end. A file of the user's own can
+ * have its loudness evened out (shared/loudness.ts); the library's sounds
+ * already are.
  */
 export const soundLayerSchema = z.object({
   id: z.uuid(),
@@ -296,6 +298,8 @@ export const soundLayerSchema = z.object({
   fadeIn: fade,
   fadeOut: fade,
   loop: z.boolean(),
+  /** Its file is turned up or down to the loudness speech is evened out to; only for a file of the user's own. */
+  evenLoudness: z.boolean(),
 });
 export type SoundLayer = z.infer<typeof soundLayerSchema>;
 
@@ -336,6 +340,8 @@ export const clipSchema = z
     end: seconds,
     /** Stretches of the source that don't play (shared/skips.ts): in order, apart, on whole frames. */
     skips: z.array(z.object({ start: seconds, end: seconds })),
+    /** The clip's own sound is turned up or down to one loudness (shared/loudness.ts). */
+    evenLoudness: z.boolean(),
     layers: z.array(layerSchema).min(1),
   })
   .refine((c) => c.end > c.start, 'a clip ends after it starts')
@@ -441,6 +447,9 @@ const MIGRATIONS: Record<number, (old: Record<string, unknown>) => Record<string
   10: (old) => ({ ...old, clips: captionsWithSplit(old.clips) }),
   // Format 12 added sound layers and sound files. Nothing to change.
   11: (old) => old,
+  // Format 13 added evening out loudness. Clips and sounds made before it
+  // keep sounding as they did.
+  12: (old) => ({ ...old, clips: Array.isArray(old.clips) ? old.clips.map(withoutEvenLoudness) : old.clips }),
 };
 
 /**
@@ -465,6 +474,13 @@ function imagesWithoutKey(clips: unknown): unknown {
       ? { ...clip, layers: clip.layers.map((l: { kind?: unknown }) => (l?.kind === 'image' ? { ...l, key: null } : l)) }
       : clip,
   );
+}
+
+/** A clip from before format 13, and its sound layers, with evening out off. */
+function withoutEvenLoudness(clip: { layers?: unknown }): unknown {
+  if (typeof clip !== 'object' || clip === null) return clip;
+  const layers = Array.isArray(clip.layers) ? clip.layers.map((l: { kind?: unknown }) => (l?.kind === 'sound' ? { ...l, evenLoudness: false } : l)) : clip.layers;
+  return { ...clip, evenLoudness: false, layers };
 }
 
 export class ProjectFormatError extends Error {

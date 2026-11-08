@@ -19,7 +19,7 @@ function project(): Project {
       video: { codec: 'h264', width: 1920, height: 1080, frameRate: [30, 1], variableFrameRate: false, colorSpace: null },
       audio: null,
     },
-    clips: [{ id: CLIP, name: 'x', start: 10, end: 20, skips: [], layers: [defaultVideoLayer(10), newCaptionLayer(10, DEFAULT_CAPTION_STYLE)] }],
+    clips: [{ id: CLIP, name: 'x', start: 10, end: 20, skips: [], evenLoudness: false, layers: [defaultVideoLayer(10), newCaptionLayer(10, DEFAULT_CAPTION_STYLE)] }],
   };
 }
 

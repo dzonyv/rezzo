@@ -71,6 +71,9 @@ export interface PlayedSound {
   period: number;
 }
 
+/** Whether a sound layer's loudness is evened out: only a file of the user's own can be (the library's sounds already are). */
+export const evensLoudness = (layer: SoundLayer): boolean => layer.evenLoudness && 'assetId' in layer.sound;
+
 /** How `pieces` (from clipSoundPieces for a file `duration` long) play, at `volume` with these fades; null when nothing plays. */
 export function playedSound(pieces: readonly SoundPiece[], duration: number, volume: number, fadeIn = 0, fadeOut = 0): PlayedSound | null {
   const envelope = envelopeOf(pieces, volume, fadeIn, fadeOut);

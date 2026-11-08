@@ -99,7 +99,7 @@ beforeAll(async () => {
   };
   const layer = defaultVideoLayer(START);
   layer.layout = [{ t: START, value: 'full', ease: 'cut' }];
-  const clip: Clip = { id: crypto.randomUUID(), name: 'Pauze', start: START, end: END, skips: [], layers: [layer] };
+  const clip: Clip = { id: crypto.randomUUID(), name: 'Pauze', start: START, end: END, skips: [], evenLoudness: false, layers: [layer] };
   project.clips = [clip];
   await writeFile(file, JSON.stringify(project));
   await page.getByRole('button', { name: /numbered/ }).click();

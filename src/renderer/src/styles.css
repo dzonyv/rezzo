@@ -3125,6 +3125,39 @@ button.icon {
   gap: 10px;
 }
 
+/* Evening out loudness: the clip's own sound over the library, and a sound file's switch in its panel. */
+.clip-loudness {
+  display: flex;
+  flex-direction: column;
+  gap: 6px;
+  padding: 10px 12px;
+  border: 1px solid var(--border);
+  border-radius: var(--radius);
+  background: var(--surface-2);
+}
+
+.clip-loudness h3 {
+  margin: 0;
+  font-size: 14px;
+}
+
+.sound-loudness {
+  display: flex;
+  flex-direction: column;
+  gap: 6px;
+}
+
+.loudness-readout {
+  margin: 0;
+  color: var(--text-soft);
+  font-family: var(--font-mono);
+  font-size: 12px;
+}
+
+.loudness-readout span {
+  white-space: nowrap;
+}
+
 .sound-library .own-sound {
   height: 44px;
   border-radius: 14px;

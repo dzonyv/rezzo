@@ -412,10 +412,10 @@ export function setEffectParam(clipId: string, layerId: string, param: string, v
   });
 }
 
-/** A new sound layer: `seconds` long from `time` on, at full volume, with no fades. */
+/** A new sound layer: `seconds` long from `time` on, at full volume, with no fades; a file of the user's own evened out. */
 function newSoundLayer(clip: Pick<Clip, 'start' | 'end'>, sound: SoundLayer['sound'], time: number, seconds: number): SoundLayer {
   const { start, end } = newLayerTime(clip, time, seconds);
-  return { id: crypto.randomUUID(), kind: 'sound', sound, start, end, offset: 0, volume: 1, fadeIn: 0, fadeOut: 0, loop: false };
+  return { id: crypto.randomUUID(), kind: 'sound', sound, start, end, offset: 0, volume: 1, fadeIn: 0, fadeOut: 0, loop: false, evenLoudness: 'assetId' in sound };
 }
 
 /** Adds a sound from the library at `time`, as long as it is. Returns the new layer's id. */
@@ -461,8 +461,8 @@ export function replaceSoundFile(clipId: string, layerId: string, file: AssetFil
   });
 }
 
-/** A sound layer's volume (0..1), fades (seconds) or whether it loops; the sliders call it inside a gesture. */
-export function setSoundSettings(clipId: string, layerId: string, patch: Partial<Pick<SoundLayer, 'volume' | 'fadeIn' | 'fadeOut' | 'loop'>>): void {
+/** A sound layer's volume (0..1), fades (seconds), whether it loops or is evened out; the sliders call it inside a gesture. */
+export function setSoundSettings(clipId: string, layerId: string, patch: Partial<Pick<SoundLayer, 'volume' | 'fadeIn' | 'fadeOut' | 'loop' | 'evenLoudness'>>): void {
   editLayer(clipId, layerId, 'history.soundSettings', (layer) => {
     if (layer.kind !== 'sound') return;
     const fade = (v: number) => Math.min(MAX_FADE_SECONDS, Math.max(0, v));
@@ -470,6 +470,14 @@ export function setSoundSettings(clipId: string, layerId: string, patch: Partial
     if (patch.fadeIn !== undefined) layer.fadeIn = fade(patch.fadeIn);
     if (patch.fadeOut !== undefined) layer.fadeOut = fade(patch.fadeOut);
     if (patch.loop !== undefined) layer.loop = patch.loop;
+    if (patch.evenLoudness !== undefined) layer.evenLoudness = patch.evenLoudness;
+  });
+}
+
+/** Whether the clip's own sound has its loudness evened out. */
+export function setClipEvenLoudness(clipId: string, on: boolean): void {
+  editClip(clipId, 'history.evenLoudness', (clip) => {
+    clip.evenLoudness = on;
   });
 }
 

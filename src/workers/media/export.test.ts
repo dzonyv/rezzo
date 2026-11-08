@@ -8,6 +8,7 @@ const request = (patch: Partial<ExportRequest> = {}): ExportRequest => ({
   audioPieces: [{ start: 2.002, duration: 31.031 }],
   duration: 31.031,
   hasAudio: true,
+  gain: 1,
   sounds: [],
   frameRate: [30000, 1001],
   frames: 930,
@@ -18,9 +19,11 @@ const request = (patch: Partial<ExportRequest> = {}): ExportRequest => ({
 const arg = (args: string[], flag: string, from = 0) => args[args.indexOf(flag, from) + 1];
 
 describe('export arguments', () => {
-  it('joins the pieces of a clip with skips, and leaves a whole clip as it was', () => {
+  it('joins the pieces of a clip with skips, and leaves a whole clip in one piece', () => {
     const whole = exportArgs(request(), 'out.part');
-    expect(whole).not.toContain('-filter_complex');
+    expect(arg(whole, '-filter_complex')).toBe(
+      '[1:a:0]aformat=sample_rates=48000:channel_layouts=stereo[a0];[a0]anull,apad,atrim=end=31.031000,alimiter=limit=0.8913:attack=5:release=50:level=false:latency=true[a]',
+    );
     expect(arg(whole, '-ss')).toBe('2.002000');
     expect(arg(whole, '-t')).toBe('31.031000');
 
@@ -33,12 +36,19 @@ describe('export arguments', () => {
     expect(graph).toContain('afade=t=out:st=2.990000:d=0.01');
     expect(graph).toContain('afade=t=in:d=0.01');
     expect(graph).toContain('concat=n=2:v=0:a=1[a0]');
-    expect(graph).toContain('atrim=end=7.000000[a]');
+    expect(graph).toContain('atrim=end=7.000000,alimiter=');
   });
 
-  it('has no sound to join in a clip without any', () => {
+  it("turns the clip's own sound up or down by its gain, before the layers join it", () => {
+    expect(arg(exportArgs(request({ gain: 2.5 }), 'o'), '-filter_complex')).toContain('[1:a:0]aformat=sample_rates=48000:channel_layouts=stereo,volume=2.5000[a0]');
+    const joined = arg(exportArgs(request({ gain: 0.5, audioPieces: [{ start: 2, duration: 3 }, { start: 6, duration: 4 }], duration: 7 }), 'o'), '-filter_complex');
+    expect(joined).toContain('concat=n=2:v=0:a=1,volume=0.5000[a0]');
+  });
+
+  it('has no sound at all in a clip without any', () => {
     const args = exportArgs(request({ hasAudio: false, audioPieces: [{ start: 2, duration: 3 }, { start: 6, duration: 4 }], duration: 7 }), 'out.part');
     expect(args).not.toContain('-filter_complex');
+    expect(args.filter((x, i) => args[i - 1] === '-map')).toEqual(['0:v']);
   });
 
   it('reads raw 1080×1920 yuv420p frames at the working file rate from stdin', () => {
@@ -50,14 +60,14 @@ describe('export arguments', () => {
     expect(arg(args, '-i')).toBe('pipe:0');
   });
 
-  it("takes the clip's sound from the working file, and none if it has no sound", () => {
+  it("takes the clip's sound from the working file", () => {
     const args = exportArgs(request(), 'out.part');
     const second = args.indexOf('-i', args.indexOf('pipe:0'));
     expect(args[second + 1]).toBe('D:\\cache\\work.mp4');
     expect(args.indexOf('-ss')).toBeLessThan(second);
     expect(arg(args, '-ss')).toBe('2.002000');
     expect(arg(args, '-t')).toBe('31.031000');
-    expect(args).toContain('1:a:0?');
+    expect(arg(args, '-filter_complex')).toContain('[1:a:0]');
     expect(arg(args, '-c:a')).toBe('aac');
   });
 
@@ -75,7 +85,7 @@ describe('export arguments', () => {
     expect(graph).toContain('[1:a:0]aformat=sample_rates=48000:channel_layouts=stereo[a0]');
     expect(graph).toContain('[2:a:0]aformat=sample_rates=48000:channel_layouts=stereo,volume=0.5000,adelay=3250:all=1[s0]');
     expect(graph).toContain('[3:a:0]aformat=sample_rates=48000:channel_layouts=stereo,volume=1.0000,adelay=0:all=1[s1]');
-    expect(graph).toContain('[a0][s0][s1]amix=inputs=3:normalize=0:duration=longest,apad,atrim=end=31.031000[a]');
+    expect(graph).toContain('[a0][s0][s1]amix=inputs=3:normalize=0:duration=longest,apad,atrim=end=31.031000,alimiter=');
     expect(args.filter((x, i) => args[i - 1] === '-map')).toEqual(['0:v', '[a]']);
   });
 
@@ -83,7 +93,7 @@ describe('export arguments', () => {
     const args = exportArgs(request({ hasAudio: false, sounds: [{ file: 'b.mp4', start: 0, duration: 1, loop: false, period: 1, at: 2, volume: 1, fadeIn: 0, fadeOut: 0 }] }), 'o');
     const graph = arg(args, '-filter_complex')!;
     expect(graph).not.toContain('[1:a');
-    expect(graph).toContain('[s0]amix=inputs=1:normalize=0');
+    expect(graph).toContain('[s0]anull,apad');
   });
 
   it("fades a layer's sound in and out where it plays", () => {

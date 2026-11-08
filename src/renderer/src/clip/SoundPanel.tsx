@@ -1,5 +1,7 @@
 import { useTranslation } from 'react-i18next';
 import type { Asset } from '../../../shared/assets.ts';
+import { useAssetLoudness } from '../render/loudness.ts';
+import { LoudnessReadout } from './Loudness.tsx';
 import type { SoundLayer } from '../../../shared/project.ts';
 import { soundAsset, soundDuration } from '../../../shared/sound-mix.ts';
 import { MAX_FADE_SECONDS } from '../../../shared/sounds.ts';
@@ -12,12 +14,13 @@ import { selectLayer } from './state.ts';
 const SOUND: EditLabel = 'history.soundSettings';
 const START: EditLabel = 'history.soundStart';
 
-/** The selected sound's settings: its file, volume, fades, where in the file it starts and whether it loops. */
+/** The selected sound's settings: its file, volume, fades, where in the file it starts, whether it loops and, for a file of the user's own, whether its loudness is evened out. */
 export function SoundPanel({ clipId, layer, assets }: { clipId: string; layer: SoundLayer; assets: readonly Asset[] }) {
   const { t } = useTranslation();
   const store = projectStore.getState();
   const asset = soundAsset(layer, assets);
   const missing = useAssetMissing(asset?.id);
+  const loudness = useAssetLoudness(asset && layer.evenLoudness ? asset : undefined);
   const name = layerName(t, layer, assets);
   const duration = soundDuration(layer, assets) ?? 0;
   // A fade can be set as long as the layer; it's only ever half of what plays (shared/sound-mix.ts).
@@ -92,6 +95,20 @@ export function SoundPanel({ clipId, layer, assets }: { clipId: string; layer: S
         <input type="checkbox" checked={layer.loop} onChange={(e) => setSoundSettings(clipId, layer.id, { loop: e.target.checked })} />
         {t('sounds.loop')}
       </label>
+      {asset && (
+        <div className="sound-loudness">
+          <label className="layer-check">
+            <input type="checkbox" checked={layer.evenLoudness} onChange={(e) => setSoundSettings(clipId, layer.id, { evenLoudness: e.target.checked })} />
+            {t('sounds.loudness.even')}
+          </label>
+          {layer.evenLoudness && (
+            <>
+              <LoudnessReadout measured={loudness} />
+              <p className="dim hint">{t('sounds.loudness.fileHelp')}</p>
+            </>
+          )}
+        </div>
+      )}
       <p className="dim hint">{t('sounds.help')}</p>
     </section>
   );
