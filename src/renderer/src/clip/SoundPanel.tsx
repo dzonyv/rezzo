@@ -1,7 +1,7 @@
 import { useTranslation } from 'react-i18next';
 import type { Asset } from '../../../shared/assets.ts';
 import { useAssetLoudness } from '../render/loudness.ts';
-import { LoudnessReadout } from './Loudness.tsx';
+import { EvenLoudness } from './Loudness.tsx';
 import type { SoundLayer } from '../../../shared/project.ts';
 import { soundAsset, soundDuration } from '../../../shared/sound-mix.ts';
 import { MAX_FADE_SECONDS } from '../../../shared/sounds.ts';
@@ -96,18 +96,12 @@ export function SoundPanel({ clipId, layer, assets }: { clipId: string; layer: S
         {t('sounds.loop')}
       </label>
       {asset && (
-        <div className="sound-loudness">
-          <label className="layer-check">
-            <input type="checkbox" checked={layer.evenLoudness} onChange={(e) => setSoundSettings(clipId, layer.id, { evenLoudness: e.target.checked })} />
-            {t('sounds.loudness.even')}
-          </label>
-          {layer.evenLoudness && (
-            <>
-              <LoudnessReadout measured={loudness} />
-              <p className="dim hint">{t('sounds.loudness.fileHelp')}</p>
-            </>
-          )}
-        </div>
+        <EvenLoudness
+          on={layer.evenLoudness}
+          onChange={(evenLoudness) => setSoundSettings(clipId, layer.id, { evenLoudness })}
+          measured={loudness}
+          help={t('sounds.loudness.fileHelp')}
+        />
       )}
       <p className="dim hint">{t('sounds.help')}</p>
     </section>

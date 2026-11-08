@@ -1,4 +1,3 @@
-import { Fragment } from 'react';
 import { useTranslation } from 'react-i18next';
 import { evenGainDb } from '../../../shared/loudness.ts';
 import type { Clip, Source } from '../../../shared/project.ts';
@@ -9,32 +8,44 @@ import { useClipPlayback } from './playback.ts';
 /** A number of decibels as the panels show it, with a real minus sign. */
 const decibels = (v: number) => v.toFixed(1).replace('-', '−');
 
-/** What evening out found and does: the measured loudness and the gain, or why there's none. */
-export function LoudnessReadout({ measured }: { measured: Measured | undefined }) {
+/** What evening out does: from what loudness to what, and the gain; or why there's none. */
+function LoudnessReadout({ measured }: { measured: Measured | undefined }) {
   const { t } = useTranslation();
-  // Each part stays on one line; a narrow panel wraps between them.
-  let parts: string[];
-  if (measured === undefined) parts = [t('sounds.loudness.measuring')];
-  else if (measured === 'failed') parts = [t('sounds.loudness.failed')];
-  else if (measured.lufs === null) parts = [t('sounds.loudness.unmeasurable')];
-  else {
-    const db = evenGainDb(measured);
-    // A tenth of a decibel either way is as good as nothing.
-    const gain =
-      Math.abs(db) < 0.05
-        ? t('sounds.loudness.same')
-        : t(db > 0 ? 'sounds.loudness.up' : 'sounds.loudness.down', { db: `${db > 0 ? '+' : '−'}${decibels(Math.abs(db))}` });
-    parts = [t('sounds.loudness.measured', { lufs: decibels(measured.lufs) }), gain];
+  if (measured === undefined || measured === 'failed' || measured.lufs === null) {
+    const why = measured === undefined ? 'measuring' : measured === 'failed' ? 'failed' : 'unmeasurable';
+    return (
+      <p className="loudness-readout" role="status">
+        <span className="dim">{t(`sounds.loudness.${why}`)}</span>
+      </p>
+    );
   }
+  const db = evenGainDb(measured);
+  // A twentieth of a decibel either way is as good as nothing.
+  const same = Math.abs(db) < 0.05;
   return (
     <p className="loudness-readout" role="status">
-      {parts.map((part, i) => (
-        <Fragment key={i}>
-          {i > 0 && ' · '}
-          <span>{part}</span>
-        </Fragment>
-      ))}
+      <span>{t('sounds.loudness.change', { from: decibels(measured.lufs), to: decibels(measured.lufs + db) })}</span>
+      <span className="gain-chip">{same ? t('sounds.loudness.same') : t('sounds.loudness.gain', { db: `${db > 0 ? '+' : '−'}${decibels(Math.abs(db))}` })}</span>
     </p>
+  );
+}
+
+/** The switch for evening out loudness and, while it's on, what it does and a word of help. */
+export function EvenLoudness({ on, onChange, measured, help }: { on: boolean; onChange: (on: boolean) => void; measured: Measured | undefined; help: string }) {
+  const { t } = useTranslation();
+  return (
+    <div className="even-loudness">
+      <label className="switch-row">
+        {t('sounds.loudness.even')}
+        <input type="checkbox" role="switch" className="switch" checked={on} onChange={(e) => onChange(e.target.checked)} />
+      </label>
+      {on && (
+        <>
+          <LoudnessReadout measured={measured} />
+          <p className="dim hint">{help}</p>
+        </>
+      )}
+    </div>
   );
 }
 
@@ -47,14 +58,7 @@ export function ClipLoudness({ clip, source }: { clip: Clip; source: Source }) {
     <section className="clip-loudness" aria-label={t('sounds.loudness.clipTitle')}>
       <h3>{t('sounds.loudness.clipTitle')}</h3>
       {source.audio ? (
-        <>
-          <label className="layer-check">
-            <input type="checkbox" checked={clip.evenLoudness} onChange={(e) => setClipEvenLoudness(clip.id, e.target.checked)} />
-            {t('sounds.loudness.even')}
-          </label>
-          {clip.evenLoudness && <LoudnessReadout measured={measured} />}
-          <p className="dim hint">{t('sounds.loudness.clipHelp')}</p>
-        </>
+        <EvenLoudness on={clip.evenLoudness} onChange={(on) => setClipEvenLoudness(clip.id, on)} measured={measured} help={t('sounds.loudness.clipHelp')} />
       ) : (
         <p className="dim hint">{t('sounds.loudness.noSound')}</p>
       )}

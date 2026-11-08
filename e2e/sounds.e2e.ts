@@ -226,19 +226,19 @@ describe('evening out loudness', () => {
   };
 
   it('evens out a sound file of your own from the start, and shows by how much', async () => {
-    await expect.poll(() => page.getByRole('checkbox', { name: 'Even out loudness' }).isChecked()).toBe(true);
-    await expect.poll(() => page.locator('.sound-loudness .loudness-readout').textContent(), { timeout: 15_000 }).toMatch(/^measured −\d+\.\d LUFS · turned (up|down) [+−]\d+\.\d dB$/);
+    await expect.poll(() => page.getByRole('switch', { name: 'Even out loudness' }).isChecked()).toBe(true);
+    await expect.poll(() => page.locator('.loudness-readout').textContent(), { timeout: 15_000 }).toMatch(/^−\d+\.\d → −\d+\.\d LUFS[+−]\d+\.\d dB$/);
   });
 
   it("evens out the clip's own sound, and the export is louder by what the panel says", async () => {
     await page.getByRole('button', { name: 'Back to the picture' }).click();
-    const even = page.locator('.clip-loudness').getByRole('checkbox', { name: 'Even out loudness' });
+    const even = page.locator('.clip-loudness').getByRole('switch', { name: 'Even out loudness' });
     // A clip from before evening out keeps sounding as it did.
     expect(await even.isChecked()).toBe(false);
     await even.check();
     const readout = page.locator('.clip-loudness .loudness-readout');
-    await expect.poll(() => readout.textContent(), { timeout: 15_000 }).toMatch(/turned up/);
-    const gain = Number(/\+(\d+\.\d) dB/.exec((await readout.textContent())!)![1]);
+    await expect.poll(() => readout.locator('.gain-chip').textContent(), { timeout: 15_000 }).toMatch(/^\+\d+\.\d dB$/);
+    const gain = Number(/\+(\d+\.\d) dB/.exec((await readout.locator('.gain-chip').textContent())!)![1]);
     expect(gain).toBeGreaterThan(3);
 
     const out = path.join(dir, 'even.mp4');

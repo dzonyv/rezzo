@@ -608,16 +608,15 @@
     "loudness": {
       "clipTitle": "Zvuk klipa",
       "even": "Ujednači glasnoću",
-      "clipHelp": "Govor dobija istu glasnoću u svakom klipu, otprilike koliko ga puštaju aplikacije za kratke video snimke. Vrhovi ostaju ispod −1 dB.",
+      "clipHelp": "Isto glasno u svakom klipu, kao na TikToku i Reelsu.",
       "fileHelp": "Na 100 % je glasno kao ujednačen govor. Za muziku ispod govora obično je dobro 20–30 %.",
       "noSound": "Video ovog klipa nema zvuk.",
       "measuring": "Meri se…",
       "failed": "Nije moglo da se izmeri",
       "unmeasurable": "Previše tiho ili kratko za merenje",
-      "measured": "izmereno {{lufs}} LUFS",
-      "up": "pojačano {{db}} dB",
-      "down": "utišano {{db}} dB",
-      "same": "ostaje kako je"
+      "change": "{{from}} → {{to}} LUFS",
+      "gain": "{{db}} dB",
+      "same": "bez promene"
     },
     "errors": {
       "play": "Zvuk nije mogao da se pusti: {{detail}}"

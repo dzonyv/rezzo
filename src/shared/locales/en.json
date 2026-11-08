@@ -608,16 +608,15 @@
     "loudness": {
       "clipTitle": "Clip sound",
       "even": "Even out loudness",
-      "clipHelp": "Speech gets the same loudness in every clip, about as loud as short-video apps play it. Peaks stay under −1 dB.",
+      "clipHelp": "Same loudness in every clip, as TikTok and Reels play it.",
       "fileHelp": "At 100% it's as loud as evened-out speech. Music under speech usually sits well at 20–30%.",
       "noSound": "This clip's video has no sound.",
       "measuring": "Measuring…",
       "failed": "Couldn't measure it",
       "unmeasurable": "Too quiet or too short to measure",
-      "measured": "measured {{lufs}} LUFS",
-      "up": "turned up {{db}} dB",
-      "down": "turned down {{db}} dB",
-      "same": "left as it is"
+      "change": "{{from}} → {{to}} LUFS",
+      "gain": "{{db}} dB",
+      "same": "no change"
     },
     "errors": {
       "play": "The sound couldn't be played: {{detail}}"
