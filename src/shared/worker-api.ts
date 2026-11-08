@@ -137,8 +137,8 @@ export interface WorkerMethods {
   diarize(request: VoicesRequest): EpisodeVoices;
   /** Writes a 480p H.264 copy of the source to `out` unless it exists; reports 0..1. */
   makePreview(request: { sourcePath: string; duration: number; out: string }): void;
-  /** Writes one frame of the source at `time` to `out` as a small JPEG, unless it exists. */
-  makeThumbnail(request: { sourcePath: string; time: number; out: string }): void;
+  /** Writes one frame of the source at `time` to `out` as a JPEG at most `height` tall, unless it exists. */
+  makeThumbnail(request: { sourcePath: string; time: number; height: number; out: string }): void;
   /** Writes a working file to `request.out` unless it exists; reports 0..1. */
   makeWorkingFile(request: WorkingFileRequest): void;
   /** Writes a video layer's working file to `request.out` unless it exists; reports 0..1. */
@@ -153,6 +153,14 @@ export interface WorkerMethods {
 }
 
 export type WorkerMethod = keyof WorkerMethods;
+
+/**
+ * Heights of a clip's picture, in pixels (smaller sources keep theirs); the
+ * width follows the source. A card's is small; the export screen fills a
+ * 9:16 frame about 600 px tall with the large one.
+ */
+export const THUMBNAIL_HEIGHTS = { card: 240, large: 720 } as const;
+export type ThumbnailSize = keyof typeof THUMBNAIL_HEIGHTS;
 
 export type WorkerRequest =
   | { type: 'call'; id: number; method: WorkerMethod; args: unknown[] }

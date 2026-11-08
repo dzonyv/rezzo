@@ -595,18 +595,181 @@ button.link:hover {
   justify-content: flex-end;
 }
 
-.export-dialog .progress-line {
-  margin-bottom: 18px;
+/*
+ * The export, over the whole window: the clip's picture on the left with a
+ * curtain drawing back, and on the right the progress, then the result.
+ */
+.export-dialog {
+  width: 100vw;
+  height: 100vh;
+  max-width: none;
+  max-height: none;
+  margin: 0;
+  padding: 24px 46px 24px 24px;
+  overflow: auto;
+  border: none;
+  background: var(--bg);
+  color: var(--text);
+}
+
+.export-dialog::backdrop {
+  background: var(--bg);
+}
+
+.export-stage {
+  height: 100%;
+  display: flex;
+  align-items: center;
+  justify-content: center;
+  gap: 44px;
+}
+
+/* 9:16, as tall as the window allows. */
+.export-picture {
+  position: relative;
+  flex: none;
+  width: min(330px, calc((100vh - 48px) * 9 / 16));
+  aspect-ratio: 9 / 16;
+  overflow: hidden;
+  border-radius: var(--radius-card);
+  background: #000;
+  box-shadow: 0 18px 60px rgb(0 0 0 / 0.65);
+}
+
+.export-picture .thumb,
+.export-picture .thumb img {
+  display: block;
+  width: 100%;
+  height: 100%;
+  object-fit: cover;
+}
+
+.export-picture .thumb img.whole {
+  object-fit: contain;
+}
+
+.export-picture .curtain {
+  position: absolute;
+  top: 0;
+  right: 0;
+  bottom: 0;
+  background: rgb(18 17 14 / 0.8);
+  transition: left 0.25s linear;
+}
+
+.export-side {
+  position: relative;
+  flex: 1 1 420px;
+  max-width: 620px;
+  min-width: 0;
+  min-height: min(420px, 100%);
+  display: flex;
+  flex-direction: column;
+  justify-content: center;
+  gap: 18px;
+}
+
+.export-side h2 {
+  margin: 0;
+  font-family: var(--font-display);
+  font-size: 24px;
+  font-weight: 600;
+  line-height: 1.2;
+  letter-spacing: -0.01em;
+  overflow-wrap: anywhere;
+}
+
+.export-percent {
+  font-family: var(--font-mono);
+  font-weight: 500;
+  font-variant-numeric: tabular-nums;
+  font-size: clamp(56px, 7vw, 84px);
+  line-height: 1;
+  color: var(--accent);
+}
+
+/* Making the working file: a step before the frames, in a quieter colour. */
+.export-percent.preparing {
+  color: var(--text-dim);
+}
+
+.export-side progress {
+  width: 100%;
+  height: 14px;
+}
+
+.export-side p {
+  margin: 0;
+  color: var(--text-soft);
+}
+
+.export-status {
   font-family: var(--font-mono);
   font-variant-numeric: tabular-nums;
 }
 
-.modal p.export-error {
+.export-side .buttons {
+  display: flex;
+  flex-wrap: wrap;
+  gap: 8px;
+}
+
+.export-side .buttons button {
+  height: 44px;
+  padding: 0 20px;
+}
+
+.export-side .export-error {
   max-height: 12em;
   overflow: auto;
   white-space: pre-wrap;
   overflow-wrap: anywhere;
+  font-family: var(--font-mono);
   font-size: 12px;
+}
+
+/* Done: the yellow slab of the home screen, cut lower. */
+.export-done {
+  position: relative;
+  flex: 1;
+  min-height: 420px;
+}
+
+.export-done .slab {
+  clip-path: polygon(0 0, 100% 0, 100% 74%, 0 86%);
+}
+
+.export-done .slab.lower {
+  clip-path: polygon(0 88.5%, 100% 76.5%, 100% 100%, 0 100%);
+  transform: translateX(22px);
+}
+
+.export-done .content {
+  position: absolute;
+  inset: 0;
+  padding: 34px 36px;
+  display: flex;
+  flex-direction: column;
+  gap: 14px;
+  color: var(--accent-text);
+}
+
+.export-done h2 {
+  font-weight: 800;
+  font-size: 34px;
+  line-height: 1.08;
+  letter-spacing: -0.02em;
+}
+
+.export-done p {
+  color: var(--accent-text);
+  font-size: 16px;
+  font-weight: 500;
+  overflow-wrap: anywhere;
+}
+
+.export-done .buttons {
+  margin-top: 6px;
 }
 
 .notices {

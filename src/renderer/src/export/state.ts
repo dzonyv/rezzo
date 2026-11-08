@@ -18,17 +18,24 @@ import { notify } from '../ui/prompts.ts';
 import { assetsOf, checkVideoFiles, loadImages, MissingFilesError } from '../render/scene-renderer.ts';
 import { renderExport } from './export-job.ts';
 
+/** What is being exported: the clip as it was when the export started, for its name and picture. */
+interface Subject {
+  clipName: string;
+  clip: Clip;
+  source: Source;
+}
+
 export type ExportState =
   | { status: 'idle' }
   /** The save dialog is open. */
-  | { status: 'choosing'; clipName: string }
-  | { status: 'preparing'; clipName: string; fraction: number }
+  | (Subject & { status: 'choosing' })
+  | (Subject & { status: 'preparing'; fraction: number })
   /** `left`: estimated seconds to go, null until there's enough to go by. */
-  | { status: 'rendering'; clipName: string; done: number; total: number; startedAt: number; left: number | null }
+  | (Subject & { status: 'rendering'; done: number; total: number; startedAt: number; left: number | null })
   /** Every frame is with the encoder; it's finishing the file. */
-  | { status: 'finishing'; clipName: string }
-  | { status: 'done'; clipName: string; path: string; seconds: number; encoder: Encoder }
-  | { status: 'failed'; clipName: string; detail: string };
+  | (Subject & { status: 'finishing' })
+  | (Subject & { status: 'done'; path: string; seconds: number; encoder: Encoder })
+  | (Subject & { status: 'failed'; detail: string });
 
 export const exportStore = createStore<ExportState>()(() => ({ status: 'idle' }));
 
@@ -60,6 +67,7 @@ export async function exportClip(clip: Clip, source: Source): Promise<void> {
   pauseClip();
   pauseEpisode();
   const clipName = clip.name || i18n.t('clips.untitled');
+  const subject: Subject = { clipName, clip, source };
   const project = projectStore.getState().project;
   const segments = project?.transcript?.segments;
   const words = segments ? flatOf(segments).words : [];
@@ -67,7 +75,7 @@ export async function exportClip(clip: Clip, source: Source): Promise<void> {
   const controller = new AbortController();
   abort = controller;
   // Running from here on, before anything is awaited, so a second click can't start another export.
-  exportStore.setState({ status: 'choosing', clipName }, true);
+  exportStore.setState({ ...subject, status: 'choosing' }, true);
 
   // A layer's file gone missing would fail the export after the save dialog; better to say so first.
   try {
@@ -82,7 +90,7 @@ export async function exportClip(clip: Clip, source: Source): Promise<void> {
 
   const stopProgress = window.rezzo.on('export:prepare-progress', ({ fraction }) => {
     const s = exportStore.getState();
-    if (s.status === 'choosing' || s.status === 'preparing') exportStore.setState({ status: 'preparing', clipName, fraction }, true);
+    if (s.status === 'choosing' || s.status === 'preparing') exportStore.setState({ ...subject, status: 'preparing', fraction }, true);
   });
   let rendering: Promise<void> | undefined;
   const stopListening = onExportPort((job, port) => {
@@ -90,14 +98,14 @@ export async function exportClip(clip: Clip, source: Source): Promise<void> {
       port.close();
       return;
     }
-    exportStore.setState({ status: 'rendering', clipName, done: 0, total: job.count, startedAt: performance.now(), left: null }, true);
+    exportStore.setState({ ...subject, status: 'rendering', done: 0, total: job.count, startedAt: performance.now(), left: null }, true);
     rendering = renderExport(job, port, clip, words, assets, {
       signal: controller.signal,
       onProgress: (done) => {
         const s = exportStore.getState();
         if (s.status !== 'rendering') return;
         if (done === s.total) {
-          exportStore.setState({ status: 'finishing', clipName }, true);
+          exportStore.setState({ ...subject, status: 'finishing' }, true);
           return;
         }
         const perFrame = (performance.now() - s.startedAt) / 1000 / done;
@@ -117,9 +125,9 @@ export async function exportClip(clip: Clip, source: Source): Promise<void> {
     controller.abort();
     await rendering?.catch(() => {});
     if (result?.ok) {
-      exportStore.setState({ status: 'done', clipName, path: result.path, seconds: result.seconds, encoder: result.encoder }, true);
+      exportStore.setState({ ...subject, status: 'done', path: result.path, seconds: result.seconds, encoder: result.encoder }, true);
     } else if (result?.error === 'failed' && !cancelled) {
-      exportStore.setState({ status: 'failed', clipName, detail: result.detail }, true);
+      exportStore.setState({ ...subject, status: 'failed', detail: result.detail }, true);
     } else {
       // The dialog or the export was cancelled, or another one is running.
       exportStore.setState({ status: 'idle' }, true);
@@ -127,7 +135,7 @@ export async function exportClip(clip: Clip, source: Source): Promise<void> {
     }
   } catch (e) {
     controller.abort();
-    exportStore.setState({ status: 'failed', clipName, detail: e instanceof Error ? e.message : String(e) }, true);
+    exportStore.setState({ ...subject, status: 'failed', detail: e instanceof Error ? e.message : String(e) }, true);
   } finally {
     stopProgress();
     stopListening();
