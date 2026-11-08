@@ -453,7 +453,12 @@
     "duplicate": "Dupliraj",
     "zoomHelp": "Ctrl+točkić zumira timeline",
     "title": "Slika: {{name}}",
-    "deselect": "Nazad na sliku klipa",
+    "back": {
+      "layers": "← Svi slojevi",
+      "effects": "← Svi efekti",
+      "sounds": "← Svi zvukovi",
+      "help": "Ili pritisni Esc"
+    },
     "change": "Promeni sliku…",
     "missing": "{{name}} više nije na {{path}}, pa se ne prikazuje.",
     "locate": "Pronađi…",

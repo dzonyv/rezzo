@@ -50,8 +50,8 @@ export function EffectPanel({ clipId, layer, time, rate }: Props) {
     <section className="layer-panel">
       <header>
         <h3>{t('effects.title', { name })}</h3>
-        <button type="button" onClick={() => selectLayer(null)}>
-          {t('layers.deselect')}
+        <button type="button" title={t('layers.back.help')} onClick={() => selectLayer(null)}>
+          {t('layers.back.effects')}
         </button>
       </header>
 

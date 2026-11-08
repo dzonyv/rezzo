@@ -231,7 +231,7 @@ describe('evening out loudness', () => {
   });
 
   it("evens out the clip's own sound, and the export is louder by what the panel says", async () => {
-    await page.getByRole('button', { name: 'Back to the picture' }).click();
+    await page.getByRole('button', { name: '← All sounds' }).click();
     const even = page.locator('.clip-loudness').getByRole('switch', { name: 'Even out loudness' });
     // A clip from before evening out keeps sounding as it did.
     expect(await even.isChecked()).toBe(false);

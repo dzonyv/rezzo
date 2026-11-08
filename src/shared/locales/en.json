@@ -453,7 +453,12 @@
     "duplicate": "Duplicate",
     "zoomHelp": "Ctrl+scroll to zoom the timeline",
     "title": "Image: {{name}}",
-    "deselect": "Back to the picture",
+    "back": {
+      "layers": "← All layers",
+      "effects": "← All effects",
+      "sounds": "← All sounds",
+      "help": "Or press Esc"
+    },
     "change": "Change image…",
     "missing": "{{name}} isn't at {{path}} anymore, so it isn't shown.",
     "locate": "Find it…",

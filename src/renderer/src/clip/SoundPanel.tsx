@@ -47,8 +47,8 @@ export function SoundPanel({ clipId, layer, assets }: { clipId: string; layer: S
     <section className="layer-panel">
       <header>
         <h3>{t('sounds.title', { name })}</h3>
-        <button type="button" onClick={() => selectLayer(null)}>
-          {t('layers.deselect')}
+        <button type="button" title={t('layers.back.help')} onClick={() => selectLayer(null)}>
+          {t('layers.back.sounds')}
         </button>
       </header>
 
