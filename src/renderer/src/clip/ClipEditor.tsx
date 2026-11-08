@@ -24,6 +24,7 @@ import { ClipDock } from './ClipDock.tsx';
 import { SilencePanel } from './SilencePanel.tsx';
 import { SoundLibrary } from './SoundLibrary.tsx';
 import { SoundPanel } from './SoundPanel.tsx';
+import { ClipLoudness } from './Loudness.tsx';
 import { CaptionOverlay } from './CaptionOverlay.tsx';
 import { CaptionPanel } from './CaptionPanel.tsx';
 import { ClipPreview } from './ClipPreview.tsx';
@@ -352,7 +353,14 @@ export function ClipEditor({ clip, source, side, voices }: { clip: Clip; source:
       case 'sound':
         return (
           <>
-            {selectedLayer?.kind === 'sound' ? <SoundPanel clipId={clip.id} layer={selectedLayer} assets={assets} /> : <p className="dim hint">{t('tools.soundHint')}</p>}
+            {selectedLayer?.kind === 'sound' ? (
+              <SoundPanel clipId={clip.id} layer={selectedLayer} assets={assets} />
+            ) : (
+              <>
+                <ClipLoudness clip={clip} source={source} />
+                <p className="dim hint">{t('tools.soundHint')}</p>
+              </>
+            )}
             <SoundLibrary clipId={clip.id} time={time} />
           </>
         );

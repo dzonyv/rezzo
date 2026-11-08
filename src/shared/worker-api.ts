@@ -4,6 +4,7 @@
  * every window event, never stalls.
  */
 import type { AudioInfo, VideoInfo } from './assets.ts';
+import type { Loudness } from './loudness.ts';
 import type { FrameRate } from './frames.ts';
 import type { Source, Transcript, TranscriptLanguage } from './project.ts';
 import type { EpisodeVoices, SpeakerCount, Span } from './voices.ts';
@@ -69,6 +70,12 @@ export interface OverlayFileRequest {
   out: string;
 }
 
+/** A file's sound to measure: all of it, or (`pieces`, seconds into the file) only those stretches, one after another. */
+export interface LoudnessRequest {
+  file: string;
+  pieces: { start: number; duration: number }[] | null;
+}
+
 /** h264_nvenc on an NVIDIA card, libx264 everywhere else. */
 export type Encoder = 'nvenc' | 'x264';
 
@@ -85,7 +92,7 @@ export interface ExportSound {
   loop: boolean;
   period: number;
   at: number;
-  /** 0..1 */
+  /** Volume times the gain that evens out its loudness (1 when that's off): 0 and up. */
   volume: number;
   /** Seconds, each at most half of `duration`. */
   fadeIn: number;
@@ -104,6 +111,8 @@ export interface ExportRequest {
   duration: number;
   /** Whether the working file has sound (the source does). */
   hasAudio: boolean;
+  /** The factor the clip's own sound is turned up or down by to even out its loudness; 1 when that's off. */
+  gain: number;
   /** Video and sound layers' sound, mixed in over the clip's. */
   sounds: ExportSound[];
   frameRate: FrameRate;
@@ -155,6 +164,8 @@ export interface WorkerMethods {
   makeWorkingFile(request: WorkingFileRequest): void;
   /** Writes a video layer's working file to `request.out` unless it exists; reports 0..1. */
   makeOverlayFile(request: OverlayFileRequest): void;
+  /** Integrated loudness and true peak (shared/loudness.ts). */
+  measureLoudness(request: LoudnessRequest): Loudness;
   /** NVENC if a quick test encode works, else x264. Decided once per run. */
   pickEncoder(): Encoder;
   /**

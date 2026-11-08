@@ -87,7 +87,8 @@
     "addSound": "dodavanje zvuka",
     "replaceSound": "zamena zvučnog fajla",
     "soundSettings": "podešavanje zvuka",
-    "soundStart": "početak zvuka"
+    "soundStart": "početak zvuka",
+    "evenLoudness": "ujednačavanje glasnoće"
   },
   "files": {
     "project": "Rezzo projekat",
@@ -452,7 +453,12 @@
     "duplicate": "Dupliraj",
     "zoomHelp": "Ctrl+točkić zumira timeline",
     "title": "Slika: {{name}}",
-    "deselect": "Nazad na sliku klipa",
+    "back": {
+      "layers": "← Svi slojevi",
+      "effects": "← Svi efekti",
+      "sounds": "← Svi zvukovi",
+      "help": "Ili pritisni Esc"
+    },
     "change": "Promeni sliku…",
     "missing": "{{name}} više nije na {{path}}, pa se ne prikazuje.",
     "locate": "Pronađi…",
@@ -604,6 +610,19 @@
     "ownFileHelp": "Muzika ili bilo koji zvučni fajl: MP3, WAV, M4A, OGG, FLAC",
     "listen": "Poslušaj: {{name}}",
     "addHelp": "Dodaj kod playheada",
+    "loudness": {
+      "clipTitle": "Zvuk klipa",
+      "even": "Ujednači glasnoću",
+      "clipHelp": "Isto glasno u svakom klipu, kao na TikToku i Reelsu.",
+      "fileHelp": "Na 100 % je glasno kao ujednačen govor. Za muziku ispod govora obično je dobro 20–30 %.",
+      "noSound": "Video ovog klipa nema zvuk.",
+      "measuring": "Meri se…",
+      "failed": "Nije moglo da se izmeri",
+      "unmeasurable": "Previše tiho ili kratko za merenje",
+      "change": "{{from}} → {{to}} LUFS",
+      "gain": "{{db}} dB",
+      "same": "bez promene"
+    },
     "errors": {
       "play": "Zvuk nije mogao da se pusti: {{detail}}"
     },

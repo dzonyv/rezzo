@@ -87,7 +87,8 @@
     "addSound": "add sound",
     "replaceSound": "change sound file",
     "soundSettings": "sound settings",
-    "soundStart": "sound start"
+    "soundStart": "sound start",
+    "evenLoudness": "even out loudness"
   },
   "files": {
     "project": "Rezzo project",
@@ -452,7 +453,12 @@
     "duplicate": "Duplicate",
     "zoomHelp": "Ctrl+scroll to zoom the timeline",
     "title": "Image: {{name}}",
-    "deselect": "Back to the picture",
+    "back": {
+      "layers": "← All layers",
+      "effects": "← All effects",
+      "sounds": "← All sounds",
+      "help": "Or press Esc"
+    },
     "change": "Change image…",
     "missing": "{{name}} isn't at {{path}} anymore, so it isn't shown.",
     "locate": "Find it…",
@@ -604,6 +610,19 @@
     "ownFileHelp": "Music or any sound file: MP3, WAV, M4A, OGG, FLAC",
     "listen": "Listen to {{name}}",
     "addHelp": "Add at the playhead",
+    "loudness": {
+      "clipTitle": "Clip sound",
+      "even": "Even out loudness",
+      "clipHelp": "Same loudness in every clip, as TikTok and Reels play it.",
+      "fileHelp": "At 100% it's as loud as evened-out speech. Music under speech usually sits well at 20–30%.",
+      "noSound": "This clip's video has no sound.",
+      "measuring": "Measuring…",
+      "failed": "Couldn't measure it",
+      "unmeasurable": "Too quiet or too short to measure",
+      "change": "{{from}} → {{to}} LUFS",
+      "gain": "{{db}} dB",
+      "same": "no change"
+    },
     "errors": {
       "play": "The sound couldn't be played: {{detail}}"
     },

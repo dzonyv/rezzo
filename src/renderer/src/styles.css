@@ -3125,6 +3125,92 @@ button.icon {
   gap: 10px;
 }
 
+/* Evening out loudness: the clip's own sound over the library, and a sound file's switch in its panel. */
+.clip-loudness {
+  display: flex;
+  flex-direction: column;
+  gap: 8px;
+  padding-bottom: 12px;
+  border-bottom: 1px solid var(--border);
+}
+
+.clip-loudness h3 {
+  margin: 0;
+  font-size: 14px;
+}
+
+.even-loudness {
+  display: flex;
+  flex-direction: column;
+  gap: 8px;
+}
+
+.switch-row {
+  display: flex;
+  align-items: center;
+  justify-content: space-between;
+  gap: 10px;
+  cursor: pointer;
+}
+
+/* A checkbox drawn as a switch: grey off, the accent on. */
+input.switch {
+  position: relative;
+  flex-shrink: 0;
+  width: 34px;
+  height: 20px;
+  margin: 0;
+  border-radius: 10px;
+  background: var(--surface-3);
+  cursor: pointer;
+  transition: background 0.15s;
+  appearance: none;
+}
+
+input.switch::after {
+  position: absolute;
+  top: 3px;
+  left: 3px;
+  width: 14px;
+  height: 14px;
+  border-radius: 50%;
+  background: var(--text-dim);
+  content: '';
+  transition: transform 0.15s, background 0.15s;
+}
+
+input.switch:checked {
+  background: var(--accent);
+}
+
+input.switch:checked::after {
+  background: var(--accent-text);
+  transform: translateX(14px);
+}
+
+.loudness-readout {
+  display: flex;
+  flex-wrap: wrap;
+  align-items: center;
+  justify-content: space-between;
+  gap: 4px 8px;
+  margin: 0;
+  color: var(--text-soft);
+  font-family: var(--font-mono);
+  font-size: 12px;
+}
+
+.loudness-readout span {
+  white-space: nowrap;
+}
+
+.gain-chip {
+  padding: 2px 8px;
+  border-radius: 6px;
+  background: color-mix(in srgb, var(--accent) 16%, transparent);
+  color: var(--accent);
+}
+
 .sound-library .own-sound {
   height: 44px;
   border-radius: 14px;

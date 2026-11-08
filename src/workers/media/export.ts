@@ -12,6 +12,7 @@ import { rename, rm } from 'node:fs/promises';
 import type { MessagePortMain } from 'electron';
 import { OUTPUT } from '../../shared/framing.ts';
 import { fps } from '../../shared/frames.ts';
+import { LIMITER } from '../../shared/loudness.ts';
 import { JOIN_FADE_SECONDS } from '../../shared/skips.ts';
 import type { Encoder, ExportPortReply, ExportPortRequest, ExportRequest } from '../../shared/worker-api.ts';
 import { exec, ffmpegExe, ffprobeExe } from './exec.ts';
@@ -26,11 +27,12 @@ const ENCODER_ARGS: Record<Encoder, string[]> = {
   x264: ['-c:v', 'libx264', '-preset', 'medium', '-crf', '18', '-profile:v', 'high'],
 };
 
-const STEREO_48K = 'aformat=sample_rates=48000:channel_layouts=stereo';
+export const STEREO_48K = 'aformat=sample_rates=48000:channel_layouts=stereo';
 
 /**
  * The clip's own sound when it has skips: each piece of the working file,
- * counted from where the input starts, faded at the joins and put end to end.
+ * counted from where the input starts, faded at the joins and put end to end
+ * (the graph up to the concat, without its output label).
  */
 function joinedSound(pieces: ExportRequest['audioPieces']): string {
   const first = pieces[0]!.start;
@@ -42,22 +44,24 @@ function joinedSound(pieces: ExportRequest['audioPieces']): string {
     ];
     return `${[`[1:a:0]atrim=start=${from.toFixed(6)}:end=${(from + p.duration).toFixed(6)}`, 'asetpts=PTS-STARTPTS', STEREO_48K, ...fades].join(',')}[p${i}]`;
   });
-  return `${parts.join(';')};${pieces.map((_, i) => `[p${i}]`).join('')}concat=n=${pieces.length}:v=0:a=1[a0]`;
+  return `${parts.join(';')};${pieces.map((_, i) => `[p${i}]`).join('')}concat=n=${pieces.length}:v=0:a=1`;
 }
 
 /**
- * The layers' sound over the clip's: each layer's file is an input of its
- * own (looped when the layer loops), cut to what plays, set to its volume,
- * faded and delayed to where it plays. Then everything is added up as it
- * is (no loudness evening-out, so a layer at full volume is as loud as in
- * its file) and cut to the clip's length.
+ * The clip's sound, turned up or down by its gain, with the layers' sound
+ * over it: each layer's file is an input of its own (looped when the layer
+ * loops), cut to what plays, set to its volume (its own evening-out gain
+ * included), faded and delayed to where it plays. Then everything is added
+ * up as it is, cut to the clip's length and held under the ceiling by the
+ * limiter (shared/loudness.ts), which only touches the rare peaks.
  */
 function soundMix(req: ExportRequest): { inputs: string[]; graph: string } {
   const inputs: string[] = [];
   const parts: string[] = [];
   const mix: string[] = [];
   if (req.hasAudio) {
-    parts.push(req.audioPieces.length > 1 ? joinedSound(req.audioPieces) : `[1:a:0]${STEREO_48K}[a0]`);
+    const gain = req.gain === 1 ? '' : `,volume=${req.gain.toFixed(4)}`;
+    parts.push(`${req.audioPieces.length > 1 ? joinedSound(req.audioPieces) : `[1:a:0]${STEREO_48K}`}${gain}[a0]`);
     mix.push('[a0]');
   }
   req.sounds.forEach((s, i) => {
@@ -82,14 +86,16 @@ function soundMix(req: ExportRequest): { inputs: string[]; graph: string } {
     parts.push(`[${i + 2}:a:0]${filters.join(',')}[s${i}]`);
     mix.push(`[s${i}]`);
   });
-  parts.push(`${mix.join('')}amix=inputs=${mix.length}:normalize=0:duration=longest,apad,atrim=end=${req.duration.toFixed(6)}[a]`);
+  const limiter = `alimiter=limit=${LIMITER.ceiling.toFixed(4)}:attack=${LIMITER.attack * 1000}:release=${LIMITER.release * 1000}:level=false:latency=true`;
+  const sum = mix.length > 1 ? `${mix.join('')}amix=inputs=${mix.length}:normalize=0:duration=longest,` : `${mix[0]}anull,`;
+  parts.push(`${sum}apad,atrim=end=${req.duration.toFixed(6)},${limiter}[a]`);
   return { inputs, graph: parts.join(';') };
 }
 
 /** FFmpeg arguments for an export written to `out`. Frames come on stdin. */
 export function exportArgs(req: ExportRequest, out: string): string[] {
   const [num, den] = req.frameRate;
-  const mix = req.sounds.length > 0 || (req.hasAudio && req.audioPieces.length > 1) ? soundMix(req) : null;
+  const mix = req.sounds.length > 0 || req.hasAudio ? soundMix(req) : null;
   const first = req.audioPieces[0]!;
   const last = req.audioPieces.at(-1)!;
   return [
@@ -99,8 +105,8 @@ export function exportArgs(req: ExportRequest, out: string): string[] {
     '-ss', first.start.toFixed(6), '-t', (last.start + last.duration - first.start).toFixed(6), '-i', req.workingFile,
     ...(mix
       ? [...mix.inputs, '-filter_complex', mix.graph, '-map', '0:v', '-map', '[a]']
-      : // A working file without sound gives a silent clip.
-        ['-map', '0:v', '-map', '1:a:0?']),
+      : // Nothing to hear: a silent clip.
+        ['-map', '0:v']),
     ...ENCODER_ARGS[req.encoder],
     // A keyframe every two seconds.
     '-g', String(Math.round(2 * fps(req.frameRate))),

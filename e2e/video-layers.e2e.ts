@@ -167,6 +167,7 @@ beforeAll(async () => {
     id: crypto.randomUUID(),
     name: 'Video',
     skips: [],
+    evenLoudness: false,
     start: START,
     end: END,
     layers: [

@@ -224,8 +224,8 @@ export function LayerPanel({ clipId, layer, asset, time, rate, overLimit }: Prop
     <section className="layer-panel">
       <header>
         <h3>{t(TEXTS[kind].title, { name })}</h3>
-        <button type="button" onClick={() => selectLayer(null)}>
-          {t('layers.deselect')}
+        <button type="button" title={t('layers.back.help')} onClick={() => selectLayer(null)}>
+          {t('layers.back.layers')}
         </button>
       </header>
 

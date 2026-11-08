@@ -24,6 +24,12 @@ const rangeSchema = z
 /** One preparation per window: a newer request (another clip, a new range) replaces the old one. */
 const running = new Map<number, AbortController>();
 
+/** A working file from the cache that holds `range` of the source, or null when there's none yet. */
+export function cachedWorkingFile(source: Source, range: { start: number; end: number }): Promise<{ file: string; span: WorkingSpan } | null> {
+  const rate = workingFrameRate(source);
+  return findCovering(path.join(cacheDir(), source.fingerprint, 'work'), WORKING_VERSION, rate, withinFrames(range, source.duration, rate));
+}
+
 /**
  * A working file holding `range` of the source: one from the cache if it
  * covers the range, else a new one. Rejects when the conversion fails or
@@ -34,12 +40,12 @@ export async function ensureWorkingFile(
   range: { start: number; end: number },
   options: { signal?: AbortSignal; onProgress?: (fraction: number) => void } = {},
 ): Promise<{ file: string; span: WorkingSpan }> {
+  // A file made for this clip before it was trimmed, or for an overlapping clip.
+  const cached = await cachedWorkingFile(source, range);
+  if (cached) return cached;
+
   const rate = workingFrameRate(source);
   const dir = path.join(cacheDir(), source.fingerprint, 'work');
-
-  // A file made for this clip before it was trimmed, or for an overlapping clip.
-  const cached = await findCovering(dir, WORKING_VERSION, rate, withinFrames(range, source.duration, rate));
-  if (cached) return cached;
 
   const span = workingSpan(range, source, rate);
   const file = path.join(dir, workingFileName(span));

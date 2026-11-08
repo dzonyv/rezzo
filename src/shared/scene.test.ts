@@ -75,6 +75,7 @@ describe('scene', () => {
     id: crypto.randomUUID(),
     name: 'x',
     skips: [],
+    evenLoudness: false,
     start: 0,
     end: 10,
     layers: [defaultVideoLayer(0), image(2, 4), newCaptionLayer(0, DEFAULT_CAPTION_STYLE)],

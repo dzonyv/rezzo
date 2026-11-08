@@ -16,9 +16,13 @@
  * The sound is scheduled ahead, piece after piece, so the clock it gives is
  * output time, and frames are compared with it in output time. A paused
  * playhead may stand inside a skip, to see what was cut.
+ *
+ * Everything heard goes through a limiter like the export's
+ * (shared/loudness.ts), and the clip's own sound through its gain first.
  */
 import type { Size } from '../../../shared/framing.ts';
 import { fps, type FrameRate } from '../../../shared/frames.ts';
+import { LIMITER, PEAK_CEILING_DB } from '../../../shared/loudness.ts';
 import { JOIN_FADE_SECONDS, keptLength, keptPieces, nextKept, outputTime, type ClipSpan } from '../../../shared/skips.ts';
 import { gainPoints, type PlayedSound } from '../../../shared/sound-mix.ts';
 import { workingFrameIndex, workingFrameTime } from '../../../shared/working.ts';
@@ -44,6 +48,22 @@ export type DrawAt = (time: number) => void;
 export type PrepareAt = (time: number, sequential: boolean) => Promise<boolean>;
 
 const nothingToPrepare: PrepareAt = () => Promise.resolve(false);
+
+/** Steep enough to hold peaks at the ceiling, as the export's alimiter does. */
+const LIMIT_RATIO = 20;
+
+/**
+ * A limiter in front of `context`'s speakers. Web Audio's compressor also
+ * turns everything up by a makeup gain the spec works out from its
+ * settings (0.6 of what it takes off a full-scale signal); the gain after
+ * it takes that back, so only peaks over the ceiling change, as in the export.
+ */
+function limiterOf(context: AudioContext): AudioNode {
+  const limiter = new DynamicsCompressorNode(context, { threshold: PEAK_CEILING_DB, knee: 0, ratio: LIMIT_RATIO, attack: LIMITER.attack, release: LIMITER.release });
+  const makeupDb = -0.6 * PEAK_CEILING_DB * (1 - 1 / LIMIT_RATIO);
+  limiter.connect(new GainNode(context, { gain: 10 ** (-makeupDb / 20) })).connect(context.destination);
+  return limiter;
+}
 
 /**
  * A layer's sound: a video layer's working file's audio or a sound layer's
@@ -105,6 +125,10 @@ export class ClipPlayer {
   private readonly frames: FrameSource;
   private readonly audio: AudioBuffer | null;
   private readonly context = new AudioContext({ latencyHint: 'interactive' });
+  /** Where all sound goes: the limiter. */
+  private readonly output = limiterOf(this.context);
+  /** The clip's own sound goes through this on its way out: its loudness evened out (setClipGain). */
+  private readonly clipGain = new GainNode(this.context);
   private nodes: AudioBufferSourceNode[] = [];
   private sounds: LayerSound[] = [];
   private soundNodes: AudioBufferSourceNode[] = [];
@@ -132,6 +156,7 @@ export class ClipPlayer {
     this.compositor = compositor;
     this.frames = frames;
     this.audio = audio;
+    this.clipGain.connect(this.output);
     this.range = range;
     this.drawAt = drawAt;
     this.time = range.start;
@@ -182,6 +207,11 @@ export class ClipPlayer {
   /** The clip's range in the source; playback stays inside it. */
   get clipRange(): ClipSpan {
     return this.range;
+  }
+
+  /** How much the clip's own sound is turned up or down by (1: as it is). */
+  setClipGain(gain: number): void {
+    this.clipGain.gain.setValueAtTime(gain, this.context.currentTime);
   }
 
   setRange(range: ClipSpan): void {
@@ -403,7 +433,7 @@ export class ClipPlayer {
         gain.gain.setValueAtTime(1, at + length - JOIN_FADE_SECONDS);
         gain.gain.linearRampToValueAtTime(0, at + length);
       }
-      node.connect(gain).connect(this.context.destination);
+      node.connect(gain).connect(this.clipGain);
       node.start(at, Math.max(0, piece.start - this.file.start), length);
       this.nodes.push(node);
       at += length;
@@ -448,7 +478,7 @@ export class ClipPlayer {
         if (i === 0) gain.gain.setValueAtTime(p.gain, toContext(p.t));
         else gain.gain.linearRampToValueAtTime(p.gain, toContext(p.t));
       });
-      node.connect(gain).connect(this.context.destination);
+      node.connect(gain).connect(this.output);
       node.start(toContext(start), offset);
       node.stop(toContext(end));
       this.soundNodes.push(node);

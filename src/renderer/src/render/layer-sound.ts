@@ -29,14 +29,17 @@ function soundOf(url: string): Promise<AudioBuffer | null> {
 
 /**
  * The sound of `clip`'s video layers that have any, from their working
- * files in `files` (by layer id), and of its sound layers. Decoded working
- * file sound no layer uses any more is let go of. A sound layer whose file
- * can't be read is left out; `onFile` hears whether each file was there.
+ * files in `files` (by layer id), and of its sound layers, each turned up
+ * or down by its gain in `gains` (by layer id, 1 when not there). Decoded
+ * working file sound no layer uses any more is let go of. A sound layer
+ * whose file can't be read is left out; `onFile` hears whether each file
+ * was there.
  */
 export async function layerSounds(
   clip: Clip,
   assets: readonly Asset[],
   files: ReadonlyMap<string, OverlayFile>,
+  gains: Readonly<Record<string, number>> = {},
   onFile: (asset: Asset, there: boolean) => void = () => {},
 ): Promise<LayerSound[]> {
   const used = new Set<string>();
@@ -50,7 +53,7 @@ export async function layerSounds(
     return { buffer, played: { ...played, from: Math.max(0, played.from - file.start) } };
   });
   const sounds = soundLayersOf(clip, assets).map(async ({ layer, duration, asset }): Promise<LayerSound | null> => {
-    const played = playedSound(clipSoundPieces(clip, layer, duration), duration, layer.volume, layer.fadeIn, layer.fadeOut);
+    const played = playedSound(clipSoundPieces(clip, layer, duration), duration, layer.volume * (gains[layer.id] ?? 1), layer.fadeIn, layer.fadeOut);
     if (!played) return null;
     try {
       const buffer = 'library' in layer.sound ? await loadLibrarySound(layer.sound.library) : await loadSoundFile(asset!);

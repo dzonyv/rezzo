@@ -26,7 +26,8 @@ const sample: Project = {
   },
   clips: [],
 };
-sample.clips.push(clipFromWords(sample.transcript!.segments[0]!.words, sample.source!, '0b6f2a52-9d0c-4f39-8f39-7f0e2c9b1a11'));
+// Off, as every clip from before format 13 comes out: the upgrades below compare with it.
+sample.clips.push({ ...clipFromWords(sample.transcript!.segments[0]!.words, sample.source!, '0b6f2a52-9d0c-4f39-8f39-7f0e2c9b1a11'), evenLoudness: false });
 
 const code = (fn: () => unknown) => {
   try {
@@ -321,7 +322,7 @@ describe('project files', () => {
   describe('sound layers', () => {
     const music = { id: '3e0b8c1a-55f2-4b7e-8a51-0c6b1f7d2e44', kind: 'audio' as const, path: 'D:/Muzika/tema.mp3', name: 'tema.mp3', size: 4_000_000, fingerprint: 'c'.repeat(64), codec: 'mp3', duration: 95.2 };
     const sound = (source: { library: 'whoosh' } | { assetId: string }) => ({
-      id: crypto.randomUUID(), kind: 'sound' as const, sound: source, start: 0.5, end: 1.2, offset: 0, volume: 0.8, fadeIn: 0.2, fadeOut: 1, loop: false,
+      id: crypto.randomUUID(), kind: 'sound' as const, sound: source, start: 0.5, end: 1.2, offset: 0, volume: 0.8, fadeIn: 0.2, fadeOut: 1, loop: false, evenLoudness: false,
     });
     const withSounds = (...layers: ReturnType<typeof sound>[]): Project => ({
       ...sample,
@@ -349,6 +350,19 @@ describe('project files', () => {
     it('upgrades a format 11 file, which had no sounds, as it is', () => {
       expect(parseProject(JSON.stringify({ ...sample, format: 11 }))).toEqual(sample);
     });
+
+    it('upgrades a format 12 file with evening out off, so its clips and sounds sound as they did', () => {
+      const p = withSounds(sound({ library: 'whoosh' }), sound({ assetId: music.id }));
+      const old = JSON.parse(JSON.stringify({ ...p, format: 12 }), (k, v: unknown) => (k === 'evenLoudness' ? undefined : v)) as object;
+      expect(JSON.stringify(old)).not.toContain('evenLoudness');
+      expect(parseProject(JSON.stringify(old))).toEqual(p);
+    });
+
+    it('keeps whether a clip and a sound file are evened out', () => {
+      const p = withSounds({ ...sound({ assetId: music.id }), evenLoudness: true });
+      p.clips[0]!.evenLoudness = true;
+      expect(parseProject(serializeProject(p))).toEqual(p);
+    });
   });
 
   it('rejects a layer whose file is not in the project', () => {
@@ -368,8 +382,9 @@ describe('project files', () => {
     expect(code(() => parseProject(JSON.stringify(p)))).toBe('invalid');
   });
 
-  it('gives a new clip captions', () => {
+  it('gives a new clip captions, and its sound evened out', () => {
     expect(sample.clips[0]!.layers.map((l) => l.kind)).toEqual(['video', 'caption']);
+    expect(clipFromWords(sample.transcript!.segments[0]!.words, sample.source!).evenLoudness).toBe(true);
   });
 
   it('rejects a caption style it does not know', () => {

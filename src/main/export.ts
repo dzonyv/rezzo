@@ -12,13 +12,14 @@ import { assetSchema, type Asset } from '../shared/assets.ts';
 import { fps, type FrameRate } from '../shared/frames.ts';
 import { clipSoundPieces, overlayRange, videoLayersOf } from '../shared/overlay-files.ts';
 import { clipSchema, sourceSchema, type Clip } from '../shared/project.ts';
-import { playedSound, soundLayersOf, type PlayedSound } from '../shared/sound-mix.ts';
+import { evenGain } from '../shared/loudness.ts';
+import { evensLoudness, playedSound, soundLayersOf, type PlayedSound } from '../shared/sound-mix.ts';
 import type { ExportSound } from '../shared/worker-api.ts';
 import { translate } from '../shared/translate.ts';
-import { keptPieces } from '../shared/skips.ts';
-import { clipFrames, spanStart } from '../shared/working.ts';
+import { spanStart } from '../shared/working.ts';
 import { allowMedia, assetUrl, sourceUrl } from './media-protocol.ts';
 import { ensureWorkingFile, parseRange } from './clip.ts';
+import { clipLoudnessIn, clipPieces, fileLoudness } from './loudness.ts';
 import { ensureOverlayFile } from './overlay.ts';
 import { librarySoundPath } from './sounds.ts';
 import { getSettings, rememberExportDir } from './settings.ts';
@@ -45,14 +46,16 @@ const exportSound = (file: string, played: PlayedSound, start: number): ExportSo
   return { file, start, duration: length, loop: played.loop, period: played.period, at, volume, fadeIn, fadeOut };
 };
 
-/** The sound layers' sound in the clip, straight from their files. Times are output time. */
-function soundLayerSounds(clip: Clip, assets: readonly Asset[]): ExportSound[] {
-  return soundLayersOf(clip, assets).flatMap(({ layer, duration, asset }) => {
-    const played = layer.volume > 0 ? playedSound(clipSoundPieces(clip, layer, duration), duration, layer.volume, layer.fadeIn, layer.fadeOut) : null;
-    if (!played) return [];
+/** The sound layers' sound in the clip, straight from their files, evened out where asked. Times are output time. */
+async function soundLayerSounds(clip: Clip, assets: readonly Asset[]): Promise<ExportSound[]> {
+  const sounds = soundLayersOf(clip, assets).map(async ({ layer, duration, asset }) => {
+    if (layer.volume === 0) return [];
     const file = 'library' in layer.sound ? librarySoundPath(layer.sound.library) : asset!.path;
-    return [exportSound(file, played, played.from)];
+    const gain = evensLoudness(layer) ? evenGain(await fileLoudness(file).catch(() => null), true) : 1;
+    const played = playedSound(clipSoundPieces(clip, layer, duration), duration, layer.volume * gain, layer.fadeIn, layer.fadeOut);
+    return played ? [exportSound(file, played, played.from)] : [];
   });
+  return (await Promise.all(sounds)).flat();
 }
 
 /**
@@ -115,10 +118,15 @@ export async function startExport(win: BrowserWindow, sourceArg: unknown, clipAr
     progress(0);
     const { file, span } = await ensureWorkingFile(source, range, { signal: abort.signal, onProgress: progress });
     const encoder = await callWorker('pickEncoder', []);
-    const placement = { start: spanStart(span), frameRate: span.rate };
-    const pieces = keptPieces(clip).map((p) => clipFrames(placement, p)).filter((p) => p.count > 0);
+    const { placement, frames: pieces, seconds } = clipPieces(clip, span);
     const count = pieces.reduce((sum, p) => sum + p.count, 0);
-    const sounds = [...(await videoLayerSounds(clip, assets, span.rate, { signal: abort.signal, onProgress: progress })), ...soundLayerSounds(clip, assets)];
+    const hasAudio = source.audio !== null;
+    const [videoSounds, layerSounds, loudness] = await Promise.all([
+      videoLayerSounds(clip, assets, span.rate, { signal: abort.signal, onProgress: progress }),
+      soundLayerSounds(clip, assets),
+      // Not measurable is heard as it is, as in the preview.
+      hasAudio && clip.evenLoudness ? clipLoudnessIn(file, span, clip).catch(() => null) : null,
+    ]);
     abort.signal.throwIfAborted();
 
     const { port1, port2 } = new MessageChannelMain();
@@ -128,10 +136,11 @@ export async function startExport(win: BrowserWindow, sourceArg: unknown, clipAr
       [{
         out,
         workingFile: file,
-        audioPieces: pieces.map((p) => ({ start: p.first / fps(span.rate), duration: p.count / fps(span.rate) })),
+        audioPieces: seconds,
         duration: count / fps(span.rate),
-        hasAudio: source.audio !== null,
-        sounds,
+        hasAudio,
+        gain: evenGain(loudness, clip.evenLoudness),
+        sounds: [...videoSounds, ...layerSounds],
         frameRate: span.rate,
         frames: count,
         encoder,

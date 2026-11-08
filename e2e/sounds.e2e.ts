@@ -6,6 +6,8 @@
  * source's 440 Hz tone:
  * - "tone": 2 s of a steady tone;
  * - "tick": 0.3 s, a 0.1 s tone and then silence.
+ * At the end the clip's own sound is evened out, and the export is louder
+ * by the gain the panel shows.
  */
 import { execFile } from 'node:child_process';
 import { mkdtemp, readFile, rm, stat, writeFile } from 'node:fs/promises';
@@ -61,7 +63,7 @@ async function audioAsset(file: string, duration: number): Promise<AudioAsset> {
 }
 
 function sound(asset: AudioAsset, patch: Partial<SoundLayer>): SoundLayer {
-  return { id: crypto.randomUUID(), kind: 'sound', sound: { assetId: asset.id }, start: START, end: END, offset: 0, volume: 1, fadeIn: 0, fadeOut: 0, loop: false, ...patch };
+  return { id: crypto.randomUUID(), kind: 'sound', sound: { assetId: asset.id }, start: START, end: END, offset: 0, volume: 1, fadeIn: 0, fadeOut: 0, loop: false, evenLoudness: false, ...patch };
 }
 
 beforeAll(async () => {
@@ -97,6 +99,7 @@ beforeAll(async () => {
     id: crypto.randomUUID(),
     name: 'Zvuk',
     skips: [],
+    evenLoudness: false,
     start: START,
     end: END,
     layers: [
@@ -212,5 +215,37 @@ describe('adding and changing sounds', () => {
     // The same file as the one already in the clip: one asset for both.
     expect(assets.filter((a) => a.kind === 'audio')).toHaveLength(2);
     expect(added.sound).toEqual(layers[0]!.sound);
+  });
+});
+
+describe('evening out loudness', () => {
+  /** The source's 440 Hz tone in an export, before any layer is heard: its peak level, dB. */
+  const toneLevel = async (out: string) => {
+    const { stderr } = await run(ffmpegExe(), ['-v', 'info', '-nostats', '-ss', '0.1', '-t', '0.3', '-i', out, '-af', 'lowpass=f=1000,lowpass=f=1000,volumedetect', '-f', 'null', '-']);
+    return Number(/max_volume: (-?[\d.]+) dB/.exec(stderr)![1]);
+  };
+
+  it('evens out a sound file of your own from the start, and shows by how much', async () => {
+    await expect.poll(() => page.getByRole('switch', { name: 'Even out loudness' }).isChecked()).toBe(true);
+    await expect.poll(() => page.locator('.loudness-readout').textContent(), { timeout: 15_000 }).toMatch(/^−\d+\.\d → −\d+\.\d LUFS[+−]\d+\.\d dB$/);
+  });
+
+  it("evens out the clip's own sound, and the export is louder by what the panel says", async () => {
+    await page.getByRole('button', { name: '← All sounds' }).click();
+    const even = page.locator('.clip-loudness').getByRole('switch', { name: 'Even out loudness' });
+    // A clip from before evening out keeps sounding as it did.
+    expect(await even.isChecked()).toBe(false);
+    await even.check();
+    const readout = page.locator('.clip-loudness .loudness-readout');
+    await expect.poll(() => readout.locator('.gain-chip').textContent(), { timeout: 15_000 }).toMatch(/^\+\d+\.\d dB$/);
+    const gain = Number(/\+(\d+\.\d) dB/.exec((await readout.locator('.gain-chip').textContent())!)![1]);
+    expect(gain).toBeGreaterThan(3);
+
+    const out = path.join(dir, 'even.mp4');
+    await answerSaveDialog(app!, out);
+    await page.locator('.clip-editor header').getByRole('button', { name: 'Export' }).click();
+    await page.getByRole('heading', { name: 'Clip exported' }).waitFor({ timeout: 60_000 });
+    await page.locator('.export-dialog').getByRole('button', { name: 'Close', exact: true }).click();
+    expect((await toneLevel(out)) - (await toneLevel(path.join(dir, 'sounds.mp4')))).toBeCloseTo(gain, 0);
   });
 });
