@@ -78,7 +78,7 @@ function registerHandlers(): void {
   handle('episode:locate', ({ window }, source) => locateEpisode(window, source));
   handle('episode:media-url', (_ctx, source) => episodeMediaUrl(source));
   handle('episode:preview', ({ window }, source) => makePreview(window.webContents, source));
-  handle('episode:thumbnail', (_ctx, source, time) => episodeThumbnail(source, time));
+  handle('episode:thumbnail', (_ctx, source, time, size) => episodeThumbnail(source, time, size));
 
   handle('transcribe:status', () => transcriptionStatus());
   handle('transcribe:start', ({ window }, request) => startTranscription(window.webContents, request));

@@ -6,7 +6,7 @@ import { z } from 'zod';
 import type { ImportResult, LocateResult, SourceStatus } from '../shared/api.ts';
 import { sourceSchema, type Source } from '../shared/project.ts';
 import { translate } from '../shared/translate.ts';
-import { WorkerError } from '../shared/worker-api.ts';
+import { THUMBNAIL_HEIGHTS, WorkerError } from '../shared/worker-api.ts';
 import { allowMedia, rememberSource, sourceUrl } from './media-protocol.ts';
 import { cacheDir } from './paths.ts';
 import { getSettings } from './settings.ts';
@@ -92,16 +92,19 @@ const makingThumbnails = new Map<string, Promise<string>>();
 /** One at a time: a project with many clips shouldn't start an FFmpeg for each at once. */
 let thumbnailQueue: Promise<unknown> = Promise.resolve();
 
-/** A small picture of the source at `time`, made once per source and time, in the cache. */
-export function episodeThumbnail(source: unknown, time: unknown): Promise<string> {
+/** A picture of the source at `time`, made once per source, time and size, in the cache. */
+export function episodeThumbnail(source: unknown, time: unknown, size: unknown): Promise<string> {
   const { path: file, fingerprint, duration } = sourceSchema.parse(source);
+  const kind = z.enum(['card', 'large']).default('card').parse(size);
+  const height = THUMBNAIL_HEIGHTS[kind];
   // Not the very end: FFmpeg has no frame to give there.
   const at = Math.min(Math.max(z.number().finite().parse(time), 0), Math.max(0, duration - 0.5));
   sourceUrl(file); // the same check: only a source we know
-  const out = path.join(cacheDir(), fingerprint, 'thumbnails', `${Math.round(at * 1000)}.jpg`);
+  // Cards keep the folder they always had, so pictures already made still count.
+  const out = path.join(cacheDir(), fingerprint, kind === 'card' ? 'thumbnails' : `thumbnails-${height}`, `${Math.round(at * 1000)}.jpg`);
   let making = makingThumbnails.get(out);
   if (!making) {
-    making = thumbnailQueue.then(() => callWorker('makeThumbnail', [{ sourcePath: file, time: at, out }])).then(() => allowMedia(out));
+    making = thumbnailQueue.then(() => callWorker('makeThumbnail', [{ sourcePath: file, time: at, height, out }])).then(() => allowMedia(out));
     thumbnailQueue = making.catch(() => undefined);
     makingThumbnails.set(out, making);
     // A failure can be tried again; a success stays, the file is in the cache anyway.

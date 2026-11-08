@@ -208,6 +208,9 @@ describe('export', () => {
     await exportFromList('Kratki', out());
     await page.getByRole('heading', { name: 'Clip exported' }).waitFor({ timeout: 60_000 });
     expect(await page.locator('.export-dialog p').textContent()).toMatch(/^kratki\.mp4, in [\d.]+ s on the (graphics card|processor)\.$/);
+    // Beside it, the clip's picture, with the curtain gone.
+    await expect.poll(() => page.locator('.export-picture .thumb img').evaluate((img: { naturalWidth: number }) => img.naturalWidth), { timeout: 20_000 }).toBeGreaterThan(0);
+    expect(await page.locator('.export-picture .curtain').count()).toBe(0);
     await page.locator('.export-dialog').getByRole('button', { name: 'Close', exact: true }).click();
     await expect.poll(() => page.locator('.export-dialog[open]').count()).toBe(0);
     yuv = await yuvFrames(out());
@@ -296,6 +299,11 @@ describe('export', () => {
     await page.getByRole('heading', { name: 'An export is running' }).waitFor();
     await page.getByRole('button', { name: 'Keep exporting' }).click();
     expect(await page.locator('.export-dialog[open] progress[max]').count()).toBe(1);
+    // The curtain over the picture has drawn back as far as the frames have come.
+    const curtainAt = () => page.locator('.export-picture .curtain').evaluate((el: { style: { left: string } }) => parseFloat(el.style.left) / 100);
+    await expect.poll(curtainAt).toBeGreaterThan(0);
+    const drawn = Number(await page.locator('.export-dialog progress').getAttribute('value')) / LONG_COUNT;
+    expect(Math.abs((await curtainAt()) - drawn)).toBeLessThan(0.2);
 
     await page.locator('.export-dialog').getByRole('button', { name: 'Cancel' }).click();
     await expect.poll(() => page.locator('.export-dialog[open]').count(), { timeout: 20_000 }).toBe(0);

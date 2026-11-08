@@ -56,6 +56,6 @@ Built in three parts: 4a (clip analysis: voices, camera cuts, people), 4b (who t
 ## Phase 5 — Later
 
 - Silence removal, and cutting words out of a clip ✓
-- Music.
+- Sound, before the first release: sound effects (a click, a camera shutter, a whoosh…) and music as audio layers on the clip timeline, with volume and fades. A small library of freely licensed effects comes with the app, and your own files work too.
 - AI suggestions for interesting moments.
 - macOS and Linux.

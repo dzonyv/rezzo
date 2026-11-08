@@ -12,7 +12,7 @@ import type { FrameRate } from './frames.ts';
 import type { Clip, Project, ProjectFormatError, Source, Transcript, TranscriptLanguage } from './project.ts';
 import type { Settings } from './settings.ts';
 import type { EpisodeVoices, SpeakerCount } from './voices.ts';
-import type { Encoder, TranscribeProgress, VoicesProgress } from './worker-api.ts';
+import type { Encoder, ThumbnailSize, TranscribeProgress, VoicesProgress } from './worker-api.ts';
 
 export type OpenResult =
   | { ok: true; path: string; project: Project }
@@ -138,8 +138,8 @@ export interface InvokeApi {
   'episode:media-url': (source: Source) => string;
   /** Makes (once) a playable 480p copy of the source; progress as episode:preview-progress. */
   'episode:preview': (source: Source) => string;
-  /** A small picture of the source at `time` seconds (a clip's card), made once and kept in the cache. */
-  'episode:thumbnail': (source: Source, time: number) => string;
+  /** A picture of the source at `time` seconds (a clip's card, or the export screen's `large` one), made once and kept in the cache. */
+  'episode:thumbnail': (source: Source, time: number, size?: ThumbnailSize) => string;
 
   'transcribe:status': () => TranscriptionStatus;
   /** Runs until the transcript is ready; progress comes as transcribe:progress events. */
