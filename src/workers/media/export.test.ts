@@ -61,10 +61,10 @@ describe('export arguments', () => {
     expect(arg(args, '-c:a')).toBe('aac');
   });
 
-  it("mixes video layers' sound over the clip's, each stretch delayed to where it plays", () => {
+  it("mixes layers' sound over the clip's, each delayed to where it plays", () => {
     const sounds = [
-      { file: 'a.mp4', start: 1.5, duration: 2, at: 3.25, volume: 0.5 },
-      { file: 'b.mp4', start: 0, duration: 1, at: 0, volume: 1 },
+      { file: 'a.mp4', start: 1.5, duration: 2, loop: false, period: 4, at: 3.25, volume: 0.5, fadeIn: 0, fadeOut: 0 },
+      { file: 'b.mp4', start: 0, duration: 1, loop: false, period: 1, at: 0, volume: 1, fadeIn: 0, fadeOut: 0 },
     ];
     const args = exportArgs(request({ sounds }), 'out.part');
     const inputs = args.flatMap((a, i) => (a === '-i' ? [args[i + 1]] : []));
@@ -80,10 +80,26 @@ describe('export arguments', () => {
   });
 
   it("mixes layers' sound into silence when the source has none", () => {
-    const args = exportArgs(request({ hasAudio: false, sounds: [{ file: 'b.mp4', start: 0, duration: 1, at: 2, volume: 1 }] }), 'o');
+    const args = exportArgs(request({ hasAudio: false, sounds: [{ file: 'b.mp4', start: 0, duration: 1, loop: false, period: 1, at: 2, volume: 1, fadeIn: 0, fadeOut: 0 }] }), 'o');
     const graph = arg(args, '-filter_complex')!;
     expect(graph).not.toContain('[1:a');
     expect(graph).toContain('[s0]amix=inputs=1:normalize=0');
+  });
+
+  it("fades a layer's sound in and out where it plays", () => {
+    const args = exportArgs(request({ sounds: [{ file: 'm.mp3', start: 4, duration: 10, loop: false, period: 60, at: 1, volume: 0.3, fadeIn: 1.5, fadeOut: 2 }] }), 'o');
+    expect(arg(args, '-filter_complex')).toContain(
+      '[2:a:0]aformat=sample_rates=48000:channel_layouts=stereo,volume=0.3000,afade=t=in:d=1.500000,afade=t=out:st=8.000000:d=2.000000,adelay=1000:all=1[s0]',
+    );
+  });
+
+  it('loops exactly the period of a looping sound, then cuts it to what plays', () => {
+    const args = exportArgs(request({ sounds: [{ file: 'click.ogg', start: 0.1, duration: 5, loop: true, period: 0.3, at: 0, volume: 1, fadeIn: 0, fadeOut: 0 }] }), 'o');
+    const i = args.indexOf('click.ogg');
+    expect(args[i - 2]).not.toBe('-t');
+    expect(arg(args, '-filter_complex')).toContain(
+      '[2:a:0]atrim=end=0.300000,aformat=sample_rates=48000:channel_layouts=stereo,aloop=loop=-1:size=14400,atrim=start=0.100000:duration=5.000000,asetpts=PTS-STARTPTS,volume=',
+    );
   });
 
   it('uses the chosen encoder with a keyframe every two seconds', () => {

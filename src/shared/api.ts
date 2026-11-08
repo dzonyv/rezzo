@@ -4,7 +4,8 @@
  * which the preload script builds from these channel lists.
  */
 import type { ClipAnalysis } from './analysis.ts';
-import type { Asset, AssetFile, AssetKind, AssetStatus, VideoAsset, VideoInfo } from './assets.ts';
+import type { Asset, AssetFile, AssetKind, AssetStatus, AudioInfo, VideoAsset, VideoInfo } from './assets.ts';
+import type { SoundName } from './sounds.ts';
 import type { LottieInfo } from './lottie.ts';
 import type { OverlayLayout } from './overlay-files.ts';
 import type { CustomFont } from './fonts.ts';
@@ -95,8 +96,8 @@ export type AddFontResult =
  * animation that shows image files kept beside it.
  */
 export type AddAssetResult =
-  | { ok: true; file: AssetFile; url: string; video?: VideoInfo; lottie?: LottieInfo }
-  | { ok: false; error: 'unreadable' | 'too-large' | 'external-images' };
+  | { ok: true; file: AssetFile; url: string; video?: VideoInfo; lottie?: LottieInfo; audio?: AudioInfo }
+  | { ok: false; error: 'unreadable' | 'too-large' | 'too-long' | 'external-images' };
 
 export type LocateAssetResult = AddAssetResult | { ok: false; error: 'different-file' };
 
@@ -202,6 +203,8 @@ export interface InvokeApi {
   'asset:locate': (kind: AssetKind, asset: AssetFile) => LocateAssetResult | null;
   /** A rezzo-media:// URL the page can read a layer's file from. */
   'asset:url': (asset: AssetFile) => string;
+  /** A rezzo-media:// URL the page can read a sound from the library from. */
+  'sound:url': (name: SoundName) => string;
 
   /** The renderer listens for close requests from now on. Until then a window closes without asking it. */
   'app:listening': () => void;
@@ -267,6 +270,7 @@ export const INVOKE_CHANNELS = {
   'asset:check': true,
   'asset:locate': true,
   'asset:url': true,
+  'sound:url': true,
   'app:listening': true,
   'app:close': true,
 } as const satisfies Record<InvokeChannel, true>;

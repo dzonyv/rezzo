@@ -83,7 +83,11 @@
     "cutPauses": "remove pauses",
     "cutWords": "cut words from the clip",
     "restoreCut": "restore a cut",
-    "restoreCuts": "restore all cuts"
+    "restoreCuts": "restore all cuts",
+    "addSound": "add sound",
+    "replaceSound": "change sound file",
+    "soundSettings": "sound settings",
+    "soundStart": "sound start"
   },
   "files": {
     "project": "Rezzo project",
@@ -92,7 +96,8 @@
     "mp4": "MP4 video",
     "font": "Font file",
     "image": "Image",
-    "lottie": "Lottie animation"
+    "lottie": "Lottie animation",
+    "audio": "Sound file"
   },
   "unsaved": {
     "title": "Save changes to “{{name}}”?",
@@ -281,7 +286,8 @@
       "effects": "Effects",
       "pauses": "Pauses",
       "voices": "Voices",
-      "text": "Text"
+      "text": "Text",
+      "sound": "Sound"
     },
     "help": {
       "framing": "Move and zoom the picture",
@@ -290,11 +296,13 @@
       "effects": "Effects over the picture",
       "pauses": "Find and cut pauses",
       "voices": "Who talks, and the episode's voices",
-      "text": "The episode's transcript"
+      "text": "The episode's transcript",
+      "sound": "Sound effects and music"
     },
     "layersHint": "Added from the playhead on. Press a layer on the timeline to change it.",
     "effectsHint": "Added from the playhead on. Press an effect on the timeline to change it.",
-    "voicesHint": "Turn on Show people under the picture to say who talks."
+    "voicesHint": "Turn on Show people under the picture to say who talks.",
+    "soundHint": "Added from the playhead on. Press a sound on the timeline to change it."
   },
   "export": {
     "button": "Export",
@@ -428,7 +436,8 @@
       "image": "Image",
       "video": "Video",
       "lottie": "Animation",
-      "effect": "Effect"
+      "effect": "Effect",
+      "audio": "Sound"
     },
     "video": "Video",
     "captions": "Captions",
@@ -504,6 +513,11 @@
         "too-large": "That animation is too large (over 50 MB).",
         "external-images": "That animation shows image files kept next to it. Export it with the images inside, or as a .lottie file, and try again.",
         "play": "The animation couldn't be loaded: {{detail}}"
+      },
+      "audio": {
+        "unreadable": "That file isn't a sound Rezzo can read.",
+        "too-large": "That sound file is too large (over 1 GB).",
+        "too-long": "That sound is too long (over 10 minutes)."
       }
     },
     "units": {
@@ -573,6 +587,54 @@
       "amount": "Amount",
       "speed": "Speed",
       "size": "Size"
+    }
+  },
+  "sounds": {
+    "title": "Sound: {{name}}",
+    "missing": "{{name}} isn't at {{path}} anymore, so it isn't heard.",
+    "change": "Change file…",
+    "fadeIn": "Fade in",
+    "fadeOut": "Fade out",
+    "fadeInHandle": "Fade in of {{name}}",
+    "fadeOutHandle": "Fade out of {{name}}",
+    "start": "Start in the file",
+    "loop": "Start over at the end",
+    "help": "A sound plays on through cut pauses, so music doesn't jump. Drag the small handles at the top of its bar to fade it in and out.",
+    "ownFile": "Your own file…",
+    "ownFileHelp": "Music or any sound file: MP3, WAV, M4A, OGG, FLAC",
+    "listen": "Listen to {{name}}",
+    "addHelp": "Add at the playhead",
+    "errors": {
+      "play": "The sound couldn't be played: {{detail}}"
+    },
+    "groups": {
+      "click": "Click",
+      "camera": "Camera",
+      "transition": "Transition",
+      "pop": "Pop",
+      "hit": "Hit",
+      "signal": "Signal",
+      "reaction": "Reaction"
+    },
+    "names": {
+      "mouse-click": "Mouse click",
+      "camera-shutter": "Shutter",
+      "whoosh": "Whoosh",
+      "swish": "Swish",
+      "rise": "Rise",
+      "sweep": "Sweep",
+      "pop": "Pop",
+      "pop-cartoon": "Cartoon pop",
+      "punch": "Punch",
+      "ding": "Ding",
+      "blip": "Blip",
+      "notification": "Notification",
+      "cash-register": "Cash register",
+      "wrong": "Wrong answer",
+      "record-scratch": "Record scratch",
+      "applause": "Applause",
+      "laugh": "Laughter",
+      "crickets": "Crickets"
     }
   },
   "voices": {

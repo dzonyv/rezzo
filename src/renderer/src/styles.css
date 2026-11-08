@@ -3067,6 +3067,120 @@ button.icon {
   --group: #9fc75a;
 }
 
+/*
+ * Sounds on the timeline: a green bar with the waveform, and the line its
+ * volume follows in yellow, sloping where it fades. The small yellow
+ * squares at the top of the slopes are the fades' handles.
+ */
+.layer-bar.sound {
+  background: #2f6b4c;
+  color: var(--text);
+}
+
+.layer-bar .sound-shape {
+  position: absolute;
+  inset: 0;
+  width: 100%;
+  height: 100%;
+  pointer-events: none;
+}
+
+.sound-shape .wave {
+  fill: rgb(255 255 255 / 0.28);
+}
+
+.sound-shape .gain {
+  fill: none;
+  stroke: var(--accent);
+  stroke-width: 1.5;
+  vector-effect: non-scaling-stroke;
+}
+
+.layer-bar.sound .layer-name {
+  position: relative;
+}
+
+.layer-bar .fade-handle {
+  position: absolute;
+  top: 0;
+  width: 9px;
+  height: 9px;
+  border-radius: 2px;
+  background: var(--accent);
+  cursor: ew-resize;
+}
+
+.layer-bar:not(.selected):not(:hover) .fade-handle {
+  opacity: 0.55;
+}
+
+.timeline-overview .mini.layer.sound {
+  background: #4f9d74;
+}
+
+/* The sound library: your own file first, then the groups two by two, each a column of sounds with ▶ to hear them. */
+.sound-library {
+  display: flex;
+  flex-direction: column;
+  gap: 10px;
+}
+
+.sound-library .own-sound {
+  height: 44px;
+  border-radius: 14px;
+}
+
+.sound-groups {
+  display: grid;
+  grid-template-columns: repeat(2, minmax(0, 1fr));
+  gap: 6px 8px;
+}
+
+.sound-group {
+  display: flex;
+  flex-direction: column;
+}
+
+.sound-group-name {
+  margin: 4px 0 2px;
+  padding: 0 8px 2px;
+  border-bottom: 2px solid #4f9d74;
+  font-size: 11px;
+  font-weight: 600;
+  color: var(--text-dim);
+}
+
+.sound-item {
+  display: flex;
+  align-items: center;
+  gap: 2px;
+}
+
+.sound-item .listen {
+  flex: none;
+  padding: 5px;
+  border-radius: 8px;
+  background: none;
+  color: var(--text-dim);
+}
+
+.sound-item .listen:hover,
+.sound-item .listen[aria-pressed='true'] {
+  color: var(--accent);
+}
+
+.sound-item .add {
+  flex: 1;
+  min-width: 0;
+  padding: 4px 6px;
+  border-radius: 8px;
+  background: none;
+  font-weight: 500;
+  line-height: 1.25;
+  text-align: left;
+  overflow-wrap: anywhere;
+}
+
 /* The effect library: the groups two by two, each a column of effects, to fit the drawer. */
 .effect-library {
   display: grid;

@@ -35,6 +35,10 @@ The app's own interface uses three more fonts. They come from the same commit an
 | Unbounded | 1.701 | Variable weight (`Unbounded[wght].ttf`) | The Unbounded Project Authors |
 | DM Mono | 1.000 | Regular, Medium | The DM Mono Project Authors |
 
+## Sound effects
+
+The 18 sounds in the Sound drawer are all under CC0 1.0, so they can go in your clips with no credit needed. Seventeen come from Freesound (https://freesound.org) and one from Kenney's Interface Sounds pack (https://kenney.nl/assets/interface-sounds). Each file's author and original are listed in `sounds/CREDITS.md` in the installed app, and in `resources/sounds/CREDITS.md` in the source repository. The files were trimmed, evened out in loudness and re-encoded for Rezzo.
+
 ## JavaScript libraries
 
 These are compiled into the app's code:

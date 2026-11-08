@@ -8,14 +8,14 @@ import i18n from 'i18next';
 import { useStore } from 'zustand';
 import { createStore } from 'zustand/vanilla';
 import { EXPORT_PORT_MESSAGE, type ExportJob } from '../../../shared/api.ts';
-import type { Clip, Source } from '../../../shared/project.ts';
+import { layerAssetIds, type Clip, type Source } from '../../../shared/project.ts';
 import type { Encoder } from '../../../shared/worker-api.ts';
 import { pauseClip } from '../clip/playback.ts';
 import { pauseEpisode } from '../player/playback.ts';
 import { projectStore } from '../project/store.ts';
 import { flatOf } from '../transcript/words.ts';
 import { notify } from '../ui/prompts.ts';
-import { assetsOf, checkVideoFiles, loadImages, MissingFilesError } from '../render/scene-renderer.ts';
+import { checkMediaFiles, loadImages, MissingFilesError } from '../render/scene-renderer.ts';
 import { renderExport } from './export-job.ts';
 
 /** What is being exported: the clip as it was when the export started, for its name and picture. */
@@ -71,7 +71,9 @@ export async function exportClip(clip: Clip, source: Source): Promise<void> {
   const project = projectStore.getState().project;
   const segments = project?.transcript?.segments;
   const words = segments ? flatOf(segments).words : [];
-  const assets = assetsOf(clip, project?.assets ?? []);
+  // Every file the clip uses: the pictures to draw here, the sound files for the main process to mix in.
+  const used = new Set(layerAssetIds(clip));
+  const assets = (project?.assets ?? []).filter((a) => used.has(a.id));
   const controller = new AbortController();
   abort = controller;
   // Running from here on, before anything is awaited, so a second click can't start another export.
@@ -79,7 +81,7 @@ export async function exportClip(clip: Clip, source: Source): Promise<void> {
 
   // A layer's file gone missing would fail the export after the save dialog; better to say so first.
   try {
-    await Promise.all([loadImages(assets, { strict: true }), checkVideoFiles(assets)]);
+    await Promise.all([loadImages(assets, { strict: true }), checkMediaFiles(assets)]);
   } catch (e) {
     const detail = e instanceof Error ? e.message : String(e);
     notify('error', e instanceof MissingFilesError ? i18n.t('export.missingFiles', { names: e.names.join(', ') }) : i18n.t('errors.unexpected', { detail }));

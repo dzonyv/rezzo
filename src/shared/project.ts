@@ -15,10 +15,11 @@ import { chromaKeySchema } from './chroma-key.ts';
 import { EFFECT_NAMES, paramsValid } from './effects.ts';
 import { fps, frameAt, timeOfFrame, workingFrameRate } from './frames.ts';
 import { motionSchema, transformSchema } from './motion.ts';
+import { MAX_FADE_SECONDS, soundSourceSchema } from './sounds.ts';
 import { speakerCountSchema, speakerPickSchema, voiceEditSchema } from './voices.ts';
 
 /** Bumped when the file format changes in a way older files need migrating for. */
-export const PROJECT_FORMAT = 11;
+export const PROJECT_FORMAT = 12;
 export const PROJECT_EXTENSION = 'rezzo';
 
 export const TRANSCRIPT_LANGUAGES = ['sr', 'hr', 'bs'] as const;
@@ -272,24 +273,57 @@ export const effectLayerSchema = z.object({
 });
 export type EffectLayer = z.infer<typeof effectLayerSchema>;
 
+const fade = z.number().min(0).max(MAX_FADE_SECONDS);
+
+/**
+ * A sound from `start` to `end` (source seconds): an effect from the
+ * library or a file of the user's own. Like a video layer's sound it plays
+ * from `offset` seconds into the file, starts over at the end when `loop`
+ * is on and stops otherwise, and goes on through the clip's skips. It
+ * fades in over `fadeIn` seconds and out over `fadeOut` before it stops
+ * (shared/sound-mix.ts). It draws nothing, so where it is in `layers`
+ * doesn't matter; new ones go at the end.
+ */
+export const soundLayerSchema = z.object({
+  id: z.uuid(),
+  kind: z.literal('sound'),
+  sound: soundSourceSchema,
+  start: seconds,
+  end: seconds,
+  offset: seconds,
+  /** Loudness in the mix, 0..1. */
+  volume: unit,
+  fadeIn: fade,
+  fadeOut: fade,
+  loop: z.boolean(),
+});
+export type SoundLayer = z.infer<typeof soundLayerSchema>;
+
 /**
  * Everything in a clip is a layer, drawn in the order of `layers`: the
- * source video first, then the rest over it.
+ * source video first, then the rest over it. Sound layers draw nothing.
  */
 export const layerSchema = z.discriminatedUnion('kind', [
-  videoLayerSchema, captionLayerSchema, imageLayerSchema, overlayLayerSchema, lottieLayerSchema, effectLayerSchema,
+  videoLayerSchema, captionLayerSchema, imageLayerSchema, overlayLayerSchema, lottieLayerSchema, effectLayerSchema, soundLayerSchema,
 ]);
 export type Layer = z.infer<typeof layerSchema>;
 /** Layers that show a file, placed and animated over the picture. */
 export type PlacedLayer = ImageLayer | OverlayLayer | LottieLayer;
-/** Layers that show for part of the clip and can be moved around in it. */
-export type TimedLayer = PlacedLayer | EffectLayer;
+/** Layers that play for part of the clip and can be moved around in it. */
+export type TimedLayer = PlacedLayer | EffectLayer | SoundLayer;
 
 export const isPlaced = (layer: Layer): layer is PlacedLayer => layer.kind === 'image' || layer.kind === 'overlay' || layer.kind === 'lottie';
-export const isTimed = (layer: Layer): layer is TimedLayer => isPlaced(layer) || layer.kind === 'effect';
+export const isTimed = (layer: Layer): layer is TimedLayer => isPlaced(layer) || layer.kind === 'effect' || layer.kind === 'sound';
+export const isSound = (layer: Layer): layer is SoundLayer => layer.kind === 'sound';
 
-/** The keyframes a layer's keyframe controls work on: a placed layer's transform, an effect's intensity. */
-export const keyframesOf = (layer: TimedLayer): Animated<unknown> => (layer.kind === 'effect' ? layer.intensity : layer.transform);
+const NO_KEYS: Animated<unknown> = [];
+
+/** The keyframes a layer's keyframe controls work on: a placed layer's transform, an effect's intensity; a sound has none. */
+export const keyframesOf = (layer: TimedLayer): Animated<unknown> =>
+  layer.kind === 'effect' ? layer.intensity : layer.kind === 'sound' ? NO_KEYS : layer.transform;
+
+/** The project's sound file a sound layer plays, or null for a sound from the library. */
+export const soundAssetId = (layer: SoundLayer): string | null => ('assetId' in layer.sound ? layer.sound.assetId : null);
 
 /** The kind of asset each placed layer shows. */
 export const ASSET_KIND_OF = { image: 'image', overlay: 'video', lottie: 'lottie' } as const satisfies Record<PlacedLayer['kind'], Asset['kind']>;
@@ -328,6 +362,17 @@ export function captionLayerOf(clip: Clip): CaptionLayer | null {
 /** The clip's layers that show for part of it, bottom first. */
 export const timedLayers = (clip: Clip): TimedLayer[] => clip.layers.filter(isTimed);
 
+/** The ids of the project's files a clip's layers show or play. */
+export const layerAssetIds = (clip: Pick<Clip, 'layers'>): string[] =>
+  clip.layers.flatMap((l) => {
+    if (isPlaced(l)) return [l.assetId];
+    const sound = isSound(l) ? soundAssetId(l) : null;
+    return sound === null ? [] : [sound];
+  });
+
+/** The clip's sound layers, in the order they were added. */
+export const soundLayers = (clip: Pick<Clip, 'layers'>): SoundLayer[] => clip.layers.filter(isSound);
+
 /** The clip's layers that show a file, bottom first. */
 export const placedLayers = (clip: Pick<Clip, 'layers'>): PlacedLayer[] => clip.layers.filter(isPlaced);
 
@@ -354,7 +399,13 @@ export const projectSchema = z
   .refine((p) => new Set(p.assets.map((a) => a.id)).size === p.assets.length, 'asset ids are unique')
   .refine((p) => {
     const kinds = new Map(p.assets.map((a) => [a.id, a.kind]));
-    return p.clips.every((c) => c.layers.every((l) => !isPlaced(l) || kinds.get(l.assetId) === ASSET_KIND_OF[l.kind]));
+    return p.clips.every((c) =>
+      c.layers.every((l) => {
+        if (isPlaced(l)) return kinds.get(l.assetId) === ASSET_KIND_OF[l.kind];
+        const sound = isSound(l) ? soundAssetId(l) : null;
+        return sound === null || kinds.get(sound) === 'audio';
+      }),
+    );
   }, "every layer uses one of the project's assets, of the right kind");
 export type Project = z.infer<typeof projectSchema>;
 
@@ -388,6 +439,8 @@ const MIGRATIONS: Record<number, (old: Record<string, unknown>) => Record<string
   9: (old) => ({ ...old, clips: Array.isArray(old.clips) ? old.clips.map((c: object) => ({ ...c, skips: [] })) : old.clips }),
   // Format 11 gave Split its own place for captions.
   10: (old) => ({ ...old, clips: captionsWithSplit(old.clips) }),
+  // Format 12 added sound layers and sound files. Nothing to change.
+  11: (old) => old,
 };
 
 /**

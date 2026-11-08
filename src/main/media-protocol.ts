@@ -74,7 +74,8 @@ export function registerMediaScheme(): void {
 
 const TYPES: Record<string, string> = {
   '.mp4': 'video/mp4', '.m4v': 'video/mp4', '.mov': 'video/quicktime', '.webm': 'video/webm',
-  '.mkv': 'video/x-matroska', '.wav': 'audio/wav',
+  '.mkv': 'video/x-matroska', '.wav': 'audio/wav', '.mp3': 'audio/mpeg', '.m4a': 'audio/mp4', '.aac': 'audio/aac',
+  '.ogg': 'audio/ogg', '.opus': 'audio/ogg', '.flac': 'audio/flac',
   '.png': 'image/png', '.jpg': 'image/jpeg', '.jpeg': 'image/jpeg', '.webp': 'image/webp',
   '.json': 'application/json', '.lottie': 'application/zip',
 };

@@ -6,6 +6,7 @@ import { prepareClip } from './clip.ts';
 import { cancelOverlay, prepareOverlay } from './overlay.ts';
 import { cancelExport, openExport, revealExport, startExport } from './export.ts';
 import { addFont, readCustomFont } from './fonts.ts';
+import { librarySoundUrl } from './sounds.ts';
 import { checkEpisode, chooseEpisode, episodeMediaUrl, episodeThumbnail, importEpisode, locateEpisode, makePreview } from './episode.ts';
 import { handleMediaProtocol, registerMediaScheme } from './media-protocol.ts';
 import { broadcast, handle, trustPagesFrom } from './ipc.ts';
@@ -109,6 +110,7 @@ function registerHandlers(): void {
   handle('asset:check', (_ctx, asset) => checkAsset(asset));
   handle('asset:locate', ({ window }, kind, asset) => locateAsset(window, kind, asset));
   handle('asset:url', (_ctx, asset) => assetFileUrl(asset));
+  handle('sound:url', (_ctx, name) => librarySoundUrl(name));
 
   handle('app:listening', ({ window }) => void closeListening.add(window));
   handle('app:close', ({ window }) => {

@@ -3,7 +3,7 @@
  * asks the main process for each layer's file, follows the conversion's
  * progress (the timeline shows it on the layer's bar) and keeps what came
  * back for the renderer. The files' bytes are fetched once and shared by
- * the picture (render/layer-frames.ts) and the sound (render/overlay-sound.ts).
+ * the picture (render/layer-frames.ts) and the sound (render/layer-sound.ts).
  */
 import { useStore } from 'zustand';
 import { createStore } from 'zustand/vanilla';

@@ -13,7 +13,8 @@ import { ClipPlayer, type DrawAt, type LayerSound, type PrepareAt } from '../ren
 import { analyse } from '../analysis/store.ts';
 import { Compositor, type LayerImage } from '../render/compositor.ts';
 import { forgetOverlayFile, overlayFilesStore, prepareOverlayFiles, readyFiles, retryFailedOverlayFiles, WorkingFileGoneError, type OverlayFile } from '../render/overlay-files.ts';
-import { layerSounds } from '../render/overlay-sound.ts';
+import { layerSounds } from '../render/layer-sound.ts';
+import { soundLayersOf } from '../../../shared/sound-mix.ts';
 import type { LottieData } from '../render/lottie.ts';
 import { assetsOf, loadImages, loadLotties, SceneRenderer } from '../render/scene-renderer.ts';
 import { useSettings } from '../settings.ts';
@@ -65,11 +66,15 @@ export function ClipPreview({ clip, source, children }: { clip: Clip; source: So
       start: clip.start,
       end: clip.end,
       skips: clip.skips,
-      layers: clip.layers.flatMap((l) =>
-        l.kind === 'overlay' ? [{ id: l.id, kind: l.kind, assetId: l.assetId, start: l.start, end: l.end, offset: l.offset, loop: l.loop, volume: l.volume }] : [],
+      layers: clip.layers.flatMap((l): object[] =>
+        l.kind === 'overlay'
+          ? [{ id: l.id, kind: l.kind, assetId: l.assetId, start: l.start, end: l.end, offset: l.offset, loop: l.loop, volume: l.volume }]
+          : l.kind === 'sound'
+            ? [l]
+            : [],
       ),
     },
-    assets: videoLayersOf(clip, allAssets ?? []).map(({ asset }) => asset),
+    assets: [...videoLayersOf(clip, allAssets ?? []), ...soundLayersOf(clip, allAssets ?? [])].flatMap(({ asset }) => (asset ? [asset] : [])),
     files: [...overlays].filter(([id]) => clip.layers.some((l) => l.id === id)),
   });
   const soundInput = useMemo(() => JSON.parse(soundJson) as { clip: Clip; assets: Asset[]; files: [string, OverlayFile][] }, [soundJson]);
@@ -218,10 +223,11 @@ export function ClipPreview({ clip, source, children }: { clip: Clip; source: So
     prepareFiles.current();
   }, [clip, allAssets, source]);
 
-  // The video layers' sound, once their working files are there.
+  // The layers' sound: the video layers' once their working files are there.
   useEffect(() => {
     let current = true;
-    void layerSounds(soundInput.clip, soundInput.assets, new Map(soundInput.files)).then((s) => {
+    const onFile = (a: Asset, there: boolean) => current && markMissing(a.id, !there);
+    void layerSounds(soundInput.clip, soundInput.assets, new Map(soundInput.files), onFile).then((s) => {
       if (!current) return;
       sounds.current = s;
       currentPlayer()?.setSounds(s);

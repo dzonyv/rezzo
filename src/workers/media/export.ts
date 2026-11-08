@@ -46,11 +46,11 @@ function joinedSound(pieces: ExportRequest['audioPieces']): string {
 }
 
 /**
- * The video layers' sound over the clip's: each stretch of a layer's
- * working file is an input of its own, set to its volume and delayed to
- * where it plays, then everything is added up as it is (no loudness
- * evening-out, so a layer at full volume is as loud as in its file) and
- * cut to the clip's length.
+ * The layers' sound over the clip's: each layer's file is an input of its
+ * own (looped when the layer loops), cut to what plays, set to its volume,
+ * faded and delayed to where it plays. Then everything is added up as it
+ * is (no loudness evening-out, so a layer at full volume is as loud as in
+ * its file) and cut to the clip's length.
  */
 function soundMix(req: ExportRequest): { inputs: string[]; graph: string } {
   const inputs: string[] = [];
@@ -61,8 +61,25 @@ function soundMix(req: ExportRequest): { inputs: string[]; graph: string } {
     mix.push('[a0]');
   }
   req.sounds.forEach((s, i) => {
-    inputs.push('-ss', s.start.toFixed(6), '-t', s.duration.toFixed(6), '-i', s.file);
-    parts.push(`[${i + 2}:a:0]${STEREO_48K},volume=${s.volume.toFixed(4)},adelay=${Math.round(s.at * 1000)}:all=1[s${i}]`);
+    // A looped sound repeats exactly its period, as the picture counts it, and is then cut to what plays.
+    if (s.loop) inputs.push('-i', s.file);
+    else inputs.push('-ss', s.start.toFixed(6), '-t', s.duration.toFixed(6), '-i', s.file);
+    const filters = s.loop
+      ? [
+          `atrim=end=${s.period.toFixed(6)}`,
+          STEREO_48K,
+          `aloop=loop=-1:size=${Math.round(s.period * 48_000)}`,
+          `atrim=start=${s.start.toFixed(6)}:duration=${s.duration.toFixed(6)}`,
+          'asetpts=PTS-STARTPTS',
+        ]
+      : [STEREO_48K];
+    filters.push(
+      `volume=${s.volume.toFixed(4)}`,
+      ...(s.fadeIn > 0 ? [`afade=t=in:d=${s.fadeIn.toFixed(6)}`] : []),
+      ...(s.fadeOut > 0 ? [`afade=t=out:st=${(s.duration - s.fadeOut).toFixed(6)}:d=${s.fadeOut.toFixed(6)}`] : []),
+      `adelay=${Math.round(s.at * 1000)}:all=1`,
+    );
+    parts.push(`[${i + 2}:a:0]${filters.join(',')}[s${i}]`);
     mix.push(`[s${i}]`);
   });
   parts.push(`${mix.join('')}amix=inputs=${mix.length}:normalize=0:duration=longest,apad,atrim=end=${req.duration.toFixed(6)}[a]`);

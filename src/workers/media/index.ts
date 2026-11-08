@@ -8,7 +8,7 @@ import type { WorkerMethod, WorkerMethods, WorkerReply, WorkerRequest } from '..
 import { encodeExport, pickEncoder } from './export.ts';
 import { fingerprint } from './fingerprint.ts';
 import { makePreview } from './preview.ts';
-import { probe, probeVideo } from './probe.ts';
+import { probe, probeAudio, probeVideo } from './probe.ts';
 import { makeThumbnail } from './thumbnail.ts';
 import { transcribe } from './transcribe.ts';
 import { diarize } from './voices.ts';
@@ -30,6 +30,7 @@ type Handlers = {
 const handlers: Handlers = {
   probe: (_ctx, file) => probe(file),
   probeVideo: (_ctx, file) => probeVideo(file),
+  probeAudio: (_ctx, file) => probeAudio(file),
   fingerprint: (_ctx, file) => fingerprint(file),
   installTool: (ctx, id, dir) => install(tool(id), dir, { onProgress: ctx.progress, signal: ctx.signal }),
   transcribe: (ctx, request) => transcribe(ctx, request),

@@ -6,7 +6,7 @@
  * an edit changes them for the layer's whole time.
  */
 import { current, type Draft } from 'immer';
-import type { AssetFile, VideoInfo } from '../../../shared/assets.ts';
+import type { AssetFile, AudioInfo, VideoInfo } from '../../../shared/assets.ts';
 import { DEFAULT_CHROMA_KEY, type ChromaKey } from '../../../shared/chroma-key.ts';
 import { defaultParams, EFFECTS, type EffectName, type ParamDef } from '../../../shared/effects.ts';
 import { editAt, OUTPUT, removeKey, setKey, valueAt, type Size } from '../../../shared/framing.ts';
@@ -14,9 +14,10 @@ import { fps, frameAt, timeOfFrame } from '../../../shared/frames.ts';
 import { lottieSeconds, type LottieInfo } from '../../../shared/lottie.ts';
 import { clampTransform, DEFAULT_MOTION, type Motion, type Transform } from '../../../shared/motion.ts';
 import { videoLayersOverLimit } from '../../../shared/overlay-files.ts';
+import { MAX_FADE_SECONDS, SOUNDS, type SoundName } from '../../../shared/sounds.ts';
 import {
-  isPlaced, isTimed, keyframesOf, MAX_LOTTIE_SPEED, MIN_LOTTIE_SPEED, type Animated, type Clip, type EffectLayer, type Layer, type LottieLayer, type OverlayLayer,
-  type PlacedLayer, type Project, type TimedLayer,
+  isPlaced, isSound, isTimed, keyframesOf, layerAssetIds, MAX_LOTTIE_SPEED, MIN_LOTTIE_SPEED, type Animated, type Clip, type EffectLayer, type Layer, type LottieLayer,
+  type OverlayLayer, type PlacedLayer, type Project, type SoundLayer, type TimedLayer,
 } from '../../../shared/project.ts';
 import { sourceRate } from './framing.ts';
 import { projectStore, type EditLabel } from './store.ts';
@@ -51,7 +52,7 @@ function editPlaced(clipId: string, layerId: string, label: EditLabel, recipe: (
 
 /** Drops assets no layer uses any more, in the same edit that stopped using them. */
 function pruneAssets(d: Draft<Project>): void {
-  const used = new Set(d.clips.flatMap((c) => c.layers.filter(isPlaced).map((l) => l.assetId)));
+  const used = new Set(d.clips.flatMap(layerAssetIds));
   d.assets = d.assets.filter((a) => used.has(a.id));
 }
 
@@ -130,7 +131,7 @@ export function replaceImage(clipId: string, layerId: string, file: AssetFile, s
 /** Replaces the keyframes keyframesOf(layer) names. */
 function setKeysOf(layer: Draft<TimedLayer>, keys: Animated<unknown>): void {
   if (layer.kind === 'effect') layer.intensity = keys as Animated<number>;
-  else layer.transform = keys as typeof layer.transform;
+  else if (layer.kind !== 'sound') layer.transform = keys as typeof layer.transform;
 }
 
 /**
@@ -169,12 +170,19 @@ export function trimLayer(clipId: string, layerId: string, edge: 'start' | 'end'
   });
 }
 
-/** Moves a layer (or the captions) one step up (drawn later) or down; the source video stays at the bottom. */
+/**
+ * Moves a layer (or the captions) one step up (drawn later) or down, past
+ * the next layer that draws something; the source video stays at the
+ * bottom, and sounds have no place in the order.
+ */
 export function reorderLayer(clipId: string, layerId: string, direction: 'up' | 'down'): void {
   editClip(clipId, 'history.reorderLayer', (clip) => {
     const i = clip.layers.findIndex((l) => l.id === layerId);
-    const j = direction === 'up' ? i + 1 : i - 1;
-    if (i < 1 || j < 1 || j >= clip.layers.length) return;
+    if (i < 1 || isSound(clip.layers[i]!)) return;
+    const step = direction === 'up' ? 1 : -1;
+    let j = i + step;
+    while (j >= 1 && j < clip.layers.length && isSound(clip.layers[j]!)) j += step;
+    if (j < 1 || j >= clip.layers.length) return;
     [clip.layers[i], clip.layers[j]] = [clip.layers[j]!, clip.layers[i]!];
   });
 }
@@ -401,5 +409,74 @@ export function setEffectParam(clipId: string, layerId: string, param: string, v
     if (layer.kind !== 'effect') return;
     const def: ParamDef | undefined = (EFFECTS[layer.effect].params as Record<string, ParamDef>)[param];
     if (def) layer.params[param] = Math.min(def.max, Math.max(def.min, value));
+  });
+}
+
+/** A new sound layer: `seconds` long from `time` on, at full volume, with no fades. */
+function newSoundLayer(clip: Pick<Clip, 'start' | 'end'>, sound: SoundLayer['sound'], time: number, seconds: number): SoundLayer {
+  const { start, end } = newLayerTime(clip, time, seconds);
+  return { id: crypto.randomUUID(), kind: 'sound', sound, start, end, offset: 0, volume: 1, fadeIn: 0, fadeOut: 0, loop: false };
+}
+
+/** Adds a sound from the library at `time`, as long as it is. Returns the new layer's id. */
+export function addLibrarySound(clipId: string, name: SoundName, time: number): string | null {
+  const clip = store().project?.clips.find((c) => c.id === clipId);
+  if (!clip) return null;
+  const layer = newSoundLayer(clip, { library: name }, time, SOUNDS[name].seconds);
+  editClip(clipId, 'history.addSound', (c) => void c.layers.push(layer));
+  return layer.id;
+}
+
+/**
+ * Adds a sound file from `time` on, as long as it runs or to the clip's
+ * end. Like an image, the file becomes one of the project's assets unless
+ * it already is. Returns the new layer's id.
+ */
+export function addSoundFile(clipId: string, file: AssetFile, info: AudioInfo, time: number): string | null {
+  const project = store().project;
+  const clip = project?.clips.find((c) => c.id === clipId);
+  if (!project || !clip) return null;
+  const existing = project.assets.find((a) => a.kind === 'audio' && a.fingerprint === file.fingerprint);
+  const assetId = existing?.id ?? crypto.randomUUID();
+  const layer = newSoundLayer(clip, { assetId }, time, info.duration);
+  editClip(clipId, 'history.addSound', (c, d) => {
+    if (existing) Object.assign(d.assets.find((a) => a.id === existing.id)!, { path: file.path, name: file.name });
+    else d.assets.push({ id: assetId, kind: 'audio', ...file, ...info });
+    c.layers.push(layer);
+  });
+  return layer.id;
+}
+
+/** Puts a different sound file in the layer, keeping where it plays and how. */
+export function replaceSoundFile(clipId: string, layerId: string, file: AssetFile, info: AudioInfo): void {
+  const existing = store().project?.assets.find((a) => a.kind === 'audio' && a.fingerprint === file.fingerprint);
+  const assetId = existing?.id ?? crypto.randomUUID();
+  editClip(clipId, 'history.replaceSound', (c, d) => {
+    const layer = c.layers.find((l) => l.id === layerId);
+    if (layer?.kind !== 'sound') return;
+    if (!existing) d.assets.push({ id: assetId, kind: 'audio', ...file, ...info });
+    layer.sound = { assetId };
+    layer.offset = Math.min(layer.offset, Math.max(0, info.duration - 0.1));
+    pruneAssets(d);
+  });
+}
+
+/** A sound layer's volume (0..1), fades (seconds) or whether it loops; the sliders call it inside a gesture. */
+export function setSoundSettings(clipId: string, layerId: string, patch: Partial<Pick<SoundLayer, 'volume' | 'fadeIn' | 'fadeOut' | 'loop'>>): void {
+  editLayer(clipId, layerId, 'history.soundSettings', (layer) => {
+    if (layer.kind !== 'sound') return;
+    const fade = (v: number) => Math.min(MAX_FADE_SECONDS, Math.max(0, v));
+    if (patch.volume !== undefined) layer.volume = Math.min(1, Math.max(0, patch.volume));
+    if (patch.fadeIn !== undefined) layer.fadeIn = fade(patch.fadeIn);
+    if (patch.fadeOut !== undefined) layer.fadeOut = fade(patch.fadeOut);
+    if (patch.loop !== undefined) layer.loop = patch.loop;
+  });
+}
+
+/** Where in its file a sound layer starts playing, inside the file; the slider calls it inside a gesture. */
+export function setSoundStart(clipId: string, layerId: string, offset: number, duration: number): void {
+  editLayer(clipId, layerId, 'history.soundStart', (layer) => {
+    if (layer.kind !== 'sound') return;
+    layer.offset = Math.round(Math.min(Math.max(offset, 0), Math.max(0, duration - 0.1)) * 1000) / 1000;
   });
 }

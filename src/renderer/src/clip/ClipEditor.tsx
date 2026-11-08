@@ -6,7 +6,7 @@ import { videoLayersOverLimit } from '../../../shared/overlay-files.ts';
 import { DEFAULT_CLIP_DOCK } from '../../../shared/settings.ts';
 import { captionPages, captionTrackFor } from '../../../shared/captions.ts';
 import { keptLength, outputTime } from '../../../shared/skips.ts';
-import { captionLayerOf, isTimed, LAYOUTS, MAX_ZOOM, videoLayerOf, type Clip, type Source } from '../../../shared/project.ts';
+import { captionLayerOf, isPlaced, isTimed, LAYOUTS, MAX_ZOOM, videoLayerOf, type Clip, type Source } from '../../../shared/project.ts';
 import { exportClip, isExporting, useExport } from '../export/state.ts';
 import { formatClipTime } from '../format.ts';
 import { nudgeClip, renameClip } from '../project/clips.ts';
@@ -22,6 +22,8 @@ import { EffectLibrary, LayerTiles } from './AddLayers.tsx';
 import { AutoFramePanel } from './AutoFramePanel.tsx';
 import { ClipDock } from './ClipDock.tsx';
 import { SilencePanel } from './SilencePanel.tsx';
+import { SoundLibrary } from './SoundLibrary.tsx';
+import { SoundPanel } from './SoundPanel.tsx';
 import { CaptionOverlay } from './CaptionOverlay.tsx';
 import { CaptionPanel } from './CaptionPanel.tsx';
 import { ClipPreview } from './ClipPreview.tsx';
@@ -65,7 +67,7 @@ export function ClipEditor({ clip, source, side, voices }: { clip: Clip; source:
   const selectedLayer = selected && isTimed(selected) ? selected : null;
   const dock = useSettings((s) => s.clipDock) ?? DEFAULT_CLIP_DOCK;
   const tool = useTool();
-  const selectedDrawer = selectedLayer ? (selectedLayer.kind === 'effect' ? 'effects' : 'layers') : null;
+  const selectedDrawer = selectedLayer ? (selectedLayer.kind === 'effect' ? 'effects' : selectedLayer.kind === 'sound' ? 'sound' : 'layers') : null;
   useEffect(() => {
     if (selectedDrawer) setTool(selectedDrawer);
   }, [selectedId, selectedDrawer]);
@@ -268,12 +270,17 @@ export function ClipEditor({ clip, source, side, voices }: { clip: Clip; source:
           {selectedLayer ? (
             <>
               <span className="selected-name">{layerName(t, selectedLayer, assets)}</span>
-              <button type="button" disabled={row <= 0} onClick={() => reorderLayer(clip.id, selectedLayer.id, 'up')}>
-                {t('layers.up')}
-              </button>
-              <button type="button" disabled={row < 0 || row === rows.length - 1} onClick={() => reorderLayer(clip.id, selectedLayer.id, 'down')}>
-                {t('layers.down')}
-              </button>
+              {/* A sound draws nothing, so it has no place in the order. */}
+              {selectedLayer.kind !== 'sound' && (
+                <>
+                  <button type="button" disabled={row <= 0} onClick={() => reorderLayer(clip.id, selectedLayer.id, 'up')}>
+                    {t('layers.up')}
+                  </button>
+                  <button type="button" disabled={row < 0 || row === rows.length - 1} onClick={() => reorderLayer(clip.id, selectedLayer.id, 'down')}>
+                    {t('layers.down')}
+                  </button>
+                </>
+              )}
             </>
           ) : (
             <>
@@ -320,7 +327,7 @@ export function ClipEditor({ clip, source, side, voices }: { clip: Clip; source:
       case 'layers':
         return (
           <>
-            {selectedLayer && selectedLayer.kind !== 'effect' ? (
+            {selectedLayer && isPlaced(selectedLayer) ? (
               <LayerPanel
                 clipId={clip.id}
                 layer={selectedLayer}
@@ -340,6 +347,13 @@ export function ClipEditor({ clip, source, side, voices }: { clip: Clip; source:
           <>
             {selectedLayer?.kind === 'effect' ? <EffectPanel clipId={clip.id} layer={selectedLayer} time={time} rate={rate} /> : <p className="dim hint">{t('tools.effectsHint')}</p>}
             <EffectLibrary clipId={clip.id} time={time} />
+          </>
+        );
+      case 'sound':
+        return (
+          <>
+            {selectedLayer?.kind === 'sound' ? <SoundPanel clipId={clip.id} layer={selectedLayer} assets={assets} /> : <p className="dim hint">{t('tools.soundHint')}</p>}
+            <SoundLibrary clipId={clip.id} time={time} />
           </>
         );
       case 'pauses':

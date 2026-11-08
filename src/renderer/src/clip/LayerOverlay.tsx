@@ -65,7 +65,8 @@ export function LayerOverlay({ clip, assets, selectedId, time }: Props) {
 
   const shown = placedLayers(clip).filter((l) => showsAt(l, time));
   const picking = usePicking();
-  const assetOf = (layer: PlacedLayer) => assets.find((a) => a.id === layer.assetId);
+  // A placed layer's asset is a picture (projectSchema checks its kind).
+  const assetOf = (layer: PlacedLayer) => assets.find((a): a is Exclude<Asset, { kind: 'audio' }> => a.id === layer.assetId && a.kind !== 'audio');
 
   const toOutput = (clientX: number, clientY: number) => outputPoint(el.current!, clientX, clientY);
 
