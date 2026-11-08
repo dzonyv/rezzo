@@ -11,7 +11,7 @@ import { DEFAULT_PAUSE_OPTIONS, type PauseOptions, type Span } from '../../../sh
 import { projectStore, useProject } from '../project/store.ts';
 
 /** The clip editor's tools, in the order the rail shows them; each opens a drawer beside the picture. */
-export const CLIP_TOOLS = ['framing', 'captions', 'layers', 'effects', 'pauses', 'voices', 'text'] as const;
+export const CLIP_TOOLS = ['framing', 'captions', 'layers', 'effects', 'sound', 'pauses', 'voices', 'text'] as const;
 export type ClipTool = (typeof CLIP_TOOLS)[number];
 
 /** A pause found in a clip, not cut yet; `on` until the user switches it off on the timeline. */

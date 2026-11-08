@@ -3,7 +3,7 @@
  * process). Heavy or slow work runs there so the main process, which routes
  * every window event, never stalls.
  */
-import type { VideoInfo } from './assets.ts';
+import type { AudioInfo, VideoInfo } from './assets.ts';
 import type { FrameRate } from './frames.ts';
 import type { Source, Transcript, TranscriptLanguage } from './project.ts';
 import type { EpisodeVoices, SpeakerCount, Span } from './voices.ts';
@@ -72,14 +72,24 @@ export interface OverlayFileRequest {
 /** h264_nvenc on an NVIDIA card, libx264 everywhere else. */
 export type Encoder = 'nvenc' | 'x264';
 
-/** A stretch of a video layer's sound in an export: `duration` seconds from `start` in its working file, heard `at` seconds into the clip. */
+/**
+ * A layer's sound in an export: `duration` seconds of `file` from `start`
+ * on, heard from `at` seconds into the clip. With `loop` the file's first
+ * `period` seconds play over and over. Volume and fades as in
+ * shared/sound-mix.ts.
+ */
 export interface ExportSound {
   file: string;
   start: number;
   duration: number;
+  loop: boolean;
+  period: number;
   at: number;
   /** 0..1 */
   volume: number;
+  /** Seconds, each at most half of `duration`. */
+  fadeIn: number;
+  fadeOut: number;
 }
 
 /** One clip to encode. The frames come over the MessagePort sent with the call. */
@@ -94,7 +104,7 @@ export interface ExportRequest {
   duration: number;
   /** Whether the working file has sound (the source does). */
   hasAudio: boolean;
-  /** Video layers' sound, mixed in over the clip's. */
+  /** Video and sound layers' sound, mixed in over the clip's. */
   sounds: ExportSound[];
   frameRate: FrameRate;
   /** Frames the renderer will send. */
@@ -127,6 +137,8 @@ export interface WorkerMethods {
   probe(file: string): ProbeResult;
   /** Reads a video layer's file, alpha included. Fails like probe. */
   probeVideo(file: string): VideoInfo;
+  /** Reads a sound layer's file. Fails with code "unreadable". */
+  probeAudio(file: string): AudioInfo;
   /** A content hash of the file (see workers/media/fingerprint.ts). */
   fingerprint(file: string): string;
   /** Installs a tool from tools.json into `dir`; reports DownloadProgress. */

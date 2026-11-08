@@ -12,6 +12,7 @@ import { assetSchema, type Asset } from '../shared/assets.ts';
 import { fps, type FrameRate } from '../shared/frames.ts';
 import { clipSoundPieces, overlayRange, videoLayersOf } from '../shared/overlay-files.ts';
 import { clipSchema, sourceSchema, type Clip } from '../shared/project.ts';
+import { playedSound, soundLayersOf, type PlayedSound } from '../shared/sound-mix.ts';
 import type { ExportSound } from '../shared/worker-api.ts';
 import { translate } from '../shared/translate.ts';
 import { keptPieces } from '../shared/skips.ts';
@@ -19,6 +20,7 @@ import { clipFrames, spanStart } from '../shared/working.ts';
 import { allowMedia, assetUrl, sourceUrl } from './media-protocol.ts';
 import { ensureWorkingFile, parseRange } from './clip.ts';
 import { ensureOverlayFile } from './overlay.ts';
+import { librarySoundPath } from './sounds.ts';
 import { getSettings, rememberExportDir } from './settings.ts';
 import { callWorker } from './worker-host.ts';
 import { safeFileName } from '../node/files.ts';
@@ -38,12 +40,27 @@ async function chooseExportFile(win: BrowserWindow, clipName: string): Promise<s
   return canceled || !filePath ? null : filePath;
 }
 
+const exportSound = (file: string, played: PlayedSound, start: number): ExportSound => {
+  const { at, length, volume, fadeIn, fadeOut } = played.envelope;
+  return { file, start, duration: length, loop: played.loop, period: played.period, at, volume, fadeIn, fadeOut };
+};
+
+/** The sound layers' sound in the clip, straight from their files. Times are output time. */
+function soundLayerSounds(clip: Clip, assets: readonly Asset[]): ExportSound[] {
+  return soundLayersOf(clip, assets).flatMap(({ layer, duration, asset }) => {
+    const played = layer.volume > 0 ? playedSound(clipSoundPieces(clip, layer, duration), duration, layer.volume, layer.fadeIn, layer.fadeOut) : null;
+    if (!played) return [];
+    const file = 'library' in layer.sound ? librarySoundPath(layer.sound.library) : asset!.path;
+    return [exportSound(file, played, played.from)];
+  });
+}
+
 /**
  * The video layers' sound in the clip, from their working files at `rate`
  * (made now if they aren't in the cache, reporting 0..1 as they are).
  * Times are output time.
  */
-async function layerSounds(
+async function videoLayerSounds(
   clip: Clip,
   assets: readonly Asset[],
   rate: FrameRate,
@@ -53,8 +70,8 @@ async function layerSounds(
   const done = heard.map(() => 0);
   const sounds = await Promise.all(
     heard.map(async ({ layer, asset }, i) => {
-      const pieces = clipSoundPieces(clip, layer, asset.duration);
-      if (pieces.length === 0) return [];
+      const played = playedSound(clipSoundPieces(clip, layer, asset.duration), asset.duration, layer.volume);
+      if (!played) return [];
       const { file, span } = await ensureOverlayFile(asset, overlayRange(layer, asset), rate, {
         signal,
         onProgress: (fraction) => {
@@ -62,8 +79,7 @@ async function layerSounds(
           onProgress(done.reduce((a, b) => a + b, 0) / done.length);
         },
       });
-      const fileStart = spanStart(span);
-      return pieces.map((p) => ({ file, start: Math.max(0, p.from - fileStart), duration: p.duration, at: p.at, volume: layer.volume }));
+      return [exportSound(file, played, Math.max(0, played.from - spanStart(span)))];
     }),
   );
   return sounds.flat();
@@ -102,7 +118,7 @@ export async function startExport(win: BrowserWindow, sourceArg: unknown, clipAr
     const placement = { start: spanStart(span), frameRate: span.rate };
     const pieces = keptPieces(clip).map((p) => clipFrames(placement, p)).filter((p) => p.count > 0);
     const count = pieces.reduce((sum, p) => sum + p.count, 0);
-    const sounds = await layerSounds(clip, assets, span.rate, { signal: abort.signal, onProgress: progress });
+    const sounds = [...(await videoLayerSounds(clip, assets, span.rate, { signal: abort.signal, onProgress: progress })), ...soundLayerSounds(clip, assets)];
     abort.signal.throwIfAborted();
 
     const { port1, port2 } = new MessageChannelMain();

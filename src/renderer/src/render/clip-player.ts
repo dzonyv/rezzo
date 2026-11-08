@@ -20,6 +20,7 @@
 import type { Size } from '../../../shared/framing.ts';
 import { fps, type FrameRate } from '../../../shared/frames.ts';
 import { JOIN_FADE_SECONDS, keptLength, keptPieces, nextKept, outputTime, type ClipSpan } from '../../../shared/skips.ts';
+import { gainPoints, type PlayedSound } from '../../../shared/sound-mix.ts';
 import { workingFrameIndex, workingFrameTime } from '../../../shared/working.ts';
 import type { Compositor } from './compositor.ts';
 import { demux } from './demux.ts';
@@ -45,14 +46,13 @@ export type PrepareAt = (time: number, sequential: boolean) => Promise<boolean>;
 const nothingToPrepare: PrepareAt = () => Promise.resolve(false);
 
 /**
- * A video layer's sound: its working file's audio, the stretches of it
- * that play (`at` in output time, `from` seconds into `buffer`) and how
- * loud.
+ * A layer's sound: a video layer's working file's audio or a sound layer's
+ * file, and how it plays (`from` seconds into `buffer`, envelope times in
+ * output time).
  */
 export interface LayerSound {
   buffer: AudioBuffer;
-  pieces: { at: number; from: number; duration: number }[];
-  volume: number;
+  played: PlayedSound;
 }
 
 /** Loudness values per second of sound in Peaks. */
@@ -419,31 +419,39 @@ export class ClipPlayer {
     this.origin = null;
   }
 
-  /** Schedules every stretch of the layers' sound from output time `from` to the end of the clip. */
+  /** Schedules the layers' sound from output time `from` to the end of the clip, with its fades. */
   private startSounds(from: number): void {
     const origin = this.origin;
     if (!origin) return;
-    const now = this.context.currentTime;
-    for (const sound of this.sounds) {
-      if (sound.volume <= 0) continue;
-      for (const piece of sound.pieces) {
-        let start = Math.max(piece.at, from);
-        const end = Math.min(piece.at + piece.duration, keptLength(this.range));
-        let when = origin.contextTime + (start - origin.time);
-        // Already due: start now, that much further in.
-        if (when < now) {
-          start += now - when;
-          when = now;
-        }
-        if (end - start <= 0.001) continue;
-        const node = this.context.createBufferSource();
-        node.buffer = sound.buffer;
-        const gain = this.context.createGain();
-        gain.gain.value = sound.volume;
-        node.connect(gain).connect(this.context.destination);
-        node.start(when, piece.from + (start - piece.at), end - start);
-        this.soundNodes.push(node);
+    const toContext = (t: number) => origin.contextTime + (t - origin.time);
+    // Sound already due starts now, that much further in.
+    const now = origin.time + (this.context.currentTime - origin.contextTime);
+    for (const { buffer, played } of this.sounds) {
+      const e = played.envelope;
+      if (e.volume <= 0) continue;
+      const start = Math.max(from, now, e.at);
+      const end = Math.min(e.at + e.length, keptLength(this.range));
+      if (end - start <= 0.001) continue;
+      const node = this.context.createBufferSource();
+      node.buffer = buffer;
+      let offset = played.from + (start - e.at);
+      if (played.loop) {
+        // Over and over the file's length as the picture counts it, as the export does.
+        const period = Math.min(played.period, buffer.duration);
+        node.loop = true;
+        node.loopStart = 0;
+        node.loopEnd = period;
+        offset %= period;
       }
+      const gain = this.context.createGain();
+      gainPoints(e, start).forEach((p, i) => {
+        if (i === 0) gain.gain.setValueAtTime(p.gain, toContext(p.t));
+        else gain.gain.linearRampToValueAtTime(p.gain, toContext(p.t));
+      });
+      node.connect(gain).connect(this.context.destination);
+      node.start(toContext(start), offset);
+      node.stop(toContext(end));
+      this.soundNodes.push(node);
     }
   }
 

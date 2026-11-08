@@ -98,9 +98,9 @@ export async function loadOverlayFiles(clip: Clip, assets: readonly Asset[], rat
   return files;
 }
 
-/** Checks that the video files among `assets` are still there; a MissingFilesError names those that aren't. */
-export async function checkVideoFiles(assets: readonly Asset[]): Promise<void> {
-  const videos = assets.filter((a) => a.kind === 'video');
+/** Checks that the video and sound files among `assets` are still there (FFmpeg reads them); a MissingFilesError names those that aren't. */
+export async function checkMediaFiles(assets: readonly Asset[]): Promise<void> {
+  const videos = assets.filter((a) => a.kind === 'video' || a.kind === 'audio');
   const status = await Promise.all(videos.map((a) => window.rezzo.invoke('asset:check', a)));
   const missing = videos.filter((_, i) => status[i] === 'missing').map((a) => a.name);
   if (missing.length > 0) throw new MissingFilesError(missing.sort());

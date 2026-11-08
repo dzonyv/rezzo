@@ -318,6 +318,39 @@ describe('project files', () => {
     expect(code(() => parseProject(JSON.stringify(p)))).toBe('invalid');
   });
 
+  describe('sound layers', () => {
+    const music = { id: '3e0b8c1a-55f2-4b7e-8a51-0c6b1f7d2e44', kind: 'audio' as const, path: 'D:/Muzika/tema.mp3', name: 'tema.mp3', size: 4_000_000, fingerprint: 'c'.repeat(64), codec: 'mp3', duration: 95.2 };
+    const sound = (source: { library: 'whoosh' } | { assetId: string }) => ({
+      id: crypto.randomUUID(), kind: 'sound' as const, sound: source, start: 0.5, end: 1.2, offset: 0, volume: 0.8, fadeIn: 0.2, fadeOut: 1, loop: false,
+    });
+    const withSounds = (...layers: ReturnType<typeof sound>[]): Project => ({
+      ...sample,
+      assets: [music],
+      clips: [{ ...sample.clips[0]!, layers: [...sample.clips[0]!.layers, ...layers] }],
+    });
+
+    it('keeps a sound from the library and one from a file', () => {
+      const p = withSounds(sound({ library: 'whoosh' }), sound({ assetId: music.id }));
+      expect(parseProject(serializeProject(p))).toEqual(p);
+    });
+
+    it('rejects a sound whose file is not a sound file of the project', () => {
+      expect(code(() => parseProject(JSON.stringify(withSounds(sound({ assetId: crypto.randomUUID() })))))).toBe('invalid');
+      const p = withSounds(sound({ assetId: music.id }));
+      expect(code(() => parseProject(JSON.stringify({ ...p, assets: [{ ...music, kind: 'image', width: 10, height: 10 }] })))).toBe('invalid');
+    });
+
+    it('rejects a sound the library does not have, or one too loud', () => {
+      expect(code(() => parseProject(JSON.stringify(withSounds(sound({ library: 'whoosh' }))).replace('"whoosh"', '"airhorn"')))).toBe('invalid');
+      const loud = withSounds({ ...sound({ library: 'whoosh' }), volume: 1.2 });
+      expect(code(() => parseProject(JSON.stringify(loud)))).toBe('invalid');
+    });
+
+    it('upgrades a format 11 file, which had no sounds, as it is', () => {
+      expect(parseProject(JSON.stringify({ ...sample, format: 11 }))).toEqual(sample);
+    });
+  });
+
   it('rejects a layer whose file is not in the project', () => {
     expect(code(() => parseProject(JSON.stringify(withImage(crypto.randomUUID()))))).toBe('invalid');
   });

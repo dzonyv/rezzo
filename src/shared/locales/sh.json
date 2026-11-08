@@ -83,7 +83,11 @@
     "cutPauses": "uklanjanje pauza",
     "cutWords": "isecanje reči iz klipa",
     "restoreCut": "vraćanje isečenog dela",
-    "restoreCuts": "vraćanje svih isečenih delova"
+    "restoreCuts": "vraćanje svih isečenih delova",
+    "addSound": "dodavanje zvuka",
+    "replaceSound": "zamena zvučnog fajla",
+    "soundSettings": "podešavanje zvuka",
+    "soundStart": "početak zvuka"
   },
   "files": {
     "project": "Rezzo projekat",
@@ -92,7 +96,8 @@
     "mp4": "MP4 video",
     "font": "Fajl fonta",
     "image": "Slika",
-    "lottie": "Lottie animacija"
+    "lottie": "Lottie animacija",
+    "audio": "Zvučni fajl"
   },
   "unsaved": {
     "title": "Sačuvati izmene u „{{name}}”?",
@@ -281,7 +286,8 @@
       "effects": "Efekti",
       "pauses": "Pauze",
       "voices": "Glasovi",
-      "text": "Tekst"
+      "text": "Tekst",
+      "sound": "Zvuk"
     },
     "help": {
       "framing": "Pomeri i zumiraj sliku",
@@ -290,11 +296,13 @@
       "effects": "Efekti preko slike",
       "pauses": "Nađi i iseci pauze",
       "voices": "Ko govori, i glasovi epizode",
-      "text": "Transkript epizode"
+      "text": "Transkript epizode",
+      "sound": "Zvučni efekti i muzika"
     },
     "layersHint": "Dodaje se od playheada nadalje. Pritisni sloj na vremenskoj liniji da ga menjaš.",
     "effectsHint": "Dodaje se od playheada nadalje. Pritisni efekat na vremenskoj liniji da ga menjaš.",
-    "voicesHint": "Uključi Prikaži ljude ispod slike da kažeš ko govori."
+    "voicesHint": "Uključi Prikaži ljude ispod slike da kažeš ko govori.",
+    "soundHint": "Dodaje se od playheada nadalje. Pritisni zvuk na vremenskoj liniji da ga menjaš."
   },
   "export": {
     "button": "Izvezi",
@@ -428,7 +436,8 @@
       "image": "Slika",
       "video": "Video",
       "lottie": "Animacija",
-      "effect": "Efekat"
+      "effect": "Efekat",
+      "audio": "Zvuk"
     },
     "video": "Video",
     "captions": "Titlovi",
@@ -504,6 +513,11 @@
         "too-large": "Ta animacija je prevelika (preko 50 MB).",
         "external-images": "Ta animacija prikazuje slike koje stoje pored nje. Izvezi je sa slikama unutra, ili kao .lottie fajl, pa probaj ponovo.",
         "play": "Animacija nije mogla da se učita: {{detail}}"
+      },
+      "audio": {
+        "unreadable": "Taj fajl nije zvuk koji Rezzo može da pročita.",
+        "too-large": "Taj zvučni fajl je prevelik (preko 1 GB).",
+        "too-long": "Taj zvuk je predug (preko 10 minuta)."
       }
     },
     "units": {
@@ -573,6 +587,54 @@
       "amount": "Količina",
       "speed": "Brzina",
       "size": "Veličina"
+    }
+  },
+  "sounds": {
+    "title": "Zvuk: {{name}}",
+    "missing": "{{name}} više nije na {{path}}, pa se ne čuje.",
+    "change": "Promeni fajl…",
+    "fadeIn": "Pojačavanje",
+    "fadeOut": "Utišavanje",
+    "fadeInHandle": "Pojačavanje: {{name}}",
+    "fadeOutHandle": "Utišavanje: {{name}}",
+    "start": "Početak u fajlu",
+    "loop": "Kreni ispočetka na kraju",
+    "help": "Zvuk svira i preko isečenih pauza, pa muzika ne preskače. Prevuci male ručice na vrhu njegove trake da ga postepeno pojačaš i utišaš.",
+    "ownFile": "Tvoj fajl…",
+    "ownFileHelp": "Muzika ili bilo koji zvučni fajl: MP3, WAV, M4A, OGG, FLAC",
+    "listen": "Poslušaj: {{name}}",
+    "addHelp": "Dodaj kod playheada",
+    "errors": {
+      "play": "Zvuk nije mogao da se pusti: {{detail}}"
+    },
+    "groups": {
+      "click": "Klik",
+      "camera": "Kamera",
+      "transition": "Prelaz",
+      "pop": "Iskakanje",
+      "hit": "Udarac",
+      "signal": "Signal",
+      "reaction": "Reakcija"
+    },
+    "names": {
+      "mouse-click": "Klik miša",
+      "camera-shutter": "Okidač",
+      "whoosh": "Whoosh",
+      "swish": "Fijuk",
+      "rise": "Podizanje",
+      "sweep": "Prelet",
+      "pop": "Pop",
+      "pop-cartoon": "Crtani pop",
+      "punch": "Udarac",
+      "ding": "Ding",
+      "blip": "Blip",
+      "notification": "Obaveštenje",
+      "cash-register": "Kasa",
+      "wrong": "Pogrešan odgovor",
+      "record-scratch": "Grebanje ploče",
+      "applause": "Aplauz",
+      "laugh": "Smeh",
+      "crickets": "Cvrčci"
     }
   },
   "voices": {

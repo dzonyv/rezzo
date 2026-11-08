@@ -102,6 +102,8 @@ export function sceneAt(clip: Clip, assets: readonly Asset[], t: number, source:
       ops.push({ type: 'captions' });
     } else if (!showsAt(layer, t)) {
       continue;
+    } else if (layer.kind === 'sound') {
+      continue;
     } else if (layer.kind === 'effect') {
       const pass = effectPassAt(layer, t);
       if (pass) ops.push({ type: 'effect', layerId: layer.id, pass });

@@ -1,5 +1,5 @@
 import { describe, expect, it } from 'vitest';
-import { alphaDecoder, hasAlphaChannel, isPackedRgba, lowestAlpha, parseProbe, parseVideoInfo, ProbeError, streamAlpha, type FfprobeJson } from './probe.ts';
+import { alphaDecoder, hasAlphaChannel, isPackedRgba, lowestAlpha, parseAudioInfo, parseProbe, parseVideoInfo, ProbeError, streamAlpha, type FfprobeJson } from './probe.ts';
 
 const video = { index: 0, codec_type: 'video', codec_name: 'h264', width: 1920, height: 1080, r_frame_rate: '30/1', avg_frame_rate: '30/1' };
 const audio = { index: 1, codec_type: 'audio', codec_name: 'aac', sample_rate: '48000', channels: 2 };
@@ -103,5 +103,21 @@ describe('transparency in RGBA files', () => {
     expect(lowestAlpha(opaque)).toBe(255);
     expect(lowestAlpha(`${opaque}frame:2\nlavfi.signalstats.YMIN=0\n`)).toBe(0);
     expect(lowestAlpha('')).toBe(255);
+  });
+});
+
+describe('parseAudioInfo', () => {
+  it("reads a sound file's length and codec", () => {
+    expect(parseAudioInfo({ streams: [{ index: 0, codec_type: 'audio', codec_name: 'mp3' }], format: { duration: '95.2' } })).toEqual({ codec: 'mp3', duration: 95.2 });
+  });
+
+  it('reads the sound of a video too', () => {
+    const streams = [{ index: 0, codec_type: 'video' }, { index: 1, codec_type: 'audio', codec_name: 'aac' }];
+    expect(parseAudioInfo({ streams, format: { duration: '12' } }).codec).toBe('aac');
+  });
+
+  it('refuses a file without sound or length', () => {
+    expect(() => parseAudioInfo({ streams: [{ index: 0, codec_type: 'video' }], format: { duration: '3' } })).toThrow(ProbeError);
+    expect(() => parseAudioInfo({ streams: [{ index: 0, codec_type: 'audio' }], format: {} })).toThrow(ProbeError);
   });
 });

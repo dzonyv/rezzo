@@ -38,6 +38,12 @@ extraResources:
     to: tools/face-landmarker
     filter:
       - '*.task'
+  # The sound effects library (src/main/sounds.ts), with who made each one.
+  - from: resources/sounds
+    to: sounds
+    filter:
+      - '*.ogg'
+      - CREDITS.md
   - from: LICENSE
     to: licenses/LICENSE
   - from: THIRD_PARTY_NOTICES.md

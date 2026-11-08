@@ -1,20 +1,29 @@
 /**
- * Files a project uses besides its source video: images, videos and Lottie
- * animations. Like the source they're referenced by path and fingerprint,
+ * Files a project uses besides its source video: images, videos, Lottie
+ * animations and sound files. Like the source they're referenced by path and fingerprint,
  * never copied, so moving one means finding it again.
  */
 import { z } from 'zod';
 import { lottieInfoSchema } from './lottie.ts';
 
-export const ASSET_KINDS = ['image', 'video', 'lottie'] as const;
+export const ASSET_KINDS = ['image', 'video', 'lottie', 'audio'] as const;
 export const IMAGE_EXTENSIONS = ['png', 'jpg', 'jpeg', 'webp'] as const;
 export const VIDEO_EXTENSIONS = ['mp4', 'mov', 'webm', 'mkv', 'gif'] as const;
 /** Lottie JSON, or a .lottie package (a zip with the JSON and its images). */
 export const LOTTIE_EXTENSIONS = ['json', 'lottie'] as const;
+/** Sound files: music, effects, recordings. FFmpeg reads them all; Chromium decodes them for the preview. */
+export const AUDIO_EXTENSIONS = ['mp3', 'wav', 'm4a', 'aac', 'ogg', 'opus', 'flac'] as const;
 /** Larger than any image anyone puts in a clip; keeps a mistaken pick from being read into memory. */
 export const MAX_IMAGE_BYTES = 100 * 1024 * 1024;
 /** Videos are only read by FFmpeg, never into memory whole; this just catches a wrong pick. */
 export const MAX_VIDEO_BYTES = 16 * 1024 * 1024 * 1024;
+/**
+ * The preview decodes a sound file whole into memory (about 23 MB a minute
+ * at 48 kHz stereo), so a file longer than this is refused: a long song
+ * fits, a clip is at most three minutes anyway.
+ */
+export const MAX_AUDIO_SECONDS = 10 * 60;
+export const MAX_AUDIO_BYTES = 1024 * 1024 * 1024;
 /** Images are drawn from a texture at most this many pixels on the longer side. */
 export const MAX_IMAGE_SIDE = 4096;
 
@@ -65,7 +74,17 @@ export type VideoAsset = z.infer<typeof videoAssetSchema>;
 export const lottieAssetSchema = assetFileSchema.extend({ id: z.uuid(), kind: z.literal('lottie') }).extend(lottieInfoSchema.shape);
 export type LottieAsset = z.infer<typeof lottieAssetSchema>;
 
-export const assetSchema = z.discriminatedUnion('kind', [imageAssetSchema, videoAssetSchema, lottieAssetSchema]);
+/** What ffprobe tells us about a sound file (workers/media/probe.ts). */
+export const audioInfoSchema = z.object({
+  codec: z.string(),
+  duration: z.number().finite().positive(),
+});
+export type AudioInfo = z.infer<typeof audioInfoSchema>;
+
+export const audioAssetSchema = assetFileSchema.extend({ id: z.uuid(), kind: z.literal('audio') }).extend(audioInfoSchema.shape);
+export type AudioAsset = z.infer<typeof audioAssetSchema>;
+
+export const assetSchema = z.discriminatedUnion('kind', [imageAssetSchema, videoAssetSchema, lottieAssetSchema, audioAssetSchema]);
 export type Asset = z.infer<typeof assetSchema>;
 export type AssetKind = (typeof ASSET_KINDS)[number];
 

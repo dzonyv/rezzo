@@ -41,6 +41,8 @@ desktop.ini
 *.flac
 *.ogg
 *.opus
+# ...except the CC0 sound effects that ship with the app (credited in resources/sounds/CREDITS.md).
+!resources/sounds/*.ogg
 /media/
 fixtures/media/
 

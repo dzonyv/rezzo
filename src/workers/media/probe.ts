@@ -1,4 +1,4 @@
-import type { VideoInfo } from '../../shared/assets.ts';
+import type { AudioInfo, VideoInfo } from '../../shared/assets.ts';
 import type { ProbeResult } from '../../shared/worker-api.ts';
 import { exec, ffmpegExe, ffprobeExe } from './exec.ts';
 
@@ -168,6 +168,27 @@ export function parseVideoInfo(json: FfprobeJson, alpha: boolean): VideoInfo {
     alpha,
     hasAudio: (json.streams ?? []).some((s) => s.codec_type === 'audio'),
   };
+}
+
+/** What a sound file is: its length and the codec of its first sound stream. */
+export function parseAudioInfo(json: FfprobeJson): AudioInfo {
+  const audio = (json.streams ?? []).find((s) => s.codec_type === 'audio');
+  if (!audio) throw new ProbeError('unreadable', 'no sound stream');
+  const duration = Number(json.format?.duration);
+  if (!Number.isFinite(duration) || duration <= 0) throw new ProbeError('unreadable', 'no duration');
+  return { codec: audio.codec_name ?? 'unknown', duration };
+}
+
+/** Reads a sound layer's file. */
+export async function probeAudio(file: string): Promise<AudioInfo> {
+  let json: FfprobeJson;
+  try {
+    const { stdout } = await exec(ffprobeExe(), ['-v', 'error', '-show_streams', '-show_format', '-of', 'json', file]);
+    json = JSON.parse(stdout) as FfprobeJson;
+  } catch (e) {
+    throw new ProbeError('unreadable', String(e));
+  }
+  return parseAudioInfo(json);
 }
 
 /** Reads a video layer's file, including whether it has a transparent background. */

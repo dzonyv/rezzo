@@ -3,9 +3,10 @@ import { useTranslation } from 'react-i18next';
 import type { Asset } from '../../../shared/assets.ts';
 import type { CaptionPage } from '../../../shared/captions.ts';
 import { EFFECTS } from '../../../shared/effects.ts';
-import { isTimed, keyframesOf, videoLayerOf, type Animated, type Clip, type TimedLayer } from '../../../shared/project.ts';
+import { isTimed, keyframesOf, soundLayers, videoLayerOf, type Animated, type Clip, type SoundLayer, type TimedLayer } from '../../../shared/project.ts';
+import { playedLength, soundAsset, soundDuration } from '../../../shared/sound-mix.ts';
 import { outputTime } from '../../../shared/skips.ts';
-import { moveLayer, reorderLayer, trimLayer } from '../project/layers.ts';
+import { moveLayer, reorderLayer, setSoundSettings, trimLayer } from '../project/layers.ts';
 import { restoreSkip } from '../project/skips.ts';
 import { videoLayersOverLimit } from '../../../shared/overlay-files.ts';
 import { projectStore, useProject } from '../project/store.ts';
@@ -14,6 +15,7 @@ import { useAnalysis } from '../analysis/store.ts';
 import { formatClipTime } from '../format.ts';
 import { useHeardVoices } from '../project/voices.ts';
 import { useOverlayFile } from '../render/overlay-files.ts';
+import { loadLibrarySound, loadSoundFile, useWaveform, WAVEFORM_PER_SECOND, type Waveform } from '../render/sound-files.ts';
 import { voiceColor, voiceLabel } from '../voice-colors.ts';
 import { pauseClip, seekClip } from './playback.ts';
 import { layerName, rowsOf } from './layer-names.ts';
@@ -43,7 +45,8 @@ const RULER_GAP_PX = 64;
 
 type Drag =
   | { kind: 'scrub' }
-  | { kind: 'move' | 'start' | 'end'; layer: TimedLayer; x: number; moved: boolean };
+  | { kind: 'move' | 'start' | 'end'; layer: TimedLayer; x: number; moved: boolean }
+  | { kind: 'fadeIn' | 'fadeOut'; layer: SoundLayer; x: number; moved: boolean };
 
 /** The part of the clip in view, as fractions of its length. */
 interface View {
@@ -75,6 +78,9 @@ interface OverviewDrag {
  * cut parts) and the playhead's time. Above that, the whole clip in small
  * with a box around the part in view: drag the box to move along the clip
  * and its edges to zoom. Ctrl+scroll zooms too.
+ *
+ * Under the video, the sounds: each one's waveform, with slopes where it
+ * fades in and out; drag a slope's handle to change the fade.
  *
  * Press and drag on empty space to scrub; drag a layer to move it in time
  * and its ends to trim it. Right-click a turn to correct it.
@@ -121,6 +127,7 @@ export function ClipTimeline({ clip, assets, keys, pages, selectedId, time }: Pr
     .map((k, i) => ({ from: Math.max(k.t, clip.start), to: layout[i + 1]?.t ?? clip.end, layout: k.value }))
     .filter((b) => b.to > clip.start && b.from < clip.end);
   const rows = rowsOf(clip);
+  const sounds = soundLayers(clip);
   const overLimit = videoLayersOverLimit(clip);
   const nameOf = (layer: TimedLayer) => layerName(t, layer, assets);
   /** Effects' bars have their group's colour. */
@@ -238,6 +245,16 @@ export function ClipTimeline({ clip, assets, keys, pages, selectedId, time }: Pr
     projectStore.getState().beginGesture(kind === 'move' ? 'history.moveLayer' : 'history.trimLayer');
   };
 
+  const startFadeDrag = (e: React.PointerEvent, layer: SoundLayer, kind: 'fadeIn' | 'fadeOut') => {
+    if (e.button !== 0) return;
+    e.stopPropagation();
+    pauseClip();
+    selectLayer(layer.id);
+    track.current!.setPointerCapture(e.pointerId);
+    drag.current = { kind, layer, x: e.clientX, moved: false };
+    projectStore.getState().beginGesture('history.soundSettings');
+  };
+
   const onMove = (e: React.PointerEvent) => {
     const d = drag.current;
     if (!d || !track.current!.hasPointerCapture(e.pointerId)) return;
@@ -248,6 +265,12 @@ export function ClipTimeline({ clip, assets, keys, pages, selectedId, time }: Pr
     const shift = (e.clientX - d.x) * perPixel();
     if (!d.moved && Math.abs(e.clientX - d.x) < 2) return;
     d.moved = true;
+    if (d.kind === 'fadeIn' || d.kind === 'fadeOut') {
+      // The fade in grows to the right, the fade out to the left; in tenths of a second.
+      const seconds = d.kind === 'fadeIn' ? d.layer.fadeIn + shift : d.layer.fadeOut - shift;
+      setSoundSettings(clip.id, d.layer.id, { [d.kind]: Math.round(Math.max(0, seconds) * 10) / 10 });
+      return;
+    }
     const { layer } = d;
     if (d.kind === 'move') {
       let start = layer.start + shift;
@@ -334,6 +357,9 @@ export function ClipTimeline({ clip, assets, keys, pages, selectedId, time }: Pr
               <div key={layer.id} className={`mini layer ${barClass(layer)}`} style={{ ...span(layer.start, layer.end), top: `${3 + (i % 3) * 5}px` }} />
             ) : null,
           )}
+          {sounds.map((layer) => (
+            <div key={layer.id} className="mini layer sound" style={{ ...span(layer.start, layer.end), top: '18px' }} />
+          ))}
           {skips.map((s) => (
             <div key={s.start} className="mini skip" style={span(s.start, s.end)} />
           ))}
@@ -478,6 +504,42 @@ export function ClipTimeline({ clip, assets, keys, pages, selectedId, time }: Pr
             ))}
             {keyMarks(keys)}
           </div>
+          {sounds.map((layer) => (
+            <div key={layer.id} className="timeline-row sound">
+              <button
+                type="button"
+                className={`track-tag${layer.id === selectedId ? ' selected' : ''}`}
+                aria-label={t('layers.select', { name: nameOf(layer) })}
+                onClick={() => selectLayer(layer.id)}
+              >
+                {nameOf(layer)}
+              </button>
+              <div
+                className={`layer-bar sound${layer.id === selectedId ? ' selected' : ''}`}
+                style={span(layer.start, layer.end)}
+                role="button"
+                aria-label={t('layers.moveBar', { name: nameOf(layer) })}
+                title={nameOf(layer)}
+                onPointerDown={(e) => startLayerDrag(e, layer, 'move')}
+              >
+                <SoundShape layer={layer} assets={assets} />
+                <span className="layer-name">{nameOf(layer)}</span>
+                <div className="edge start" role="separator" aria-label={t('layers.startHandle', { name: nameOf(layer) })} onPointerDown={(e) => startLayerDrag(e, layer, 'start')} />
+                <div className="edge end" role="separator" aria-label={t('layers.endHandle', { name: nameOf(layer) })} onPointerDown={(e) => startLayerDrag(e, layer, 'end')} />
+                {FADES.map((kind) => (
+                  <div
+                    key={kind}
+                    className={`fade-handle ${kind}`}
+                    style={fadeHandleAt(layer, kind, soundDuration(layer, assets) ?? 0)}
+                    role="separator"
+                    aria-label={t(`sounds.${kind}Handle`, { name: nameOf(layer) })}
+                    title={t(`sounds.${kind}Handle`, { name: nameOf(layer) })}
+                    onPointerDown={(e) => startFadeDrag(e, layer, kind)}
+                  />
+                ))}
+              </div>
+            </div>
+          ))}
           {turns && (
             <div className="timeline-row voices" aria-label={t('voices.title')}>
               <span className="track-tag">{t('voices.title')}</span>
@@ -515,6 +577,78 @@ export function ClipTimeline({ clip, assets, keys, pages, selectedId, time }: Pr
       </div>
       {turnMenu && heard && <VoiceTurnMenu {...turnMenu} voices={heard.voices} onClose={() => setTurnMenu(null)} />}
     </div>
+  );
+}
+
+/**
+ * Where a sound's fades happen in its bar, as shares of it: the sound
+ * stops where its file runs out, and each fade takes at most half of what
+ * plays (shared/sound-mix.ts).
+ */
+function fadesIn(layer: SoundLayer, duration: number): { played: number; fadeIn: number; fadeOut: number } {
+  const length = layer.end - layer.start;
+  const played = playedLength(layer, duration);
+  const half = played / 2;
+  return { played: played / length, fadeIn: Math.min(layer.fadeIn, half) / length, fadeOut: Math.min(layer.fadeOut, half) / length };
+}
+
+/** Where a fade's handle goes on its sound's bar: the top of its slope. */
+function fadeHandleAt(layer: SoundLayer, kind: (typeof FADES)[number], duration: number): React.CSSProperties {
+  const f = fadesIn(layer, duration);
+  return kind === 'fadeIn' ? { left: `${f.fadeIn * 100}%` } : { left: `${(f.played - f.fadeOut) * 100}%`, transform: 'translateX(-7px)' };
+}
+
+/** A sound's two fade handles. */
+const FADES = ['fadeIn', 'fadeOut'] as const;
+
+/** Points across a sound's waveform. */
+const WAVE_POINTS = 240;
+
+/** The loudest bit of `wave` between two times of its file. */
+function peakBetween(wave: Waveform, from: number, to: number): number {
+  let peak = 0;
+  const last = Math.min(wave.length - 1, Math.floor(to * WAVEFORM_PER_SECOND));
+  for (let i = Math.max(0, Math.floor(from * WAVEFORM_PER_SECOND)); i <= last; i++) peak = Math.max(peak, wave[i]!);
+  return peak;
+}
+
+/**
+ * A sound's waveform across its bar, from where it starts in its file and
+ * starting over at the end when it loops, with the line its volume follows:
+ * up over the fade in, level, down over the fade out. Skips inside the bar
+ * aren't shown: the sound plays on through them.
+ */
+function SoundShape({ layer, assets }: { layer: SoundLayer; assets: readonly Asset[] }) {
+  const library = 'library' in layer.sound ? layer.sound.library : null;
+  const asset = soundAsset(layer, assets);
+  const load = library ? () => loadLibrarySound(library) : asset ? () => loadSoundFile(asset) : null;
+  const wave = useWaveform(load, library ?? `${asset?.id}:${asset?.path}`);
+  const duration = soundDuration(layer, assets) ?? 0;
+  const length = layer.end - layer.start;
+  if (!(length > 0)) return null;
+  let path = '';
+  if (wave && duration > 0) {
+    const step = length / WAVE_POINTS;
+    const top: string[] = [];
+    const bottom: string[] = [];
+    for (let i = 0; i < WAVE_POINTS; i++) {
+      let from = layer.offset + i * step;
+      if (layer.loop) from %= duration;
+      const peak = from < duration ? peakBetween(wave, from, from + step) : 0;
+      const h = Math.min(1, peak) * 9;
+      top.push(`${i},${(10 - h).toFixed(2)}`);
+      bottom.unshift(`${i},${(10 + h).toFixed(2)}`);
+    }
+    path = `M${top.join('L')}L${bottom.join('L')}Z`;
+  }
+  const f = fadesIn(layer, duration);
+  const [played, fadeIn, fadeOut] = [f.played, f.fadeIn, f.fadeOut].map((share) => share * WAVE_POINTS) as [number, number, number];
+  const level = 20 - 18 * layer.volume;
+  return (
+    <svg className="sound-shape" viewBox={`0 0 ${WAVE_POINTS} 20`} preserveAspectRatio="none" aria-hidden="true">
+      {path && <path className="wave" d={path} />}
+      <polyline className="gain" points={`0,20 ${fadeIn},${level} ${played - fadeOut},${level} ${played},20`} />
+    </svg>
   );
 }
 

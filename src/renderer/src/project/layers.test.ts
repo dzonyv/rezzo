@@ -2,7 +2,7 @@ import { beforeEach, describe, expect, it } from 'vitest';
 import type { AssetFile } from '../../../shared/assets.ts';
 import { defaultVideoLayer } from '../../../shared/framing.ts';
 import { newProject, projectSchema, type ImageLayer, type Project } from '../../../shared/project.ts';
-import { addImageLayer, deleteLayer, duplicateLayer, moveLayer, reorderLayer, setTransform, trimLayer } from './layers.ts';
+import { addImageLayer, addLibrarySound, addSoundFile, deleteLayer, duplicateLayer, moveLayer, reorderLayer, setTransform, trimLayer } from './layers.ts';
 import { projectStore } from './store.ts';
 
 const CLIP = '0b6f2a52-9d0c-4f39-8f39-7f0e2c9b1a11';
@@ -118,6 +118,27 @@ describe('layer edits', () => {
     expect(clip().layers.map((l) => l.id).slice(1)).toEqual([b, a]);
     reorderLayer(CLIP, b, 'down');
     expect(clip().layers[0]!.kind).toBe('video');
+  });
+
+  it('restacks past sounds, which have no place in the order', () => {
+    const a = addImageLayer(CLIP, FILE, SIZE, 10)!;
+    const sound = addLibrarySound(CLIP, 'ding', 11)!;
+    const b = addImageLayer(CLIP, { ...FILE, fingerprint: 'd'.repeat(64) }, SIZE, 10)!;
+    expect(clip().layers.map((l) => l.id).slice(1)).toEqual([a, sound, b]);
+    reorderLayer(CLIP, b, 'down');
+    expect(clip().layers.map((l) => l.id).slice(1)).toEqual([b, sound, a]);
+    reorderLayer(CLIP, sound, 'down');
+    expect(clip().layers.map((l) => l.id).slice(1)).toEqual([b, sound, a]);
+  });
+
+  it('adds a sound from the library as long as it is, and drops a sound file with its last layer', () => {
+    const id = addLibrarySound(CLIP, 'ding', 12)!;
+    expect(clip().layers.at(-1)).toMatchObject({ id, kind: 'sound', sound: { library: 'ding' }, start: 12, volume: 1, loop: false });
+    const file = addSoundFile(CLIP, { ...FILE, name: 'tema.mp3', fingerprint: 'e'.repeat(64) }, { codec: 'mp3', duration: 4 }, 11)!;
+    expect(state().project!.assets).toMatchObject([{ kind: 'audio', name: 'tema.mp3', duration: 4 }]);
+    expect(() => projectSchema.parse(state().project)).not.toThrow();
+    deleteLayer(CLIP, file);
+    expect(state().project!.assets).toEqual([]);
   });
 
   it('drops the file with its last image, and undo brings both back', () => {
