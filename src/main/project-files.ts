@@ -153,7 +153,13 @@ export async function recentProjects(): Promise<RecentProject[]> {
   return readRecent();
 }
 
-const recoverySchema = z.object({ filePath: z.string().nullable(), savedAt: z.string(), project: z.unknown() });
+const recoverySchema = z.object({
+  filePath: z.string().nullable(),
+  /** Set by versions that only write a copy for a file the user chose. */
+  pathChecked: z.boolean().optional(),
+  savedAt: z.string(),
+  project: z.unknown(),
+});
 const recoveryFile = (id: string) => path.join(recoveryDir(), `${id}.json`);
 
 /** Keeps a copy of unsaved work so a crash doesn't lose it. */
@@ -163,7 +169,7 @@ export async function autosave(project: unknown, filePath: string | null): Promi
   assertOwnFiles(valid);
   if (filePath !== null && !(await isGranted(filePath))) throw new Error('Not a project file the user chose');
   await mkdir(recoveryDir(), { recursive: true });
-  const copy = { filePath, savedAt: new Date().toISOString(), project: valid };
+  const copy: z.infer<typeof recoverySchema> = { filePath, pathChecked: true, savedAt: new Date().toISOString(), project: valid };
   await writeFileAtomic(recoveryFile(valid.id), JSON.stringify(copy));
 }
 
@@ -187,9 +193,10 @@ export async function recoveredProjects(): Promise<RecoveredProject[]> {
       // Through the upgrades: a copy from before an update is still someone's work.
       const project = parseProject(JSON.stringify(copy.project));
       rememberFiles(project);
-      // Checked when the copy was written.
-      if (copy.filePath) grant(copy.filePath);
-      found.push({ filePath: copy.filePath, savedAt: copy.savedAt, project });
+      // A copy from before paths were checked comes back as a project never saved, and asks where to save.
+      const filePath = copy.pathChecked ? copy.filePath : null;
+      if (filePath) grant(filePath);
+      found.push({ filePath, savedAt: copy.savedAt, project });
     } catch {
       // A half-written copy, or one from a newer version; nothing to offer.
     }

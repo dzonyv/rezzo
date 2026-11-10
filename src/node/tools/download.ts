@@ -36,7 +36,8 @@ async function installedFiles(dir: string): Promise<{ path: string; size: number
  * Whether the tool is in `dir`, whole: the marker is for this version and
  * every file it lists is still there at its size. A marker from before
  * files were listed counts if the folder still holds what it should: the
- * downloaded file at its size, or anything at all for an unpacked tool.
+ * downloaded file at its size, or an unpacked tool's entry file (anything
+ * at all for a tool that names none).
  */
 export async function isInstalled(tool: Tool, dir: string): Promise<boolean> {
   try {
@@ -47,7 +48,9 @@ export async function isInstalled(tool: Tool, dir: string): Promise<boolean> {
       return marker.files.length > 0 && marker.files.every((f, i) => sizes[i] === f.size);
     }
     if (!tool.extract) return (await sizeOf(path.join(dir, fileNameOf(tool)))) === tool.size;
-    return (await installedFiles(dir)).length > 0;
+    const left = await installedFiles(dir);
+    const entry = tool.entry?.toLowerCase();
+    return entry ? left.some((f) => path.basename(f.path).toLowerCase() === entry) : left.length > 0;
   } catch {
     return false;
   }

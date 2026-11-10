@@ -170,7 +170,8 @@ export async function encodeExport(ctx: JobContext, req: ExportRequest): Promise
     ctx.signal.throwIfAborted();
     await rename(part, req.out);
   } catch (e) {
-    await rm(part, { force: true });
+    // Whatever went wrong is what the caller hears, not a part file that wouldn't go.
+    await rm(part, { force: true, maxRetries: 5, retryDelay: 40 }).catch(() => {});
     throw e;
   } finally {
     port.close();

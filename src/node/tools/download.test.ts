@@ -129,8 +129,12 @@ describe('install', () => {
     await mkdir(path.join(unpacked, 'bin'), { recursive: true });
     await writeFile(path.join(unpacked, '.installed'), JSON.stringify({ id: 'model', sha256 }));
     expect(await isInstalled(tool({ extract: true }), unpacked)).toBe(false);
-    await writeFile(path.join(unpacked, 'bin', 'tool.exe'), 'x');
+    await writeFile(path.join(unpacked, 'bin', 'tool.dll'), 'x');
     expect(await isInstalled(tool({ extract: true }), unpacked)).toBe(true);
+    // One that names the file it runs from needs that file.
+    expect(await isInstalled(tool({ extract: true, entry: 'tool.exe' }), unpacked)).toBe(false);
+    await writeFile(path.join(unpacked, 'bin', 'Tool.exe'), 'x');
+    expect(await isInstalled(tool({ extract: true, entry: 'tool.exe' }), unpacked)).toBe(true);
   });
 
   it('stops a download that is larger than the tool should be', async () => {

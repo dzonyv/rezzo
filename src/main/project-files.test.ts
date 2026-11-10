@@ -109,6 +109,15 @@ describe('project files', () => {
     expect(await files.recoveredProjects()).toMatchObject([{ filePath: target }]);
   });
 
+  it("doesn't let a recovery copy from an older version name the file to save over", async () => {
+    const project = newProject('old');
+    const elsewhere = path.join(dir, 'elsewhere.rezzo');
+    await mkdir(path.join(dir, 'profile', 'recovery'));
+    await writeFile(path.join(dir, 'profile', 'recovery', `${project.id}.json`), JSON.stringify({ filePath: elsewhere, savedAt: new Date().toISOString(), project }));
+    expect(await files.recoveredProjects()).toMatchObject([{ filePath: null, project: { id: project.id } }]);
+    await expect(files.saveProject(project, elsewhere)).rejects.toThrow('user chose');
+  });
+
   it("doesn't hand out a layer's file that isn't named like one of its kind, but keeps it in the project", async () => {
     const odd = path.join(dir, 'passwords.txt');
     picked = path.join(dir, 'handmade.rezzo');
