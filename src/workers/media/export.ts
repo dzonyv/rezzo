@@ -7,7 +7,6 @@
  */
 import { spawn } from 'node:child_process';
 import { randomUUID } from 'node:crypto';
-import { once } from 'node:events';
 import { rename, rm } from 'node:fs/promises';
 import type { MessagePortMain } from 'electron';
 import { OUTPUT } from '../../shared/framing.ts';
@@ -149,10 +148,12 @@ class ExportError extends Error {
 }
 
 /** Video frames in a finished file, counted from its packets. */
-async function countFrames(file: string): Promise<number> {
-  const { stdout } = await exec(ffprobeExe(), [
-    '-v', 'error', '-select_streams', 'v:0', '-count_packets', '-show_entries', 'stream=nb_read_packets', '-of', 'csv=p=0', file,
-  ]);
+async function countFrames(file: string, signal: AbortSignal): Promise<number> {
+  const { stdout } = await exec(
+    ffprobeExe(),
+    ['-v', 'error', '-select_streams', 'v:0', '-count_packets', '-show_entries', 'stream=nb_read_packets', '-of', 'csv=p=0', file],
+    { signal },
+  );
   return Number(stdout.trim());
 }
 
@@ -163,8 +164,10 @@ export async function encodeExport(ctx: JobContext, req: ExportRequest): Promise
   const part = `${req.out}.${randomUUID().slice(0, 8)}.part`;
   try {
     await encode(ctx, req, port, part);
-    const frames = await countFrames(part);
+    const frames = await countFrames(part, ctx.signal);
     if (frames !== req.frames) throw new ExportError('frame-count', `expected ${req.frames} frames, the file has ${frames}`);
+    // Cancelled this late, the file chosen in the save dialog still stays as it was.
+    ctx.signal.throwIfAborted();
     await rename(part, req.out);
   } catch (e) {
     await rm(part, { force: true });
@@ -188,10 +191,27 @@ function encode(ctx: JobContext, req: ExportRequest, port: MessagePortMain, part
     }
   };
   // Windows won't delete the part file while FFmpeg still has it open.
+  let gone = false;
   const exited = new Promise<void>((resolve) => {
-    child.on('close', () => resolve());
-    child.on('error', () => resolve());
+    const done = () => {
+      gone = true;
+      resolve();
+    };
+    child.on('close', done);
+    child.on('error', done);
   });
+  /** Resolves when FFmpeg has room for more input, or has gone. Leaves no listener behind: this runs for every frame that had to wait. */
+  const room = () =>
+    new Promise<void>((resolve) => {
+      if (gone) return resolve();
+      const done = () => {
+        child.stdin.off('drain', done);
+        child.off('close', done);
+        resolve();
+      };
+      child.stdin.on('drain', done);
+      child.on('close', done);
+    });
 
   return new Promise<void>((resolve, reject) => {
     let settled = false;
@@ -225,7 +245,7 @@ function encode(ctx: JobContext, req: ExportRequest, port: MessagePortMain, part
       if (msg.type === 'frame') {
         received++;
         const buf = Buffer.from(msg.data.buffer, msg.data.byteOffset, msg.data.byteLength);
-        if (!child.stdin.write(buf)) await Promise.race([once(child.stdin, 'drain'), once(child, 'close')]);
+        if (!child.stdin.write(buf)) await room();
         reply({ type: 'ack' });
       } else if (msg.type === 'end') {
         if (received !== req.frames) {

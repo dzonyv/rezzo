@@ -80,7 +80,7 @@ An outside review of `f6cf25e` found sixteen bugs. Each one was checked against 
 - Changing the start or end of a clip while it plays keeps playing the old range until the loop comes round (`clip-player.ts` `setRange()` restarts only for changed skips).
 - The loop goes back to the start about a frame and a half early and cuts the last ~50 ms of sound. Preview only; exported files aren't affected.
 
-### Cancelling long jobs
+### Cancelling long jobs ✓
 
 - Cancelling an export while a video layer's working file is being made doesn't stop that conversion. FFmpeg keeps running and no other export can start until it finishes (`loadScene()` has no abort signal).
 - Cancelling during the final frame count can still put the exported file in place, over the one chosen in the save dialog (`workers/media/export.ts`: `countFrames()` and the rename don't check the signal).
