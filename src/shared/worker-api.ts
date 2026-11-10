@@ -5,6 +5,7 @@
  */
 import type { AudioInfo, VideoInfo } from './assets.ts';
 import type { Loudness } from './loudness.ts';
+import type { LottieInfo } from './lottie.ts';
 import type { FrameRate } from './frames.ts';
 import type { Source, Transcript, TranscriptLanguage } from './project.ts';
 import type { EpisodeVoices, SpeakerCount, Span } from './voices.ts';
@@ -148,6 +149,8 @@ export interface WorkerMethods {
   probeVideo(file: string): VideoInfo;
   /** Reads a sound layer's file. Fails with code "unreadable". */
   probeAudio(file: string): AudioInfo;
+  /** What a Lottie animation's file says about it (workers/media/lottie-file.ts); null when it isn't one. */
+  readLottie(file: string): LottieInfo | 'external-images' | null;
   /** A content hash of the file (see workers/media/fingerprint.ts). */
   fingerprint(file: string): string;
   /** Installs a tool from tools.json into `dir`; reports DownloadProgress. */

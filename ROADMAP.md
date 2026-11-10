@@ -89,7 +89,7 @@ An outside review of `f6cf25e` found sixteen bugs. Each one was checked against 
 
 This group also settles one cancellation rule for main, the page, the media worker and FFmpeg, so the next long job doesn't need its own.
 
-### Main process hardening
+### Main process hardening ✓
 
 - The page can read any file on disk by saving a project that points to it and opening it again: `project:save` and `project:open` accept any path from the page, and opening a project trusts every path in it. Only matters if someone already runs code in the page, but the page is sandboxed so that this exact thing stays impossible. Main should only open and save where the user chose in a dialog (or through recent projects), and check that a project's files exist and are media before handing out URLs for them.
 - A small .lottie package can unpack to a thousand times its size (65 KB became 64 MB in the audit), synchronously in the main process (`main/lottie-file.ts`). Cap the unpacked size and do it off the main thread.
