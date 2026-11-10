@@ -215,10 +215,11 @@ export class ClipPlayer {
   }
 
   setRange(range: ClipSpan): void {
-    const skipsChanged = range.skips !== this.range.skips;
+    const changed = range.start !== this.range.start || range.end !== this.range.end || range.skips !== this.range.skips;
     this.range = range;
     if (this.time < range.start || this.time >= range.end) this.seek(range.start);
-    else if (skipsChanged && this.playing) this.startPlaying();
+    // What's playing was scheduled for the old range, its sound to the old end: start again from here.
+    else if (changed && this.playing) this.startPlaying();
   }
 
   /**
@@ -410,6 +411,9 @@ export class ClipPlayer {
         this.emit();
       }
     }
+    // The last frame goes up half a frame early and stays for a whole one, and the sound runs to the end.
+    const endOutput = fromOutput + pieces.reduce((sum, p) => sum + p.end - p.start, 0);
+    while (run === this.run && this.clock() < endOutput) await nextAnimationFrame();
     if (run !== this.run) return;
     // The end of the clip: around again from the start.
     this.time = this.range.start;

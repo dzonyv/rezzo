@@ -74,7 +74,7 @@ An outside review of `f6cf25e` found sixteen bugs. Each one was checked against 
 - Two settings changes at the same time can lose one of them (`main/settings.ts`): read, merge and write have to happen one after another.
 - Changing a layer's missing file to the same file at its new place keeps the old path, for images, videos, Lottie and sound (`replaceImage/Video/Lottie/Sound` in `project/layers.ts`). Adding a layer already updates the path; replacing should too.
 
-### Preview playback
+### Preview playback ✓
 
 - Trimming a clip past its working file and quickly back again leaves the preview stuck on "preparing" with Play disabled (`ClipPreview.tsx`: reusing the player doesn't set the status back to ready).
 - Changing the start or end of a clip while it plays keeps playing the old range until the loop comes round (`clip-player.ts` `setRange()` restarts only for changed skips).
