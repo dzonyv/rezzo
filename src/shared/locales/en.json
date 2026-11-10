@@ -117,6 +117,7 @@
       "invalid": "The project {{path}} is damaged and can't be opened."
     },
     "save": "Saving failed: {{detail}}",
+    "recovery": "The safety copy of your unsaved work couldn't be written, so a crash would lose it. Save the project. ({{detail}})",
     "unexpected": "Something went wrong: {{detail}}",
     "import": {
       "not-found": "{{path}} can't be found.",

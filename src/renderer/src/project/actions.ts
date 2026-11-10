@@ -28,12 +28,18 @@ function command<A extends unknown[], R>(fn: (...args: A) => Promise<R>, fallbac
   };
 }
 
+/** A field that applies its value when left (the word being corrected) does so now, before anyone looks at the project. */
+function commitActiveField(): void {
+  if (document.activeElement instanceof HTMLElement) document.activeElement.blur();
+}
+
 /**
  * Stops a running export if the user agrees, makes sure unsaved work is
  * saved or deliberately dropped, then stops anything still running for the
  * project. Returns false if the user cancelled.
  */
 export const settleUnsaved = command(async (): Promise<boolean> => {
+  commitActiveField();
   if (isExporting()) {
     const stop = await askConfirm({
       title: i18n.t('export.running.title'),
@@ -92,12 +98,22 @@ export const locateSource = command(async (): Promise<boolean> => {
 export const openProject = command(async (path: string | null = null): Promise<void> => {
   const chosen = path ?? (await api().invoke('project:choose'));
   if (!chosen) return;
-  const result = await api().invoke('project:open', chosen);
+  // Read before asking about unsaved work, so a file that can't be opened costs nothing.
+  let result = await api().invoke('project:open', chosen);
   if (!result.ok) {
     notify('error', i18n.t(`errors.open.${result.error}`, { path: result.path }));
     return;
   }
+  const before = projectStore.getState().saved;
   if (!(await settleUnsaved())) return;
+  // Something was saved on the way: if that was this very file, what was read above is now the old version.
+  if (projectStore.getState().saved !== before) {
+    result = await api().invoke('project:open', chosen);
+    if (!result.ok) {
+      notify('error', i18n.t(`errors.open.${result.error}`, { path: result.path }));
+      return;
+    }
+  }
   projectStore.getState().load(result.project, result.path);
 }, undefined);
 
@@ -109,10 +125,18 @@ export const restoreProject = command(async (project: Project, filePath: string 
 }, undefined);
 
 /** Saves; `saveAs` (or a project never saved) asks where. Returns true when saved. */
-export const save = command(async (saveAs: boolean): Promise<boolean> => {
-  // A field that applies its value when left (the word being corrected) does so before the save.
-  if (document.activeElement instanceof HTMLElement) document.activeElement.blur();
-  const { project, filePath } = projectStore.getState();
+export const save = command((saveAs: boolean): Promise<boolean> => {
+  // One save at a time: the second waits and then saves the project as it is by then.
+  const mine = saving.then(() => saveNow(saveAs));
+  saving = mine.catch(() => undefined);
+  return mine;
+}, false);
+
+let saving: Promise<unknown> = Promise.resolve();
+
+async function saveNow(saveAs: boolean): Promise<boolean> {
+  commitActiveField();
+  const { project, filePath, opened } = projectStore.getState();
   if (!project) return false;
   projectStore.getState().endGesture();
   const result = await api().invoke('project:save', project, saveAs ? null : filePath);
@@ -121,9 +145,10 @@ export const save = command(async (saveAs: boolean): Promise<boolean> => {
     notify('error', i18n.t('errors.save', { detail: result.detail }));
     return false;
   }
-  projectStore.getState().markSaved(project, result.path);
+  // Another project may have been opened while this one was being written; the file isn't that one's.
+  if (projectStore.getState().opened === opened) projectStore.getState().markSaved(project, result.path);
   return true;
-}, false);
+}
 
 export const closeProject = command(async (): Promise<void> => {
   if (!(await settleUnsaved())) return;

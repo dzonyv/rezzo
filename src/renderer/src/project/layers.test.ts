@@ -1,9 +1,10 @@
 import { beforeEach, describe, expect, it } from 'vitest';
-import type { AssetFile } from '../../../shared/assets.ts';
+import type { AssetFile, VideoInfo } from '../../../shared/assets.ts';
+import { lottieInfoSchema } from '../../../shared/lottie.ts';
 import { defaultVideoLayer } from '../../../shared/framing.ts';
 import { newProject, projectSchema, type ImageLayer, type Project } from '../../../shared/project.ts';
 import {
-  addImageLayer, addLibrarySound, addSoundFile, deleteLayer, duplicateLayer, moveLayer, reorderLayer, setClipEvenLoudness, setSoundSettings, setTransform, trimLayer,
+  addImageLayer, addLibrarySound, addLottieLayer, addSoundFile, addVideoLayer, deleteLayer, replaceImage, replaceLottie, replaceSoundFile, replaceVideo, duplicateLayer, moveLayer, reorderLayer, setClipEvenLoudness, setSoundSettings, setTransform, trimLayer,
 } from './layers.ts';
 import { projectStore } from './store.ts';
 
@@ -31,6 +32,31 @@ const clip = () => state().project!.clips[0]!;
 const images = () => clip().layers.filter((l): l is ImageLayer => l.kind === 'image');
 
 beforeEach(() => state().load(project(), null));
+
+describe("changing a layer's file", () => {
+  const MOVED: AssetFile = { ...FILE, path: 'E:\\Novo\\logo-2.png', name: 'logo-2.png' };
+
+  it('uses the same file from where it is now', () => {
+    const id = addImageLayer(CLIP, FILE, SIZE, 12)!;
+    replaceImage(CLIP, id, MOVED, SIZE);
+    expect(state().project!.assets).toHaveLength(1);
+    expect(state().project!.assets[0]).toMatchObject({ path: MOVED.path, name: MOVED.name });
+    expect(images()[0]!.assetId).toBe(state().project!.assets[0]!.id);
+  });
+
+  it('does the same for videos, animations and sounds', () => {
+    const video: VideoInfo = { codec: 'h264', width: 640, height: 360, duration: 4, frameRate: [30, 1], colorSpace: null, alpha: false, hasAudio: false };
+    const lottie = lottieInfoSchema.parse({ width: 200, height: 200, frames: 60, frameRate: 30 });
+    const audio = { codec: 'mp3', duration: 2 };
+    const videoId = addVideoLayer(CLIP, { ...FILE, fingerprint: 'd'.repeat(64) }, video, 10) as string;
+    const lottieId = addLottieLayer(CLIP, { ...FILE, fingerprint: 'e'.repeat(64) }, lottie, 10)!;
+    const soundId = addSoundFile(CLIP, { ...FILE, fingerprint: 'f'.repeat(64) }, audio, 10)!;
+    replaceVideo(CLIP, videoId, { ...MOVED, fingerprint: 'd'.repeat(64) }, video);
+    replaceLottie(CLIP, lottieId, { ...MOVED, fingerprint: 'e'.repeat(64) }, lottie);
+    replaceSoundFile(CLIP, soundId, { ...MOVED, fingerprint: 'f'.repeat(64) }, audio);
+    expect(state().project!.assets.map((a) => a.path)).toEqual([MOVED.path, MOVED.path, MOVED.path]);
+  });
+});
 
 describe('layer edits', () => {
   it('adds an image from the playhead on, for three seconds, with its file', () => {

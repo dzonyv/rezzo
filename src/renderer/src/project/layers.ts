@@ -6,7 +6,7 @@
  * an edit changes them for the layer's whole time.
  */
 import { current, type Draft } from 'immer';
-import type { AssetFile, AudioInfo, VideoInfo } from '../../../shared/assets.ts';
+import type { Asset, AssetFile, AudioInfo, VideoInfo } from '../../../shared/assets.ts';
 import { DEFAULT_CHROMA_KEY, type ChromaKey } from '../../../shared/chroma-key.ts';
 import { defaultParams, EFFECTS, type EffectName, type ParamDef } from '../../../shared/effects.ts';
 import { editAt, OUTPUT, removeKey, setKey, valueAt, type Size } from '../../../shared/framing.ts';
@@ -54,6 +54,17 @@ function editPlaced(clipId: string, layerId: string, label: EditLabel, recipe: (
 function pruneAssets(d: Draft<Project>): void {
   const used = new Set(d.clips.flatMap(layerAssetIds));
   d.assets = d.assets.filter((a) => used.has(a.id));
+}
+
+/**
+ * Makes `asset` one of the project's files. When the same file is already
+ * one (`existing`), that one stays and only learns where the file is now,
+ * so picking a moved file again finds it.
+ */
+function refreshOrAdd(d: Draft<Project>, existing: Asset | undefined, asset: Asset): void {
+  const kept = existing && d.assets.find((a) => a.id === existing.id);
+  if (kept) Object.assign(kept, { path: asset.path, name: asset.name, size: asset.size });
+  else d.assets.push(asset);
 }
 
 /** Puts a new layer over the others but under the captions. */
@@ -108,8 +119,7 @@ export function addImageLayer(clipId: string, file: AssetFile, size: Size, time:
     key: null,
   };
   editClip(clipId, 'history.addImage', (c, d) => {
-    if (existing) Object.assign(d.assets.find((a) => a.id === existing.id)!, { path: file.path, name: file.name });
-    else d.assets.push({ id: assetId, kind: 'image', ...file, ...size });
+    refreshOrAdd(d, existing, { id: assetId, kind: 'image', ...file, ...size });
     insertLayer(c, layer);
   });
   return layer.id;
@@ -122,7 +132,7 @@ export function replaceImage(clipId: string, layerId: string, file: AssetFile, s
   editClip(clipId, 'history.replaceImage', (c, d) => {
     const layer = c.layers.find((l) => l.id === layerId);
     if (layer?.kind !== 'image') return;
-    if (!existing) d.assets.push({ id: assetId, kind: 'image', ...file, ...size });
+    refreshOrAdd(d, existing, { id: assetId, kind: 'image', ...file, ...size });
     layer.assetId = assetId;
     pruneAssets(d);
   });
@@ -274,8 +284,7 @@ export function addVideoLayer(clipId: string, file: AssetFile, info: VideoInfo, 
   };
   if (videoLayersOverLimit({ layers: [...clip.layers, layer] }).has(layer.id)) return 'too-many';
   editClip(clipId, 'history.addVideo', (c, d) => {
-    if (existing) Object.assign(d.assets.find((a) => a.id === existing.id)!, { path: file.path, name: file.name });
-    else d.assets.push({ id: assetId, kind: 'video', ...file, ...info });
+    refreshOrAdd(d, existing, { id: assetId, kind: 'video', ...file, ...info });
     insertLayer(c, layer);
   });
   return layer.id;
@@ -288,7 +297,7 @@ export function replaceVideo(clipId: string, layerId: string, file: AssetFile, i
   editClip(clipId, 'history.replaceVideo', (c, d) => {
     const layer = c.layers.find((l) => l.id === layerId);
     if (layer?.kind !== 'overlay') return;
-    if (!existing) d.assets.push({ id: assetId, kind: 'video', ...file, ...info });
+    refreshOrAdd(d, existing, { id: assetId, kind: 'video', ...file, ...info });
     layer.assetId = assetId;
     // The new file may be shorter.
     layer.offset = Math.min(layer.offset, Math.max(0, info.duration - 1 / fps(sourceRate())));
@@ -352,8 +361,7 @@ export function addLottieLayer(clipId: string, file: AssetFile, info: LottieInfo
     loop: false,
   };
   editClip(clipId, 'history.addLottie', (c, d) => {
-    if (existing) Object.assign(d.assets.find((a) => a.id === existing.id)!, { path: file.path, name: file.name });
-    else d.assets.push({ id: assetId, kind: 'lottie', ...file, ...info });
+    refreshOrAdd(d, existing, { id: assetId, kind: 'lottie', ...file, ...info });
     insertLayer(c, layer);
   });
   return layer.id;
@@ -366,7 +374,7 @@ export function replaceLottie(clipId: string, layerId: string, file: AssetFile, 
   editClip(clipId, 'history.replaceLottie', (c, d) => {
     const layer = c.layers.find((l) => l.id === layerId);
     if (layer?.kind !== 'lottie') return;
-    if (!existing) d.assets.push({ id: assetId, kind: 'lottie', ...file, ...info });
+    refreshOrAdd(d, existing, { id: assetId, kind: 'lottie', ...file, ...info });
     layer.assetId = assetId;
     pruneAssets(d);
   });
@@ -440,8 +448,7 @@ export function addSoundFile(clipId: string, file: AssetFile, info: AudioInfo, t
   const assetId = existing?.id ?? crypto.randomUUID();
   const layer = newSoundLayer(clip, { assetId }, time, info.duration);
   editClip(clipId, 'history.addSound', (c, d) => {
-    if (existing) Object.assign(d.assets.find((a) => a.id === existing.id)!, { path: file.path, name: file.name });
-    else d.assets.push({ id: assetId, kind: 'audio', ...file, ...info });
+    refreshOrAdd(d, existing, { id: assetId, kind: 'audio', ...file, ...info });
     c.layers.push(layer);
   });
   return layer.id;
@@ -454,7 +461,7 @@ export function replaceSoundFile(clipId: string, layerId: string, file: AssetFil
   editClip(clipId, 'history.replaceSound', (c, d) => {
     const layer = c.layers.find((l) => l.id === layerId);
     if (layer?.kind !== 'sound') return;
-    if (!existing) d.assets.push({ id: assetId, kind: 'audio', ...file, ...info });
+    refreshOrAdd(d, existing, { id: assetId, kind: 'audio', ...file, ...info });
     layer.sound = { assetId };
     layer.offset = Math.min(layer.offset, Math.max(0, info.duration - 0.1));
     pruneAssets(d);

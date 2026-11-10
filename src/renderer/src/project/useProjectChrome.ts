@@ -2,13 +2,14 @@
  * Things that follow the open project around: the window title, keyboard
  * shortcuts, recovery copies of unsaved work, and the window's close button.
  */
+import i18n from 'i18next';
 import { useEffect } from 'react';
 import { useTranslation } from 'react-i18next';
 import { isTypingTarget } from '../ui/focus.ts';
+import { notify } from '../ui/prompts.ts';
 import { closeWindow, createProject, openProject, save } from './actions.ts';
+import { startRecoveryCopies } from './recovery.ts';
 import { isDirty, projectStore, useProject } from './store.ts';
-
-const AUTOSAVE_MS = 30_000;
 
 export function useProjectChrome(): void {
   const { t } = useTranslation();
@@ -46,14 +47,16 @@ export function useProjectChrome(): void {
     return () => window.removeEventListener('keydown', onKey);
   }, []);
 
-  useEffect(() => {
-    let written: unknown = null;
-    const timer = setInterval(() => {
-      const state = projectStore.getState();
-      if (!state.project || !isDirty(state) || state.project === written) return;
-      written = state.project;
-      void window.rezzo.invoke('project:autosave', state.project, state.filePath);
-    }, AUTOSAVE_MS);
-    return () => clearInterval(timer);
-  }, []);
+  useEffect(
+    () =>
+      startRecoveryCopies({
+        unsaved() {
+          const state = projectStore.getState();
+          return state.project && isDirty(state) ? { project: state.project, filePath: state.filePath } : null;
+        },
+        write: (project, filePath) => window.rezzo.invoke('project:autosave', project, filePath),
+        onFailing: (detail) => notify('error', i18n.t('errors.recovery', { detail })),
+      }),
+    [],
+  );
 }
