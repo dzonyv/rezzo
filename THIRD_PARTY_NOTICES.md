@@ -6,10 +6,10 @@ Rezzo itself is licensed under the GPL-3.0 (see `LICENSE`). The installer also c
 
 Rezzo uses FFmpeg to read video, cut it, and encode the exported clips. The installer includes the programs and libraries from this build:
 
-- FFmpeg 9.0.2, BtbN build `ffmpeg-n9.0.2-36-g6882969ce9-win64-gpl-shared-9.0` (autobuild-2026-10-27-18-38)
+- FFmpeg 9.0.2, BtbN build `ffmpeg-n9.0.2-39-g7adfbe40dc-win64-gpl-shared-9.0` (autobuild-2026-10-31-12-59)
 - License: GPL-3.0-or-later. This is the "gpl" variant, which includes x264, x265 and other GPL libraries. It is built without `--enable-nonfree`. The full license text is in `tools/ffmpeg/<build>/LICENSE.txt`.
-- Binaries: https://github.com/BtbN/FFmpeg-Builds/releases/tag/autobuild-2026-10-27-18-38
-- Source code: FFmpeg at commit `6882969ce9` (https://github.com/FFmpeg/FFmpeg/commit/6882969ce9). The scripts that build it, along with the exact version of each library it includes, are at https://github.com/BtbN/FFmpeg-Builds.
+- Binaries: https://github.com/BtbN/FFmpeg-Builds/releases/tag/autobuild-2026-10-31-12-59
+- Source code: FFmpeg at commit `7adfbe40dc` (https://github.com/FFmpeg/FFmpeg/commit/7adfbe40dc). The scripts that build it, along with the exact version of each library it includes, are at https://github.com/BtbN/FFmpeg-Builds.
 
 ## Electron and Chromium
 

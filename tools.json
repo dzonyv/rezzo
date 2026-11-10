@@ -4,10 +4,10 @@
     {
       "id": "ffmpeg",
       "kind": "bundled",
-      "name": "FFmpeg 9.0.2 (BtbN gpl-shared build, autobuild-2026-10-27-18-38)",
-      "url": "https://github.com/BtbN/FFmpeg-Builds/releases/download/autobuild-2026-10-27-18-38/ffmpeg-n9.0.2-36-g6882969ce9-win64-gpl-shared-9.0.zip",
-      "size": 87215453,
-      "sha256": "dbfef481021a393424c9bd4e588c8d568f0ebba780c01c63dfcb87c87be901c7",
+      "name": "FFmpeg 9.0.2 (BtbN gpl-shared build, autobuild-2026-10-31-12-59)",
+      "url": "https://github.com/BtbN/FFmpeg-Builds/releases/download/autobuild-2026-10-31-12-59/ffmpeg-n9.0.2-39-g7adfbe40dc-win64-gpl-shared-9.0.zip",
+      "size": 85920857,
+      "sha256": "1d9823c35c7a7e2f54d1438cf61030d6efabe3278de01c191309d1e828bb74df",
       "extract": true,
       "license": "GPL-3.0-or-later (gpl variant: includes x264/x265; built without --enable-nonfree)",
       "source": "https://github.com/BtbN/FFmpeg-Builds"
