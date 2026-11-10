@@ -4,7 +4,7 @@ import type { Asset } from '../../../shared/assets.ts';
 import { keyAt, valueAt } from '../../../shared/framing.ts';
 import { fps, type FrameRate } from '../../../shared/frames.ts';
 import {
-  DIRECTIONS, ENTRANCES, EXITS, LOOPS, MAX_LAYER_SCALE, MAX_MOTION_SECONDS, MIN_LAYER_SCALE, MIN_MOTION_SECONDS, type Direction, type Motion,
+  DIRECTIONS, ENTRANCES, EXITS, LOOPS, MAX_LAYER_SCALE, MAX_MOTION_SECONDS, MIN_LAYER_SCALE, MIN_MOTION_SECONDS, MOTION_SECONDS, type Direction, type Motion,
   type Transform,
 } from '../../../shared/motion.ts';
 import { MAX_VIDEO_LAYERS } from '../../../shared/overlay-files.ts';
@@ -101,11 +101,14 @@ export function LayerPanel({ clipId, layer, asset, time, rate, overLimit }: Prop
   const animation = ({ part, kinds, names, directed }: (typeof PARTS)[number]) => {
     const m = layer.motion[part];
     const set = (patch: Partial<Motion[typeof part]>) => setMotion(clipId, layer.id, part, patch);
+    // A new kind comes with the length that suits it; the loop has a strength instead.
+    const pick = (kind: Motion[typeof part]['kind']) =>
+      set('seconds' in m ? { kind, seconds: MOTION_SECONDS[kind as keyof typeof MOTION_SECONDS] } : { kind });
     return (
       <div key={part} className="layer-animation">
         <label>
           <span>{t(`layers.${part}`)}</span>
-          <select value={m.kind} onChange={(e) => set({ kind: e.target.value as Motion[typeof part]['kind'] })}>
+          <select value={m.kind} onChange={(e) => pick(e.target.value as Motion[typeof part]['kind'])}>
             {kinds.map((k) => (
               <option key={k} value={k}>
                 {t(`layers.${names}.${k}` as 'layers.loops.none')}

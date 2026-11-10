@@ -14,14 +14,35 @@ export function easeOutBack(f: number): number {
   return 1 + (c + 1) * (f - 1) ** 3 + c * (f - 1) ** 2;
 }
 
-/** Lands and bounces twice, smaller each time. */
+/** Starts at twice the average speed and slows to a stop: gentler on the first frames than easeOutCubic. */
+export const easeOutQuad = (f: number): number => 1 - (1 - f) ** 2;
+
+export const easeInQuad = (f: number): number => f * f;
+
+/** How much speed a bounce keeps when it lands. */
+const BOUNCE_KEEP = 0.5;
+/** The fall, then two bounces, in units of the fall's time. */
+const BOUNCE_ARCS = [1, 2 * BOUNCE_KEEP, 2 * BOUNCE_KEEP ** 2];
+const BOUNCE_TIME = BOUNCE_ARCS.reduce((a, b) => a + b, 0);
+
+/**
+ * Falls under steady gravity, lands and bounces twice, each bounce a quarter
+ * as high as the one before. Only two bounces, so each one lasts a few
+ * frames even at 25 fps.
+ */
 export function easeOutBounce(f: number): number {
-  const n = 7.5625;
-  const d = 2.75;
-  if (f < 1 / d) return n * f * f;
-  if (f < 2 / d) return n * (f - 1.5 / d) ** 2 + 0.75;
-  if (f < 2.5 / d) return n * (f - 2.25 / d) ** 2 + 0.9375;
-  return n * (f - 2.625 / d) ** 2 + 0.984375;
+  let u = clamp01(f) * BOUNCE_TIME;
+  if (u < 1) return u * u;
+  u -= 1;
+  for (let i = 1; i < BOUNCE_ARCS.length; i++) {
+    const arc = BOUNCE_ARCS[i]!;
+    if (u < arc) {
+      const half = arc / 2;
+      return 1 - (half * half - (u - half) ** 2);
+    }
+    u -= arc;
+  }
+  return 1;
 }
 
 /** A repeatable pseudo-random value in -1..1 for an integer. */

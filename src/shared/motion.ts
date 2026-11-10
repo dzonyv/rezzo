@@ -5,7 +5,7 @@
  * the preview and the export put it in exactly the same place.
  */
 import { z } from 'zod';
-import { clamp01, easeInCubic, easeOutBack, easeOutBounce, easeOutCubic, noise } from './easing.ts';
+import { clamp01, easeInQuad, easeOutBack, easeOutBounce, easeOutCubic, easeOutQuad, noise } from './easing.ts';
 import { valueAt } from './framing.ts';
 import type { Animated } from './project.ts';
 
@@ -61,13 +61,28 @@ export const motionSchema = z.object({
 export type Motion = z.infer<typeof motionSchema>;
 
 export const DEFAULT_MOTION: Motion = {
-  in: { kind: 'pop', direction: 'left', seconds: 0.3 },
+  in: { kind: 'pop', direction: 'left', seconds: 0.35 },
   out: { kind: 'none', direction: 'right', seconds: 0.3 },
   loop: { kind: 'none', direction: 'left', strength: 0.5 },
 };
 
+/**
+ * How long each kind takes when it's picked. A slide or a bounce in 0.3 s
+ * is only seven or eight frames at 25 fps, and jumps a long way per frame.
+ */
+export const MOTION_SECONDS: Record<(typeof ENTRANCES)[number] | (typeof EXITS)[number], number> = {
+  none: 0.3,
+  fade: 0.3,
+  pop: 0.35,
+  slide: 0.5,
+  zoom: 0.45,
+  bounce: 0.8,
+};
+
 /** A pop starts (or ends) at this size. */
 const POP_FROM = 0.7;
+/** A zoom starts (or ends) at this size: from nothing the first frames grow too fast to follow. */
+const ZOOM_FROM = 0.3;
 /** A bounce drops in from this far above, as a share of the output height. */
 const BOUNCE_DROP = 0.25;
 /** Shake: wobbles per second, how far (share of the output width) and how much it tilts at full strength. */
@@ -121,13 +136,13 @@ export function layerTransformAt(layer: Timed, t: number): Transform {
         break;
       case 'slide': {
         // From one output width (or height) away, in the chosen direction.
-        const away = 1 - easeOutCubic(f);
+        const away = 1 - easeOutQuad(f);
         x += step.x * away;
         y += step.y * away;
         break;
       }
       case 'zoom':
-        scale *= easeOutCubic(f);
+        scale *= ZOOM_FROM + (1 - ZOOM_FROM) * easeOutQuad(f);
         opacity *= clamp01(f * 2);
         break;
       case 'bounce':
@@ -151,13 +166,13 @@ export function layerTransformAt(layer: Timed, t: number): Transform {
         opacity *= clamp01(g * 3);
         break;
       case 'slide': {
-        const away = easeInCubic(1 - g);
+        const away = easeInQuad(1 - g);
         x += step.x * away;
         y += step.y * away;
         break;
       }
       case 'zoom':
-        scale *= easeOutCubic(g);
+        scale *= ZOOM_FROM + (1 - ZOOM_FROM) * easeOutQuad(g);
         opacity *= clamp01(g * 2);
         break;
       case 'none':

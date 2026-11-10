@@ -1,5 +1,5 @@
 import { describe, expect, it } from 'vitest';
-import { DEFAULT_MOTION, layerTransformAt, type Motion, type Timed, type Transform } from './motion.ts';
+import { DEFAULT_MOTION, layerTransformAt, MOTION_SECONDS, type Motion, type Timed, type Transform } from './motion.ts';
 
 const BASE: Transform = { x: 0.5, y: 0.5, scale: 0.6, rotation: 0, opacity: 1 };
 
@@ -56,10 +56,33 @@ describe('layer motion', () => {
     expect(layerTransformAt(l, 10.75).opacity).toBeCloseTo(0.5);
   });
 
-  it('bounces in from above', () => {
-    const l = layer({ in: { kind: 'bounce', direction: 'left', seconds: 0.6 } });
+  it('bounces in from above, twice, each bounce a few frames long at 25 fps', () => {
+    const l = layer({ in: { kind: 'bounce', direction: 'left', seconds: MOTION_SECONDS.bounce } });
     expect(layerTransformAt(l, 10).y).toBeCloseTo(0.25);
-    expect(layerTransformAt(l, 10.6).y).toBeCloseTo(0.5);
+    expect(layerTransformAt(l, 10 + MOTION_SECONDS.bounce).y).toBeCloseTo(0.5);
+    const ys = Array.from({ length: 21 }, (_, i) => layerTransformAt(l, 10 + i / 25).y);
+    // Rising again after a landing (y goes up the screen) counts a bounce.
+    const rises = ys.filter((y, i) => i > 0 && y < ys[i - 1]! - 1e-9 && (i === 1 || ys[i - 1]! >= ys[i - 2]!));
+    expect(rises.length).toBe(2);
+    expect(ys.every((y) => y <= 0.5 + 1e-9)).toBe(true);
+  });
+
+  it('moves no more than a sixth of the way in one 25 fps frame, at the default lengths', () => {
+    for (const kind of ['slide', 'zoom', 'pop', 'bounce'] as const) {
+      const l = layer({ in: { kind, direction: 'left', seconds: MOTION_SECONDS[kind] } });
+      const at = (i: number) => layerTransformAt(l, 10 + i / 25);
+      for (let i = 1; i <= 25; i++) {
+        expect(Math.abs(at(i).x - at(i - 1).x)).toBeLessThanOrEqual(1 / 6);
+        expect(Math.abs(at(i).y - at(i - 1).y)).toBeLessThanOrEqual(1 / 6);
+        expect(Math.abs(at(i).scale - at(i - 1).scale) / BASE.scale).toBeLessThanOrEqual(1 / 6);
+      }
+    }
+  });
+
+  it('zooms from a third of the size, not from nothing', () => {
+    const l = layer({ in: { kind: 'zoom', direction: 'left', seconds: 0.45 } });
+    expect(layerTransformAt(l, 10).scale).toBeCloseTo(0.6 * 0.3);
+    expect(layerTransformAt(l, 10.45).scale).toBeCloseTo(0.6);
   });
 
   it('shakes the same way every time, and not at all at strength 0', () => {
