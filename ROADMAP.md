@@ -99,3 +99,6 @@ This group also settles one cancellation rule for main, the page, the media work
 
 - `npm audit` lists 16 moderate advisories, none high or critical, mostly in build tools. Go through them by whether the app actually uses the affected code; don't run `npm audit fix --force`.
 - One lint warning: `react-hooks/incompatible-library` for `useVirtualizer()` in `TranscriptView.tsx`.
+- End-to-end tests for the orderings the fixes above are about, which so far only have unit tests: a word being corrected when the window closes, undoing a trim before its working file is ready, opening another project while a save is running, and cancelling an export at each of its stages. The "stuck on preparing" fix has no test at all. The packaged build, and the software and GPU encoders, should each get a run.
+- Storage the user can see and clean: how much disk the cache takes, and a way to empty it. Tidying the cache must not fail a conversion that already finished, or delete a file that's in use.
+- Every long job checked against the one cancellation rule (`callWorker()` in `main/worker-host.ts`): transcription, telling voices apart, the episode preview and thumbnails haven't been gone through. Waits that could hang get a limit.
