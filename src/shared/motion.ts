@@ -79,6 +79,21 @@ export const MOTION_SECONDS: Record<(typeof ENTRANCES)[number] | (typeof EXITS)[
   bounce: 0.8,
 };
 
+type TimedKind = keyof typeof MOTION_SECONDS;
+
+/** Whether `kind` is an entrance or exit, which have a length, rather than a loop. */
+export const isTimedKind = (kind: string): kind is TimedKind => Object.hasOwn(MOTION_SECONDS, kind);
+
+/**
+ * The length to keep when an entrance or exit changes from `from` to
+ * `kind`: the new kind's own length, unless the old one was set by hand.
+ * 0.3 s was every kind's length before they had their own.
+ */
+export function secondsForKind(from: { kind: TimedKind; seconds: number }, kind: TimedKind): number {
+  const untouched = from.seconds === MOTION_SECONDS[from.kind] || from.seconds === 0.3;
+  return untouched ? MOTION_SECONDS[kind] : from.seconds;
+}
+
 /** A pop starts (or ends) at this size. */
 const POP_FROM = 0.7;
 /** A zoom starts (or ends) at this size: from nothing the first frames grow too fast to follow. */
@@ -119,9 +134,12 @@ export function layerTransformAt(layer: Timed, t: number): Transform {
   const since = t - layer.start;
   const left = layer.end - t;
 
-  // Coming in and going out share the layer's time if it's short.
-  const inSeconds = Math.min(motion.in.seconds, total / 2);
-  const outSeconds = Math.min(motion.out.seconds, total / 2);
+  // If the layer is too short for both, coming in and going out each get
+  // their share of its time. A part that's off takes none.
+  const wanted = (motion.in.kind === 'none' ? 0 : motion.in.seconds) + (motion.out.kind === 'none' ? 0 : motion.out.seconds);
+  const share = wanted > total ? total / wanted : 1;
+  const inSeconds = motion.in.seconds * share;
+  const outSeconds = motion.out.seconds * share;
 
   const f = clamp01(since / inSeconds);
   if (f < 1) {

@@ -6,8 +6,6 @@ export const smoothstep = (f: number): number => f * f * (3 - 2 * f);
 
 export const easeOutCubic = (f: number): number => 1 - (1 - f) ** 3;
 
-export const easeInCubic = (f: number): number => f ** 3;
-
 /** Overshoots a little and settles, for a pop. */
 export function easeOutBack(f: number): number {
   const c = 1.7;
