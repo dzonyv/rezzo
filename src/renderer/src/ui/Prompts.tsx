@@ -53,6 +53,7 @@ export function Prompts() {
       <dialog
         ref={confirmDialog}
         className="modal"
+        aria-labelledby="confirm-title"
         onCancel={(e) => {
           e.preventDefault();
           confirmation?.answer(false);
@@ -60,7 +61,7 @@ export function Prompts() {
       >
         {confirmation && (
           <>
-            <h2>{confirmation.title}</h2>
+            <h2 id="confirm-title">{confirmation.title}</h2>
             <p>{confirmation.body}</p>
             <div className="buttons">
               <button type="button" onClick={() => confirmation.answer(true)}>

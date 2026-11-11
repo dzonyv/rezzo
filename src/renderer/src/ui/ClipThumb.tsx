@@ -13,6 +13,11 @@ const RETRY_MS = 3000;
 /** Thumbnails already asked for, by source, time and size; each is made once. */
 const thumbnails = new Map<string, Promise<string>>();
 
+/** Forgets every thumbnail asked for: after the cache is cleared they're made again. */
+export function forgetThumbnails(): void {
+  thumbnails.clear();
+}
+
 function thumbnailOf(source: Source, time: number, size: ThumbnailSize): Promise<string> {
   const key = `${source.fingerprint}:${Math.round(time * 1000)}:${size}`;
   let url = thumbnails.get(key);

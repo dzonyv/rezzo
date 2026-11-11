@@ -1,11 +1,13 @@
 import { useEffect, useState } from 'react';
 import { useTranslation } from 'react-i18next';
 import { version } from '../../../../package.json';
-import type { RecentProject, RecoveredProject } from '../../../shared/api.ts';
+import type { RecentProject, RecoveredProject, StorageUsage } from '../../../shared/api.ts';
+import { formatBytes, localeOf } from '../format.ts';
 import { createProject, openProject, restoreProject } from '../project/actions.ts';
 import { ChangelogDialog } from './ChangelogDialog.tsx';
 import { LanguagePicker } from './LanguagePicker.tsx';
 import { shortName } from './short-name.ts';
+import { StorageDialog, usageBytes } from './StorageDialog.tsx';
 
 /** Names, not words to translate. */
 const REPOSITORY = { name: 'GitHub', url: 'https://github.com/dzonyv/rezzo' };
@@ -20,6 +22,9 @@ export function Home() {
   const [recent, setRecent] = useState<RecentProject[]>([]);
   const [recovered, setRecovered] = useState<RecoveredProject[]>([]);
   const [changelog, setChangelog] = useState(false);
+  const [storage, setStorage] = useState(false);
+  // Measured when the dialog opens (it walks the whole cache), then shown beside the link.
+  const [usage, setUsage] = useState<StorageUsage | null>(null);
 
   useEffect(() => {
     void window.rezzo.invoke('project:recent').then(setRecent);
@@ -31,8 +36,7 @@ export function Home() {
     setRecovered((list) => list.filter((r) => r.project.id !== id));
   };
 
-  const when = (iso: string) =>
-    new Date(iso).toLocaleString(i18n.language === 'sh' ? 'sr-Latn' : 'en', { dateStyle: 'medium', timeStyle: 'short' });
+  const when = (iso: string) => new Date(iso).toLocaleString(localeOf(i18n.language), { dateStyle: 'medium', timeStyle: 'short' });
 
   return (
     <main
@@ -80,6 +84,10 @@ export function Home() {
                 </a>
                 <button type="button" className="link" onClick={() => void window.rezzo.invoke('app:licenses')}>
                   {t('home.licenses')}
+                </button>
+                <button type="button" className="link" onClick={() => setStorage(true)}>
+                  {t('storage.link')}
+                  {usage && ` · ${formatBytes(usageBytes(usage), localeOf(i18n.language))}`}
                 </button>
               </nav>
             </div>
@@ -146,6 +154,7 @@ export function Home() {
         <LanguagePicker />
       </aside>
       <ChangelogDialog open={changelog} onClose={() => setChangelog(false)} />
+      <StorageDialog open={storage} onClose={() => setStorage(false)} onChange={setUsage} />
     </main>
   );
 }

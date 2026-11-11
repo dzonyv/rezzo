@@ -102,6 +102,45 @@ export type AddAssetResult =
 
 export type LocateAssetResult = AddAssetResult | { ok: false; error: 'different-file' };
 
+/**
+ * One folder of the cache: what was made from one video (an episode, or a
+ * layer's video), named after the recent project it belongs to when there
+ * is one. `busy`: a running job uses it, so it isn't cleared.
+ */
+export interface CachedFolder {
+  fingerprint: string;
+  /** 'episode': a recent project's video; 'layer': a file used as a layer in one; 'other': no recent project names it. */
+  kind: 'episode' | 'layer' | 'other';
+  /** The project's name (an episode), or the file's (a layer); null for 'other'. */
+  name: string | null;
+  /** When that project was last opened, for an episode. */
+  openedAt: string | null;
+  bytes: number;
+  busy: boolean;
+}
+
+/** A tool or model the app downloaded; `known` is false for one this version no longer uses. */
+export interface DownloadedTool {
+  id: string;
+  name: string;
+  known: boolean;
+  bytes: number;
+  busy: boolean;
+}
+
+export interface StorageUsage {
+  /** Where it all is, for "Open folder". */
+  folder: string;
+  cache: CachedFolder[];
+  tools: DownloadedTool[];
+}
+
+/** What to clear: cache folders by fingerprint, downloaded tools by id. */
+export interface StorageClear {
+  cache: string[];
+  tools: string[];
+}
+
 export interface RecentProject {
   path: string;
   name: string;
@@ -196,6 +235,13 @@ export interface InvokeApi {
   /** Opens the third-party licenses that ship with this copy of the app. */
   'app:licenses': () => void;
 
+  /** How much disk the cache and downloaded tools take. */
+  'storage:usage': () => StorageUsage;
+  /** Deletes what's asked except what a running job uses; `skipped` counts what stayed. */
+  'storage:clear': (what: StorageClear) => { usage: StorageUsage; skipped: number };
+  /** Opens the folder they're in. */
+  'storage:reveal': () => void;
+
   /** Asks for a TTF or OTF file and adds it to the fonts captions can use. Null: cancelled. */
   'fonts:add': () => AddFontResult | null;
   /** The bytes of an added font, by its `file` in the settings. */
@@ -283,6 +329,9 @@ export const INVOKE_CHANNELS = {
   'export:reveal': true,
   'export:open': true,
   'app:licenses': true,
+  'storage:usage': true,
+  'storage:clear': true,
+  'storage:reveal': true,
   'fonts:add': true,
   'fonts:read': true,
   'asset:add': true,

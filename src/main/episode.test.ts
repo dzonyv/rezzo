@@ -105,10 +105,23 @@ describe('thumbnails', () => {
     await settle();
     const fresh = calls.at(-1)!;
     expect(fresh.options.signal!.aborted).toBe(false);
-    fresh.resolve();
-    await expect(again).resolves.toContain('media:');
     // The old one failing didn't drop the new one: asking a third time shares it.
     expect(episodeThumbnail(source(fp('5')), 1, 'card')).toBe(again);
+    fresh.resolve();
+    await expect(again).resolves.toContain('media:');
+  });
+
+  it('are only shared while being made, so one deleted from the cache is made again', async () => {
+    const first = episodeThumbnail(source(fp('6')), 1, 'card');
+    await settle();
+    calls.at(-1)!.resolve();
+    await first;
+    const before = calls.length;
+    void episodeThumbnail(source(fp('6')), 1, 'card');
+    await settle();
+    // Asked of the worker again, which finds the file there or makes it.
+    expect(calls).toHaveLength(before + 1);
+    calls.at(-1)!.resolve();
   });
 });
 
