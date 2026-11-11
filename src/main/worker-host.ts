@@ -51,18 +51,31 @@ export interface CallOptions<P = unknown> {
   transfer?: MessagePortMain[];
 }
 
+/**
+ * Runs `method` in the media worker. How every long job is cancelled: the
+ * caller aborts `signal`, the worker stops the job (and the program it runs)
+ * and the call rejects with a WorkerError whose code is "cancelled". A call
+ * whose signal is aborted already never reaches the worker.
+ */
 export function callWorker<M extends WorkerMethod>(
   method: M,
   args: Parameters<WorkerMethods[M]>,
   options: CallOptions = {},
 ): Promise<ReturnType<WorkerMethods[M]>> {
+  const { signal } = options;
+  if (signal?.aborted) {
+    // The worker would have closed these when the job ended.
+    for (const port of options.transfer ?? []) port.close();
+    return Promise.reject(new WorkerError('cancelled before it started', 'cancelled'));
+  }
   const proc = worker();
   const id = nextId++;
-  return new Promise((resolve, reject) => {
+  const cancel = () => proc.postMessage({ type: 'cancel', id });
+  return new Promise<ReturnType<WorkerMethods[M]>>((resolve, reject) => {
     pending.set(id, { resolve: resolve as (v: unknown) => void, reject, onProgress: options.onProgress });
     proc.postMessage({ type: 'call', id, method, args }, options.transfer);
-    options.signal?.addEventListener('abort', () => proc.postMessage({ type: 'cancel', id }), { once: true });
-  });
+    signal?.addEventListener('abort', cancel, { once: true });
+  }).finally(() => signal?.removeEventListener('abort', cancel));
 }
 
 export function stopWorker(): void {

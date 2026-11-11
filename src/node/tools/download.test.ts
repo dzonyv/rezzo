@@ -1,6 +1,6 @@
 import { createHash } from 'node:crypto';
 import { createServer, type Server } from 'node:http';
-import { mkdtemp, readFile, rm, writeFile } from 'node:fs/promises';
+import { mkdir, mkdtemp, readFile, rm, writeFile } from 'node:fs/promises';
 import { tmpdir } from 'node:os';
 import path from 'node:path';
 import { afterAll, beforeAll, beforeEach, describe, expect, it } from 'vitest';
@@ -102,6 +102,46 @@ describe('install', () => {
     await install(tool(), dir);
     expect(requests).toHaveLength(0);
     expect(await isInstalled(tool(), dir)).toBe(true);
+  });
+
+  it('installs again when the file is gone but the marker stayed', async () => {
+    await install(tool(), dir);
+    await rm(path.join(dir, 'model.bin'));
+    expect(await isInstalled(tool(), dir)).toBe(false);
+    await install(tool(), dir);
+    expect((await readFile(path.join(dir, 'model.bin'))).equals(content)).toBe(true);
+    expect(await isInstalled(tool(), dir)).toBe(true);
+  });
+
+  it('installs again when the file was cut short', async () => {
+    await install(tool(), dir);
+    await writeFile(path.join(dir, 'model.bin'), content.subarray(0, 100));
+    expect(await isInstalled(tool(), dir)).toBe(false);
+  });
+
+  it('goes by the files themselves for a marker from before they were listed', async () => {
+    await writeFile(path.join(dir, '.installed'), JSON.stringify({ id: 'model', sha256 }));
+    expect(await isInstalled(tool(), dir)).toBe(false);
+    await writeFile(path.join(dir, 'model.bin'), content);
+    expect(await isInstalled(tool(), dir)).toBe(true);
+    // An unpacked tool: something has to be there.
+    const unpacked = path.join(dir, 'unpacked');
+    await mkdir(path.join(unpacked, 'bin'), { recursive: true });
+    await writeFile(path.join(unpacked, '.installed'), JSON.stringify({ id: 'model', sha256 }));
+    expect(await isInstalled(tool({ extract: true }), unpacked)).toBe(false);
+    await writeFile(path.join(unpacked, 'bin', 'tool.dll'), 'x');
+    expect(await isInstalled(tool({ extract: true }), unpacked)).toBe(true);
+    // One that names the file it runs from needs that file.
+    expect(await isInstalled(tool({ extract: true, entry: 'tool.exe' }), unpacked)).toBe(false);
+    await writeFile(path.join(unpacked, 'bin', 'Tool.exe'), 'x');
+    expect(await isInstalled(tool({ extract: true, entry: 'tool.exe' }), unpacked)).toBe(true);
+  });
+
+  it('stops a download that is larger than the tool should be', async () => {
+    const err = await install(tool({ size: 1 << 20 }), dir).catch((e) => e);
+    expect(err).toBeInstanceOf(DownloadError);
+    expect(err.code).toBe('checksum');
+    await expect(readFile(path.join(dir, 'model.bin.part'))).rejects.toThrow();
   });
 
   it('reinstalls when the pinned checksum changes', async () => {

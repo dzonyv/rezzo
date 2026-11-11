@@ -100,6 +100,9 @@ export async function changeLayerFile(clipId: string, layerId: string, kind: Ass
   else if (picked?.kind === 'video') replaceVideo(clipId, layerId, picked.file, picked.video);
   else if (picked?.kind === 'lottie') replaceLottie(clipId, layerId, picked.file, picked.lottie);
   else if (picked?.kind === 'audio') replaceSoundFile(clipId, layerId, picked.file, picked.audio);
+  // A file the project already had may have been missing; it has just been read where it is now.
+  const asset = picked && projectStore.getState().project?.assets.find((a) => a.kind === picked.kind && a.fingerprint === picked.file.fingerprint);
+  if (asset) markMissing(asset.id, false);
 }
 
 /** Asks where a file went; the project then uses it from there. */

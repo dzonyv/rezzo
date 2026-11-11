@@ -18,6 +18,8 @@ export interface ProjectState {
   filePath: string | null;
   /** The document as last saved; anything else means unsaved changes. */
   saved: Project | null;
+  /** Goes up each time a project is opened or closed, so work that was started for one can tell it has been replaced. */
+  opened: number;
   undoLabel: EditLabel | undefined;
   redoLabel: EditLabel | undefined;
 }
@@ -53,17 +55,18 @@ export function createProjectStore() {
       project: null,
       filePath: null,
       saved: null,
+      opened: 0,
       undoLabel: undefined,
       redoLabel: undefined,
 
       load(project, filePath) {
         history = new History(project);
-        set({ filePath, saved: filePath ? project : null });
+        set((s) => ({ filePath, saved: filePath ? project : null, opened: s.opened + 1 }));
         sync();
       },
       close() {
         history = undefined;
-        set({ filePath: null, saved: null });
+        set((s) => ({ filePath: null, saved: null, opened: s.opened + 1 }));
         sync();
       },
       edit(label, recipe) {

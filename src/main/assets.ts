@@ -9,37 +9,35 @@ import path from 'node:path';
 import { z } from 'zod';
 import type { AddAssetResult, LocateAssetResult } from '../shared/api.ts';
 import {
-  ASSET_KINDS, assetFileSchema, AUDIO_EXTENSIONS, IMAGE_EXTENSIONS, LOTTIE_EXTENSIONS, MAX_AUDIO_BYTES, MAX_AUDIO_SECONDS, MAX_IMAGE_BYTES, MAX_VIDEO_BYTES,
-  VIDEO_EXTENSIONS, type AssetFile, type AssetKind, type AssetStatus,
+  ASSET_EXTENSIONS, ASSET_KINDS, assetFileSchema, hasExtensionOf, MAX_AUDIO_BYTES, MAX_AUDIO_SECONDS, MAX_IMAGE_BYTES, MAX_VIDEO_BYTES,
+  type AssetFile, type AssetKind, type AssetStatus,
 } from '../shared/assets.ts';
 import { MAX_LOTTIE_BYTES } from '../shared/lottie.ts';
 import { translate } from '../shared/translate.ts';
-import { readLottieInfo } from './lottie-file.ts';
 import { assetUrl, rememberAsset } from './media-protocol.ts';
 import { getSettings } from './settings.ts';
 import { callWorker } from './worker-host.ts';
 
 const kindSchema = z.enum(ASSET_KINDS);
-const KINDS: Record<AssetKind, { extensions: readonly string[]; maxBytes: number; label: string }> = {
-  image: { extensions: IMAGE_EXTENSIONS, maxBytes: MAX_IMAGE_BYTES, label: 'files.image' },
-  video: { extensions: VIDEO_EXTENSIONS, maxBytes: MAX_VIDEO_BYTES, label: 'files.video' },
-  lottie: { extensions: LOTTIE_EXTENSIONS, maxBytes: MAX_LOTTIE_BYTES, label: 'files.lottie' },
-  audio: { extensions: AUDIO_EXTENSIONS, maxBytes: MAX_AUDIO_BYTES, label: 'files.audio' },
+const KINDS: Record<AssetKind, { maxBytes: number; label: string }> = {
+  image: { maxBytes: MAX_IMAGE_BYTES, label: 'files.image' },
+  video: { maxBytes: MAX_VIDEO_BYTES, label: 'files.video' },
+  lottie: { maxBytes: MAX_LOTTIE_BYTES, label: 'files.lottie' },
+  audio: { maxBytes: MAX_AUDIO_BYTES, label: 'files.audio' },
 };
 
 async function chooseFile(win: BrowserWindow, kind: AssetKind): Promise<string | null> {
   const { uiLanguage } = await getSettings();
   const { canceled, filePaths } = await dialog.showOpenDialog(win, {
     properties: ['openFile'],
-    filters: [{ name: translate(uiLanguage, KINDS[kind].label), extensions: [...KINDS[kind].extensions] }],
+    filters: [{ name: translate(uiLanguage, KINDS[kind].label), extensions: [...ASSET_EXTENSIONS[kind]] }],
   });
   return canceled ? null : (filePaths[0] ?? null);
 }
 
 /** Checks a file the user picked and fingerprints it; reads a video's or a sound's streams or an animation's JSON too. */
 async function inspectFile(file: string, kind: AssetKind): Promise<AddAssetResult> {
-  const extension = path.extname(file).slice(1).toLowerCase();
-  if (!KINDS[kind].extensions.includes(extension)) return { ok: false, error: 'unreadable' };
+  if (!hasExtensionOf(kind, file)) return { ok: false, error: 'unreadable' };
   let size: number;
   try {
     const info = await stat(file);
@@ -52,7 +50,7 @@ async function inspectFile(file: string, kind: AssetKind): Promise<AddAssetResul
   const [fingerprint, video, lottie, audio] = await Promise.all([
     callWorker('fingerprint', [file]),
     kind === 'video' ? callWorker('probeVideo', [file]).catch(() => null) : undefined,
-    kind === 'lottie' ? readLottieInfo(file) : undefined,
+    kind === 'lottie' ? callWorker('readLottie', [file]).catch(() => null) : undefined,
     kind === 'audio' ? callWorker('probeAudio', [file]).catch(() => null) : undefined,
   ]);
   if (video === null || lottie === null || audio === null) return { ok: false, error: 'unreadable' };

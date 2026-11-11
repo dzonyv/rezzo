@@ -117,6 +117,7 @@
       "invalid": "Projekat {{path}} je oštećen i ne može da se otvori."
     },
     "save": "Čuvanje nije uspelo: {{detail}}",
+    "recovery": "Rezervna kopija nesačuvanog rada nije mogla da se upiše, pa bi pad aplikacije značio gubitak izmena. Sačuvaj projekat. ({{detail}})",
     "unexpected": "Nešto je pošlo naopako: {{detail}}",
     "import": {
       "not-found": "{{path}} nije pronađen.",
