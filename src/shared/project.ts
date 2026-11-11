@@ -15,11 +15,11 @@ import { chromaKeySchema } from './chroma-key.ts';
 import { EFFECT_NAMES, paramsValid } from './effects.ts';
 import { fps, frameAt, timeOfFrame, workingFrameRate } from './frames.ts';
 import { motionSchema, transformSchema } from './motion.ts';
-import { MAX_FADE_SECONDS, soundSourceSchema } from './sounds.ts';
+import { followSchema, MAX_FADE_SECONDS, soundSourceSchema } from './sounds.ts';
 import { speakerCountSchema, speakerPickSchema, voiceEditSchema } from './voices.ts';
 
 /** Bumped when the file format changes in a way older files need migrating for. */
-export const PROJECT_FORMAT = 13;
+export const PROJECT_FORMAT = 14;
 export const PROJECT_EXTENSION = 'rezzo';
 
 export const TRANSCRIPT_LANGUAGES = ['sr', 'hr', 'bs'] as const;
@@ -284,7 +284,9 @@ const fade = z.number().min(0).max(MAX_FADE_SECONDS);
  * (shared/sound-mix.ts). It draws nothing, so where it is in `layers`
  * doesn't matter; new ones go at the end. A file of the user's own can
  * have its loudness evened out (shared/loudness.ts); the library's sounds
- * already are.
+ * already are. A sound can go with another layer's entrance or exit
+ * (`follows`): then its time comes from that layer (shared/follow-sounds.ts),
+ * it doesn't loop, and it goes when that layer is deleted.
  */
 export const soundLayerSchema = z.object({
   id: z.uuid(),
@@ -300,6 +302,8 @@ export const soundLayerSchema = z.object({
   loop: z.boolean(),
   /** Its file is turned up or down to the loudness speech is evened out to; only for a file of the user's own. */
   evenLoudness: z.boolean(),
+  /** The layer whose entrance or exit it goes with, or null for a sound placed on its own. */
+  follows: followSchema.nullable(),
 });
 export type SoundLayer = z.infer<typeof soundLayerSchema>;
 
@@ -350,8 +354,22 @@ export const clipSchema = z
   .refine((c) => c.layers.filter((l) => l.kind === 'caption').length <= 1, 'a clip has at most one caption layer')
   .refine((c) => c.layers.every((l) => !isTimed(l) || l.end > l.start), 'a layer ends after it starts')
   .refine((c) => c.layers.every((l) => l.kind !== 'effect' || paramsValid(l.effect, l.params)), "an effect has its own settings, each in range")
+  .refine(followsValid, 'a sound goes with the entrance or exit of a layer in its clip that shows a file, and only one sound with each')
   .refine((c) => c.end - c.start <= MAX_CLIP_SECONDS + 1e-6, `a clip is at most ${MAX_CLIP_SECONDS} s long`);
 export type Clip = z.infer<typeof clipSchema>;
+
+/** Every sound that goes with a layer goes with one that shows a file, and no two with the same part of it. */
+function followsValid(clip: { layers: readonly Layer[] }): boolean {
+  const placed = new Set(clip.layers.filter(isPlaced).map((l) => l.id));
+  const taken = new Set<string>();
+  for (const l of clip.layers) {
+    if (l.kind !== 'sound' || !l.follows) continue;
+    const part = `${l.follows.layerId} ${l.follows.part}`;
+    if (!placed.has(l.follows.layerId) || taken.has(part)) return false;
+    taken.add(part);
+  }
+  return true;
+}
 
 /** The clip's source video layer; every clip has one. */
 export function videoLayerOf(clip: Clip): VideoLayer {
@@ -450,6 +468,9 @@ const MIGRATIONS: Record<number, (old: Record<string, unknown>) => Record<string
   // Format 13 added evening out loudness. Clips and sounds made before it
   // keep sounding as they did.
   12: (old) => ({ ...old, clips: Array.isArray(old.clips) ? old.clips.map(withoutEvenLoudness) : old.clips }),
+  // Format 14 let a sound go with a layer's entrance or exit. Sounds made
+  // before it stand on their own.
+  13: (old) => ({ ...old, clips: soundsOnTheirOwn(old.clips) }),
 };
 
 /**
@@ -481,6 +502,15 @@ function withoutEvenLoudness(clip: { layers?: unknown }): unknown {
   if (typeof clip !== 'object' || clip === null) return clip;
   const layers = Array.isArray(clip.layers) ? clip.layers.map((l: { kind?: unknown }) => (l?.kind === 'sound' ? { ...l, evenLoudness: false } : l)) : clip.layers;
   return { ...clip, evenLoudness: false, layers };
+}
+
+function soundsOnTheirOwn(clips: unknown): unknown {
+  if (!Array.isArray(clips)) return clips;
+  return clips.map((clip: { layers?: unknown }) =>
+    Array.isArray(clip?.layers)
+      ? { ...clip, layers: clip.layers.map((l: { kind?: unknown }) => (l?.kind === 'sound' ? { ...l, follows: null } : l)) }
+      : clip,
+  );
 }
 
 export class ProjectFormatError extends Error {

@@ -322,7 +322,7 @@ describe('project files', () => {
   describe('sound layers', () => {
     const music = { id: '3e0b8c1a-55f2-4b7e-8a51-0c6b1f7d2e44', kind: 'audio' as const, path: 'D:/Muzika/tema.mp3', name: 'tema.mp3', size: 4_000_000, fingerprint: 'c'.repeat(64), codec: 'mp3', duration: 95.2 };
     const sound = (source: { library: 'whoosh' } | { assetId: string }) => ({
-      id: crypto.randomUUID(), kind: 'sound' as const, sound: source, start: 0.5, end: 1.2, offset: 0, volume: 0.8, fadeIn: 0.2, fadeOut: 1, loop: false, evenLoudness: false,
+      id: crypto.randomUUID(), kind: 'sound' as const, sound: source, start: 0.5, end: 1.2, offset: 0, volume: 0.8, fadeIn: 0.2, fadeOut: 1, loop: false, evenLoudness: false, follows: null,
     });
     const withSounds = (...layers: ReturnType<typeof sound>[]): Project => ({
       ...sample,
@@ -356,6 +356,41 @@ describe('project files', () => {
       const old = JSON.parse(JSON.stringify({ ...p, format: 12 }), (k, v: unknown) => (k === 'evenLoudness' ? undefined : v)) as object;
       expect(JSON.stringify(old)).not.toContain('evenLoudness');
       expect(parseProject(JSON.stringify(old))).toEqual(p);
+    });
+
+    it('upgrades a format 13 file with its sounds standing on their own', () => {
+      const p = withSounds(sound({ library: 'whoosh' }), sound({ assetId: music.id }));
+      const old = JSON.parse(JSON.stringify({ ...p, format: 13 }), (k, v: unknown) => (k === 'follows' ? undefined : v)) as object;
+      expect(JSON.stringify(old)).not.toContain('follows');
+      expect(parseProject(JSON.stringify(old))).toEqual(p);
+    });
+
+    describe('a sound that goes with a layer', () => {
+      const image = withImage();
+      const imageId = image.clips[0]!.layers.at(-1)!.id;
+      const following = (part: 'in' | 'out', layerId = imageId) => ({ ...sound({ library: 'whoosh' }), follows: { layerId, part, shift: 0.1 } });
+      const withFollowing = (...layers: ReturnType<typeof following>[]): Project => ({
+        ...image,
+        clips: [{ ...image.clips[0]!, layers: [...image.clips[0]!.layers, ...layers] }],
+      });
+
+      it('keeps one for the entrance and one for the exit', () => {
+        const p = withFollowing(following('in'), following('out'));
+        expect(parseProject(serializeProject(p))).toEqual(p);
+      });
+
+      it('rejects one whose layer is not in the clip, or shows no file', () => {
+        expect(code(() => parseProject(JSON.stringify(withFollowing(following('in', crypto.randomUUID())))))).toBe('invalid');
+        const video = image.clips[0]!.layers[0]!.id;
+        expect(code(() => parseProject(JSON.stringify(withFollowing(following('in', video)))))).toBe('invalid');
+      });
+
+      it('rejects two for the same part, or one moved too far', () => {
+        expect(code(() => parseProject(JSON.stringify(withFollowing(following('in'), following('in')))))).toBe('invalid');
+        const far = following('out');
+        far.follows.shift = 0.8;
+        expect(code(() => parseProject(JSON.stringify(withFollowing(far))))).toBe('invalid');
+      });
     });
 
     it('keeps whether a clip and a sound file are evened out', () => {

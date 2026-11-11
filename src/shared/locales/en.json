@@ -88,6 +88,8 @@
     "replaceSound": "change sound file",
     "soundSettings": "sound settings",
     "soundStart": "sound start",
+    "followSound": "sound with animation",
+    "unlinkSound": "unlink sound",
     "evenLoudness": "even out loudness"
   },
   "files": {
@@ -655,6 +657,22 @@
       "applause": "Applause",
       "laugh": "Laughter",
       "crickets": "Crickets"
+    },
+    "follow": {
+      "in": "Sound as it comes in",
+      "out": "Sound as it goes out",
+      "none": "No sound",
+      "suggested": "Suggested",
+      "files": "Your files",
+      "listen": "Listen: {{part}}",
+      "withIn": "Goes with how {{name}} comes in. It moves with that layer and is deleted with it.",
+      "withOut": "Goes with how {{name}} goes out. It moves with that layer and is deleted with it.",
+      "shift": "Earlier or later",
+      "unlink": "Unlink",
+      "unlinkHelp": "The sound stays where it is, and from then on you move it on its own.",
+      "tagIn": "{{name}} · in",
+      "tagOut": "{{name}} · out",
+      "locked": "{{name}} moves with its layer"
     }
   },
   "voices": {

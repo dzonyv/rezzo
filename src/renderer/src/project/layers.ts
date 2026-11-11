@@ -10,11 +10,12 @@ import type { Asset, AssetFile, AudioInfo, VideoInfo } from '../../../shared/ass
 import { DEFAULT_CHROMA_KEY, type ChromaKey } from '../../../shared/chroma-key.ts';
 import { defaultParams, EFFECTS, type EffectName, type ParamDef } from '../../../shared/effects.ts';
 import { editAt, OUTPUT, removeKey, setKey, valueAt, type Size } from '../../../shared/framing.ts';
-import { fps, frameAt, timeOfFrame } from '../../../shared/frames.ts';
+import { fps, frameAt, timeOfFrame, workingFrameRate } from '../../../shared/frames.ts';
 import { lottieSeconds, type LottieInfo } from '../../../shared/lottie.ts';
 import { clampTransform, DEFAULT_MOTION, type Motion, type Transform } from '../../../shared/motion.ts';
 import { videoLayersOverLimit } from '../../../shared/overlay-files.ts';
-import { MAX_FADE_SECONDS, SOUNDS, type SoundName } from '../../../shared/sounds.ts';
+import { followerOf, syncFollowers } from '../../../shared/follow-sounds.ts';
+import { FOLLOW_PARTS, MAX_FADE_SECONDS, MAX_FOLLOW_SHIFT, SOUNDS, type FollowPart, type SoundName, type SoundSource } from '../../../shared/sounds.ts';
 import {
   isPlaced, isSound, isTimed, keyframesOf, layerAssetIds, MAX_LOTTIE_SPEED, MIN_LOTTIE_SPEED, type Animated, type Clip, type EffectLayer, type Layer, type LottieLayer,
   type OverlayLayer, type PlacedLayer, type Project, type SoundLayer, type TimedLayer,
@@ -30,10 +31,14 @@ const NEW_LAYER_MAX_HEIGHT = 0.5;
 
 const store = () => projectStore.getState();
 
+/** Runs an edit on the clip; the sounds that go with its layers follow them afterwards (shared/follow-sounds.ts). */
 function editClip(clipId: string, label: EditLabel, recipe: (clip: Draft<Clip>, project: Draft<Project>) => void): void {
   store().edit(label, (d) => {
     const clip = d.clips.find((c) => c.id === clipId);
-    if (clip) recipe(clip, d);
+    if (!clip) return;
+    recipe(clip, d);
+    // A sound deleted with its layer may have been the last to use its file.
+    if (d.source && syncFollowers(clip, d.assets, workingFrameRate(d.source))) pruneAssets(d);
   });
 }
 
@@ -210,7 +215,11 @@ export function deleteLayer(clipId: string, layerId: string): void {
   });
 }
 
-/** A copy of the layer right above it; returns the copy's id. */
+/**
+ * A copy of the layer right above it; returns the copy's id. The sounds
+ * that go with a layer are copied along with it, for the copy. A copy of
+ * such a sound stands on its own: the part it went with already has one.
+ */
 export function duplicateLayer(clipId: string, layerId: string): string {
   const id = crypto.randomUUID();
   editClip(clipId, 'history.duplicateLayer', (clip) => {
@@ -218,7 +227,13 @@ export function duplicateLayer(clipId: string, layerId: string): string {
     const layer = clip.layers[i];
     if (!layer || !isTimed(layer)) return;
     // A plain copy of the draft: structuredClone can't copy Immer's proxy.
-    clip.layers.splice(i + 1, 0, { ...structuredClone(current(layer)), id });
+    const copy: Layer = { ...structuredClone(current(layer)), id };
+    if (copy.kind === 'sound') copy.follows = null;
+    clip.layers.splice(i + 1, 0, copy);
+    for (const part of FOLLOW_PARTS) {
+      const sound = followerOf(clip, layerId, part);
+      if (sound?.follows) clip.layers.push({ ...structuredClone(current(sound)), id: crypto.randomUUID(), follows: { ...sound.follows, layerId: id } });
+    }
   });
   return id;
 }
@@ -427,7 +442,65 @@ export function setEffectParam(clipId: string, layerId: string, param: string, v
 /** A new sound layer: `seconds` long from `time` on, at full volume, with no fades; a file of the user's own evened out. */
 function newSoundLayer(clip: Pick<Clip, 'start' | 'end'>, sound: SoundLayer['sound'], time: number, seconds: number): SoundLayer {
   const { start, end } = newLayerTime(clip, time, seconds);
-  return { id: crypto.randomUUID(), kind: 'sound', sound, start, end, offset: 0, volume: 1, fadeIn: 0, fadeOut: 0, loop: false, evenLoudness: 'assetId' in sound };
+  return { id: crypto.randomUUID(), kind: 'sound', sound, start, end, offset: 0, volume: 1, fadeIn: 0, fadeOut: 0, loop: false, evenLoudness: 'assetId' in sound, follows: null };
+}
+
+/**
+ * Makes `sound` go with part of a placed layer's animation: it takes the
+ * place of the sound that went with it (keeping that one's volume and
+ * fades), or comes new at full volume. `asset` is a file new to the
+ * project that it plays.
+ */
+function follow(clipId: string, layerId: string, part: FollowPart, sound: SoundSource, asset?: Asset): string | null {
+  const clip = store().project?.clips.find((c) => c.id === clipId);
+  const layer = clip?.layers.find((l) => l.id === layerId);
+  if (!clip || !layer || !isPlaced(layer)) return null;
+  const existing = followerOf(clip, layerId, part);
+  const id = existing?.id ?? crypto.randomUUID();
+  editClip(clipId, 'history.followSound', (c, d) => {
+    if (asset) d.assets.push(asset);
+    const old = followerOf(c, layerId, part);
+    if (old) Object.assign(old, { sound, offset: 0, evenLoudness: 'assetId' in sound });
+    // Its time comes from the layer once the edit is done; a frame for now.
+    else c.layers.push({ ...newSoundLayer(c, sound, layer.start, 0), id, follows: { layerId, part, shift: 0 } });
+    pruneAssets(d);
+  });
+  return id;
+}
+
+/** A sound from the library with part of the layer's animation, or none with null. Returns the sound layer's id. */
+export function setFollowSound(clipId: string, layerId: string, part: FollowPart, name: SoundName | null): string | null {
+  if (name !== null) return follow(clipId, layerId, part, { library: name });
+  const clip = store().project?.clips.find((c) => c.id === clipId);
+  const sound = clip && followerOf(clip, layerId, part);
+  if (sound) deleteLayer(clipId, sound.id);
+  return null;
+}
+
+/** One of the project's sound files with part of the layer's animation. */
+export const setFollowSoundAsset = (clipId: string, layerId: string, part: FollowPart, assetId: string): string | null =>
+  follow(clipId, layerId, part, { assetId });
+
+/** A sound file of the user's own with part of the layer's animation; like adding one, it becomes one of the project's assets. */
+export function setFollowSoundFile(clipId: string, layerId: string, part: FollowPart, file: AssetFile, info: AudioInfo): string | null {
+  const existing = adoptFile('audio', file);
+  const assetId = existing?.id ?? crypto.randomUUID();
+  return follow(clipId, layerId, part, { assetId }, existing ? undefined : { id: assetId, kind: 'audio', ...file, ...info });
+}
+
+/** Moves a sound that goes with a layer earlier or later than its anchor; the slider calls it inside a gesture. */
+export function setFollowShift(clipId: string, soundId: string, shift: number): void {
+  editLayer(clipId, soundId, 'history.followSound', (layer) => {
+    if (layer.kind !== 'sound' || !layer.follows) return;
+    layer.follows.shift = Math.round(Math.min(MAX_FOLLOW_SHIFT, Math.max(-MAX_FOLLOW_SHIFT, shift)) * 100) / 100;
+  });
+}
+
+/** Lets a sound stand on its own where it is, no longer going with its layer. */
+export function unlinkSound(clipId: string, soundId: string): void {
+  editLayer(clipId, soundId, 'history.unlinkSound', (layer) => {
+    if (layer.kind === 'sound') layer.follows = null;
+  });
 }
 
 /** Adds a sound from the library at `time`, as long as it is. Returns the new layer's id. */

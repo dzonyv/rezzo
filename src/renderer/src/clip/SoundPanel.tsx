@@ -2,22 +2,29 @@ import { useTranslation } from 'react-i18next';
 import type { Asset } from '../../../shared/assets.ts';
 import { useAssetLoudness } from '../render/loudness.ts';
 import { EvenLoudness } from './Loudness.tsx';
-import type { SoundLayer } from '../../../shared/project.ts';
+import { isTimed, type SoundLayer } from '../../../shared/project.ts';
 import { soundAsset, soundDuration } from '../../../shared/sound-mix.ts';
-import { MAX_FADE_SECONDS } from '../../../shared/sounds.ts';
+import { MAX_FADE_SECONDS, MAX_FOLLOW_SHIFT } from '../../../shared/sounds.ts';
 import { changeLayerFile, locateAsset, useAssetMissing } from '../project/assets.ts';
-import { deleteLayer, duplicateLayer, setSoundSettings, setSoundStart } from '../project/layers.ts';
-import { projectStore, type EditLabel } from '../project/store.ts';
+import { deleteLayer, duplicateLayer, setFollowShift, setSoundSettings, setSoundStart, unlinkSound } from '../project/layers.ts';
+import { projectStore, useProject, type EditLabel } from '../project/store.ts';
 import { layerName } from './layer-names.ts';
 import { selectLayer } from './state.ts';
 
 const SOUND: EditLabel = 'history.soundSettings';
 const START: EditLabel = 'history.soundStart';
+const FOLLOW: EditLabel = 'history.followSound';
 
-/** The selected sound's settings: its file, volume, fades, where in the file it starts, whether it loops and, for a file of the user's own, whether its loudness is evened out. */
+/**
+ * The selected sound's settings: its file, volume, fades, where in the
+ * file it starts and, for a file of the user's own, whether its loudness
+ * is evened out. A sound placed on its own can loop; one that goes with a
+ * layer's animation says which, and can be moved a little or unlinked.
+ */
 export function SoundPanel({ clipId, layer, assets }: { clipId: string; layer: SoundLayer; assets: readonly Asset[] }) {
   const { t } = useTranslation();
   const store = projectStore.getState();
+  const clip = useProject((s) => s.project?.clips.find((c) => c.id === clipId));
   const asset = soundAsset(layer, assets);
   const missing = useAssetMissing(asset?.id);
   const loudness = useAssetLoudness(asset && layer.evenLoudness ? asset : undefined);
@@ -26,6 +33,9 @@ export function SoundPanel({ clipId, layer, assets }: { clipId: string; layer: S
   // A fade can be set as long as the layer; it's only ever half of what plays (shared/sound-mix.ts).
   const longestFade = Math.max(0.1, Math.min(MAX_FADE_SECONDS, Math.ceil((layer.end - layer.start) * 10) / 10));
   const seconds = (v: number) => t('layers.units.seconds', { value: v.toFixed(1) });
+  const signedSeconds = (v: number) => t('layers.units.seconds', { value: `${v > 0 ? '+' : v < 0 ? '−' : ''}${Math.abs(v).toFixed(2)}` });
+  const followed = layer.follows && clip?.layers.find((l) => l.id === layer.follows!.layerId);
+  const followedName = followed && isTimed(followed) ? layerName(t, followed, assets) : '';
 
   /** One undo step per drag of a slider; arrow keys make a step each. */
   const gesture = (label: EditLabel) => ({ onPointerDown: () => store.beginGesture(label), onPointerUp: () => store.endGesture() });
@@ -91,10 +101,24 @@ export function SoundPanel({ clipId, layer, assets }: { clipId: string; layer: S
             setSoundStart(clipId, layer.id, offset, duration),
           )}
       </div>
-      <label className="layer-check">
-        <input type="checkbox" checked={layer.loop} onChange={(e) => setSoundSettings(clipId, layer.id, { loop: e.target.checked })} />
-        {t('sounds.loop')}
-      </label>
+      {layer.follows ? (
+        <div className="layer-grid layer-section follow-info">
+          <p className="dim hint">
+            {t(layer.follows.part === 'in' ? 'sounds.follow.withIn' : 'sounds.follow.withOut', { name: followedName })}
+          </p>
+          {slider(t('sounds.follow.shift'), layer.follows.shift, { min: -MAX_FOLLOW_SHIFT, max: MAX_FOLLOW_SHIFT, step: 0.05 }, signedSeconds(layer.follows.shift), FOLLOW, (shift) =>
+            setFollowShift(clipId, layer.id, shift),
+          )}
+          <button type="button" title={t('sounds.follow.unlinkHelp')} onClick={() => unlinkSound(clipId, layer.id)}>
+            {t('sounds.follow.unlink')}
+          </button>
+        </div>
+      ) : (
+        <label className="layer-check">
+          <input type="checkbox" checked={layer.loop} onChange={(e) => setSoundSettings(clipId, layer.id, { loop: e.target.checked })} />
+          {t('sounds.loop')}
+        </label>
+      )}
       {asset && (
         <EvenLoudness
           on={layer.evenLoudness}
