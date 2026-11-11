@@ -23,7 +23,7 @@ vi.mock('electron', () => ({
 vi.mock('../workers/media/index.ts?modulePath', () => ({ default: 'worker.js' }));
 vi.mock('./paths.ts', () => ({ ffmpegBinDir: () => 'bin' }));
 
-const { busyPaths, callWorker, stopWorker } = await import('./worker-host.ts');
+const { callWorker, holding, inUse, stopWorker } = await import('./worker-host.ts');
 
 beforeEach(() => {
   stopWorker();
@@ -67,13 +67,31 @@ describe('callWorker', () => {
     }
   });
 
-  it('knows which files its running jobs were handed, until they finish', async () => {
+  it('knows which folders its running jobs work in, until they finish', async () => {
     const call = callWorker('makeThumbnail', [{ sourcePath: 'D:/a.mp4', time: 1, height: 240, out: 'C:/cache/x/1.jpg' }]);
-    expect(busyPaths()).toEqual(expect.arrayContaining(['D:/a.mp4', 'C:/cache/x/1.jpg']));
+    expect(inUse('C:/cache/x')).toBe(true);
+    expect(inUse('c:/CACHE/X')).toBe(true);
+    expect(inUse('C:/cache/y')).toBe(false);
     const worker = forked[0]!;
     worker.emit('message', { type: 'result', id: worker.sent[0]!.id, value: undefined });
     await call;
-    expect(busyPaths()).toEqual([]);
+    expect(inUse('C:/cache/x')).toBe(false);
+  });
+
+  it('starts a job in a folder being deleted only once it is gone', async () => {
+    let deleted!: () => void;
+    const deleting = holding('C:/cache/x', () => new Promise<void>((r) => (deleted = r)));
+    const call = callWorker('makeThumbnail', [{ sourcePath: 'D:/a.mp4', time: 1, height: 240, out: 'C:/cache/x/1.jpg' }]);
+    // Elsewhere, jobs go on as usual.
+    const other = callWorker('fingerprint', ['C:/cache/y/a.mp4']);
+    const worker = forked[0]!;
+    expect(worker.sent.map((m) => m.type)).toEqual(['call']);
+    deleted();
+    await deleting;
+    await new Promise((r) => setTimeout(r, 0));
+    expect(worker.sent).toHaveLength(2);
+    for (const { id } of worker.sent) worker.emit('message', { type: 'result', id, value: undefined });
+    await Promise.all([call, other]);
   });
 
   it('stops listening to the signal once the call is over', async () => {

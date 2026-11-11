@@ -6,8 +6,9 @@
  * aren't here. Whatever is cleared is made again when it's next needed.
  *
  * Nothing a running job uses is cleared: a folder is left alone while the
- * media worker works with a file in it (busyPaths), and a file Windows
- * won't delete (still open somewhere) stays, the rest of its folder going.
+ * media worker works with a file in it (inUse), a job that would start in
+ * it waits until it's gone (holding), and a file Windows won't delete
+ * (still open somewhere) stays, the rest of its folder going.
  */
 import { shell } from 'electron';
 import { readdir, readFile, rm, stat } from 'node:fs/promises';
@@ -17,7 +18,7 @@ import type { CachedFolder, DownloadedTool, StorageClear, StorageUsage } from '.
 import { TOOLS } from '../node/tools/manifest.ts';
 import { cacheDir, localDataDir } from './paths.ts';
 import { recentProjects } from './project-files.ts';
-import { busyPaths } from './worker-host.ts';
+import { holding, inUse } from './worker-host.ts';
 
 const FINGERPRINT = /^[0-9a-f]{64}$/;
 const toolsDir = (): string => path.join(localDataDir(), 'tools');
@@ -43,16 +44,6 @@ async function foldersIn(dir: string): Promise<string[]> {
   } catch {
     return [];
   }
-}
-
-/** Whether a running job was handed a path inside `dir` (Windows paths: case doesn't matter). */
-function isBusy(dir: string, busy: readonly string[]): boolean {
-  const base = path.resolve(dir).toLowerCase();
-  return busy.some((p) => {
-    if (!path.isAbsolute(p)) return false;
-    const rel = path.relative(base, path.resolve(p).toLowerCase());
-    return rel === '' || (!rel.startsWith('..') && !path.isAbsolute(rel));
-  });
 }
 
 /** Only the parts of a project file that say which videos it uses. */
@@ -81,7 +72,6 @@ async function namesByFingerprint(): Promise<Map<string, Pick<CachedFolder, 'kin
 }
 
 export async function storageUsage(): Promise<StorageUsage> {
-  const busy = busyPaths();
   const [names, cacheFolders, toolFolders] = await Promise.all([namesByFingerprint(), foldersIn(cacheDir()), foldersIn(toolsDir())]);
   const cache = await Promise.all(
     cacheFolders
@@ -89,14 +79,14 @@ export async function storageUsage(): Promise<StorageUsage> {
       .map(async (fingerprint): Promise<CachedFolder> => {
         const dir = path.join(cacheDir(), fingerprint);
         const known = names.get(fingerprint) ?? { kind: 'other' as const, name: null, openedAt: null };
-        return { fingerprint, ...known, bytes: await sizeOf(dir), busy: isBusy(dir, busy) };
+        return { fingerprint, ...known, bytes: await sizeOf(dir), busy: inUse(dir) };
       }),
   );
   const tools = await Promise.all(
     toolFolders.map(async (id): Promise<DownloadedTool> => {
       const dir = path.join(toolsDir(), id);
       const tool = TOOLS.find((t) => t.id === id && t.kind === 'download');
-      return { id, name: tool?.name ?? id, known: tool !== undefined, bytes: await sizeOf(dir), busy: isBusy(dir, busy) };
+      return { id, name: tool?.name ?? id, known: tool !== undefined, bytes: await sizeOf(dir), busy: inUse(dir) };
     }),
   );
   return {
@@ -112,16 +102,19 @@ const clearSchema = z.object({
   tools: z.array(z.string().regex(/^[\w.-]+$/).refine((id) => id !== '.' && id !== '..')),
 });
 
-/** Deletes `dir` unless a running job uses it; false when it, or a file in it, stayed. */
-async function clear(dir: string): Promise<boolean> {
-  if (isBusy(dir, busyPaths())) return false;
-  try {
-    await rm(dir, { recursive: true, force: true, maxRetries: 3, retryDelay: 100 });
-    return true;
-  } catch {
-    // A file still open somewhere stays; whatever went before it is gone.
-    return false;
-  }
+/**
+ * Deletes `dir` unless a running job uses it, and keeps new jobs out of it
+ * until it's gone. False when it, or a file in it, stayed.
+ */
+function clear(dir: string): Promise<boolean> {
+  if (inUse(dir)) return Promise.resolve(false);
+  return holding(dir, () =>
+    rm(dir, { recursive: true, force: true, maxRetries: 3, retryDelay: 100 }).then(
+      () => true,
+      // A file still open somewhere stays; whatever went before it is gone.
+      () => false,
+    ),
+  );
 }
 
 export async function clearStorage(what: unknown): Promise<{ usage: StorageUsage; skipped: number }> {

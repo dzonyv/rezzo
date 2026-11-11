@@ -80,6 +80,17 @@ export function StorageDialog({ open, onClose, onChange }: { open: boolean; onCl
         ? { name: c.name, meta: t('storage.layerMeta') }
         : { name: t('storage.other'), meta: t('storage.otherMeta') };
 
+  /** Deletes one row's folder once asked: an episode's voices and clip analysis take minutes to make again. */
+  const clearOne = async (name: string | null, bytes: number, what: StorageClear) => {
+    const yes = await askConfirm({
+      title: t('storage.confirmOne', { name }),
+      body: t('storage.confirmOneBody', { size: size(bytes) }),
+      confirm: t('storage.confirm'),
+      cancel: t('common.cancel'),
+    });
+    if (yes) await clear(what);
+  };
+
   const row = (key: string, name: string | null, meta: string, bytes: number, busy: boolean, onDelete: () => void) => (
     <li key={key}>
       <span className="text">
@@ -126,7 +137,7 @@ export function StorageDialog({ open, onClose, onChange }: { open: boolean; onCl
               <ul>
                 {usage.cache.map((c) => {
                   const { name, meta } = label(c);
-                  return row(c.fingerprint, name, meta, c.bytes, c.busy, () => void clear({ cache: [c.fingerprint], tools: [] }));
+                  return row(c.fingerprint, name, meta, c.bytes, c.busy, () => void clearOne(name, c.bytes, { cache: [c.fingerprint], tools: [] }));
                 })}
               </ul>
             </section>
@@ -136,7 +147,7 @@ export function StorageDialog({ open, onClose, onChange }: { open: boolean; onCl
               <h3>{t('storage.tools')}</h3>
               <ul>
                 {usage.tools.map((tool) =>
-                  row(tool.id, tool.name, t(tool.known ? 'storage.toolMeta' : 'storage.oldTool'), tool.bytes, tool.busy, () => void clear({ cache: [], tools: [tool.id] })),
+                  row(tool.id, tool.name, t(tool.known ? 'storage.toolMeta' : 'storage.oldTool'), tool.bytes, tool.busy, () => void clearOne(tool.name, tool.bytes, { cache: [], tools: [tool.id] })),
                 )}
               </ul>
             </section>

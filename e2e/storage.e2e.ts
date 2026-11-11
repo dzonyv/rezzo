@@ -55,6 +55,8 @@ describe('disk space', () => {
 
     await cached(episode, 3_000_000);
     await cached(stray, 1_000_000);
+    // Not measured yet: the home screen doesn't walk the cache by itself.
+    expect(await page.getByRole('button', { name: /^Disk space/ }).textContent()).toBe('Disk space');
     await page.getByRole('button', { name: /^Disk space/ }).click();
     const dialog = page.getByRole('dialog', { name: 'Disk space' });
     const rows = dialog.locator('li');
@@ -64,6 +66,7 @@ describe('disk space', () => {
     expect(await rows.nth(1).textContent()).toMatch(/Not in recent projects.*1(\.0)? MB/);
 
     await rows.nth(1).getByRole('button', { name: 'Delete' }).click();
+    await page.getByRole('dialog', { name: 'Delete "Not in recent projects"?' }).getByRole('button', { name: 'Delete' }).click();
     await expect.poll(() => rows.count()).toBe(1);
     expect(await readdir(cache())).toEqual([episode]);
 

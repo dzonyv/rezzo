@@ -3,12 +3,13 @@
  * worker dies, pending calls fail and the next call starts a fresh one.
  */
 import { utilityProcess, type MessagePortMain, type UtilityProcess } from 'electron';
+import path from 'node:path';
 import workerPath from '../workers/media/index.ts?modulePath';
 import { WorkerError, type WorkerMethod, type WorkerMethods, type WorkerReply } from '../shared/worker-api.ts';
 import { ffmpegBinDir } from './paths.ts';
 
 interface Pending {
-  /** Every string in the call's arguments: the files and folders the job works with (busyPaths). */
+  /** Every string in the call's arguments: the files and folders the job works with (inUse). */
   paths: string[];
   resolve(value: unknown): void;
   reject(error: Error): void;
@@ -81,12 +82,15 @@ export function callWorker<M extends WorkerMethod>(
     for (const port of options.transfer ?? []) port.close();
     return Promise.reject(new WorkerError('cancelled before it started', 'cancelled'));
   }
+  const paths = stringsIn(args);
+  const wait = waitFor(paths);
+  if (wait) return wait.then(() => callWorker(method, args, options));
   const proc = worker();
   const id = nextId++;
   const cancel = () => proc.postMessage({ type: 'cancel', id });
   let timer: ReturnType<typeof setTimeout> | undefined;
   return new Promise<ReturnType<WorkerMethods[M]>>((resolve, reject) => {
-    pending.set(id, { paths: stringsIn(args), resolve: resolve as (v: unknown) => void, reject, onProgress: options.onProgress });
+    pending.set(id, { paths, resolve: resolve as (v: unknown) => void, reject, onProgress: options.onProgress });
     proc.postMessage({ type: 'call', id, method, args }, options.transfer);
     signal?.addEventListener('abort', cancel, { once: true });
     if (options.timeoutMs !== undefined) {
@@ -112,13 +116,43 @@ function stringsIn(value: unknown, into: string[] = []): string[] {
   return into;
 }
 
+/** Whether `file` is `dir` or inside it (Windows paths: case doesn't matter). Strings that aren't absolute paths aren't. */
+function isInside(file: string, dir: string): boolean {
+  if (!path.isAbsolute(file)) return false;
+  const rel = path.relative(path.resolve(dir).toLowerCase(), path.resolve(file).toLowerCase());
+  return rel === '' || (!rel.startsWith('..') && !path.isAbsolute(rel));
+}
+
+/** Whether a running job of the media worker was handed a file or folder inside `dir`. */
+export function inUse(dir: string): boolean {
+  return [...pending.values()].some((p) => p.paths.some((f) => isInside(f, dir)));
+}
+
+/** Folders being deleted (main/storage.ts), with when they're done. */
+const held = new Map<string, Promise<unknown>>();
+
 /**
- * The files and folders the media worker's running jobs were handed (with
- * other strings mixed in; callers look for paths under a folder of theirs).
- * Clearing the cache leaves these alone.
+ * Runs `work` (deleting `dir`) with no job starting in `dir` meanwhile: a
+ * call handed a path inside it waits until `work` is over. Check inUse
+ * first; together they leave no moment for a job to lose its files.
  */
-export function busyPaths(): string[] {
-  return [...pending.values()].flatMap((p) => p.paths);
+export function holding<T>(dir: string, work: () => Promise<T>): Promise<T> {
+  const done = work();
+  const settled = done.then(
+    () => {},
+    () => {},
+  );
+  held.set(dir, settled);
+  void settled.then(() => {
+    if (held.get(dir) === settled) held.delete(dir);
+  });
+  return done;
+}
+
+/** What a call handed `paths` waits for before it starts: the deleting of a folder they're in. */
+function waitFor(paths: readonly string[]): Promise<unknown> | null {
+  for (const [dir, done] of held) if (paths.some((f) => isInside(f, dir))) return done;
+  return null;
 }
 
 export function stopWorker(): void {

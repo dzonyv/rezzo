@@ -3,7 +3,7 @@
  * process hands it the models and keeps its results next to the working
  * file they were made from, so opening the clip again doesn't redo them.
  */
-import { readFile } from 'node:fs/promises';
+import { readFile, stat } from 'node:fs/promises';
 import path from 'node:path';
 import { analysisFileOf, clipAnalysisSchema, type ClipAnalysis } from '../shared/analysis.ts';
 import { writeFileAtomic } from '../node/files.ts';
@@ -42,5 +42,8 @@ export async function loadAnalysis(workingUrl: unknown): Promise<ClipAnalysis | 
 }
 
 export async function saveAnalysis(workingUrl: unknown, analysis: unknown): Promise<void> {
-  await writeFileAtomic(resultFile(workingUrl), JSON.stringify(clipAnalysisSchema.parse(analysis)));
+  const file = resultFile(workingUrl);
+  // A working file deleted with the cache (main/storage.ts) while it was analysed: its result has no place to go.
+  await stat(allowedFileOf(workingUrl as string)!);
+  await writeFileAtomic(file, JSON.stringify(clipAnalysisSchema.parse(analysis)));
 }

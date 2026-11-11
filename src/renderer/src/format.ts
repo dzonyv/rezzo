@@ -24,9 +24,11 @@ export function formatClipTime(seconds: number): string {
  */
 export function formatBytes(bytes: number, locale: string): string {
   const units = ['B', 'KB', 'MB', 'GB', 'TB'];
+  // Rounded as it's shown, so 999.96 MB moves on to "1 GB" and doesn't stay "1000 MB".
+  const shown = (value: number, unit: number) => (unit === 0 ? Math.round(value) : Math.round(value * 10) / 10);
   let value = Math.max(0, bytes);
   let unit = 0;
-  while (value >= 1000 && unit < units.length - 1) {
+  while (shown(value, unit) >= 1000 && unit < units.length - 1) {
     value /= 1000;
     unit++;
   }

@@ -8,6 +8,9 @@ describe('formatBytes', () => {
     expect(formatBytes(7_400_000_000, 'sr-Latn')).toBe('7,4 GB');
     expect(formatBytes(950_000_000, 'en')).toBe('950 MB');
     expect(formatBytes(1_000_000, 'en')).toBe('1 MB');
+    // Just under a unit, rounded up: the next unit, not "1,000 MB".
+    expect(formatBytes(999_960_000, 'en')).toBe('1 GB');
+    expect(formatBytes(999_960, 'sr-Latn')).toBe('1 MB');
   });
 });
 

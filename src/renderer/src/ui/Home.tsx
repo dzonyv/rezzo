@@ -23,13 +23,12 @@ export function Home() {
   const [recovered, setRecovered] = useState<RecoveredProject[]>([]);
   const [changelog, setChangelog] = useState(false);
   const [storage, setStorage] = useState(false);
+  // Measured when the dialog opens (it walks the whole cache), then shown beside the link.
   const [usage, setUsage] = useState<StorageUsage | null>(null);
 
   useEffect(() => {
     void window.rezzo.invoke('project:recent').then(setRecent);
     void window.rezzo.invoke('project:recovered').then(setRecovered);
-    // Only for the link's label; not knowing it is no reason to bother anyone.
-    window.rezzo.invoke('storage:usage').then(setUsage, () => {});
   }, []);
 
   const discard = async (id: string) => {
@@ -37,8 +36,7 @@ export function Home() {
     setRecovered((list) => list.filter((r) => r.project.id !== id));
   };
 
-  const when = (iso: string) =>
-    new Date(iso).toLocaleString(i18n.language === 'sh' ? 'sr-Latn' : 'en', { dateStyle: 'medium', timeStyle: 'short' });
+  const when = (iso: string) => new Date(iso).toLocaleString(localeOf(i18n.language), { dateStyle: 'medium', timeStyle: 'short' });
 
   return (
     <main

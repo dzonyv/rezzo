@@ -795,6 +795,8 @@
     "confirmBody": "Oslobađa se {{size}}. Radni fajlovi, analiza klipova i glasovi svake epizode napraviće se ponovo kad je sledeći put otvoriš.",
     "confirm": "Obriši",
     "skipped": "Neki fajlovi su u upotrebi i nisu obrisani.",
-    "failed": "Prostor na disku nije mogao da se izmeri: {{detail}}"
+    "failed": "Prostor na disku nije mogao da se izmeri: {{detail}}",
+    "confirmOne": "Obrisati „{{name}}“?",
+    "confirmOneBody": "Oslobađa se {{size}}. Napraviće se ili preuzeti ponovo kad zatreba, što može da potraje nekoliko minuta."
   }
 }

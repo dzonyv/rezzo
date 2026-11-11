@@ -13,10 +13,26 @@ let root = '';
 let recent: RecentProject[] = [];
 let busy: string[] = [];
 
+/** Set to make the next delete fail as Windows does for a file still open somewhere. */
+let locked = false;
+vi.mock('node:fs/promises', async (original) => {
+  const fsp = await original<typeof import('node:fs/promises')>();
+  return {
+    ...fsp,
+    rm: (...args: Parameters<typeof fsp.rm>) => {
+      if (!locked) return fsp.rm(...args);
+      locked = false;
+      return Promise.reject(Object.assign(new Error('EBUSY: resource busy or locked'), { code: 'EBUSY' }));
+    },
+  };
+});
 vi.mock('electron', () => ({ shell: { openPath: async () => '' } }));
 vi.mock('./paths.ts', () => ({ localDataDir: () => root, cacheDir: () => path.join(root, 'cache') }));
 vi.mock('./project-files.ts', () => ({ recentProjects: async () => recent }));
-vi.mock('./worker-host.ts', () => ({ busyPaths: () => busy }));
+vi.mock('./worker-host.ts', () => ({
+  inUse: (dir: string) => busy.some((f) => !path.relative(dir, f).startsWith('..')),
+  holding: <T>(_dir: string, work: () => Promise<T>) => work(),
+}));
 
 const { clearStorage, storageUsage } = await import('./storage.ts');
 
@@ -88,6 +104,15 @@ describe('clearStorage', () => {
     const { skipped } = await clearStorage({ cache: [fp('a')], tools: [] });
     expect(skipped).toBe(1);
     expect(await readdir(path.join(root, 'cache'))).toEqual([fp('a')]);
+  });
+
+  it("counts a folder Windows won't delete as left, and clears the rest", async () => {
+    await file(10, 'cache', fp('a'), 'work', 'clip.mp4');
+    await file(10, 'cache', fp('b'), 'work', 'clip.mp4');
+    locked = true;
+    const { skipped } = await clearStorage({ cache: [fp('a'), fp('b')], tools: [] });
+    expect(skipped).toBe(1);
+    expect(await readdir(path.join(root, 'cache'))).toHaveLength(1);
   });
 
   it('takes only folder names, never a path out of its folder', async () => {

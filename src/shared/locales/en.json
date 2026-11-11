@@ -795,6 +795,8 @@
     "confirmBody": "This frees {{size}}. Each episode's working files, clip analysis and voices are made again the next time you open it.",
     "confirm": "Delete",
     "skipped": "Some files are in use and weren't deleted.",
-    "failed": "Couldn't read the disk space: {{detail}}"
+    "failed": "Couldn't read the disk space: {{detail}}",
+    "confirmOne": "Delete \"{{name}}\"?",
+    "confirmOneBody": "This frees {{size}}. It's made or downloaded again the next time it's needed, which can take a few minutes."
   }
 }
