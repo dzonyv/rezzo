@@ -109,7 +109,10 @@ export function makePreview(sender: WebContents, source: unknown): Promise<strin
     const done: Promise<string> = callWorker('makePreview', [{ sourcePath: file, duration, out }], {
       signal,
       onProgress: (fraction) => {
-        for (const s of senders) if (!s.isDestroyed()) s.send('episode:preview-progress', { fingerprint, fraction: fraction as number });
+        for (const s of senders) {
+          if (s.isDestroyed()) senders.delete(s);
+          else s.send('episode:preview-progress', { fingerprint, fraction: fraction as number });
+        }
       },
     })
       .then(() => allowMedia(out))
@@ -123,7 +126,7 @@ export function makePreview(sender: WebContents, source: unknown): Promise<strin
 }
 
 /** Thumbnails being made, by output file, so two cards asking for the same one share the work. */
-const makingThumbnails = new Map<string, Promise<string>>();
+const makingThumbnails = new Map<string, { done: Promise<string>; signal: AbortSignal }>();
 /** A thumbnail takes well under a second; one that takes this long would hold up the rest. */
 const THUMBNAIL_TIMEOUT_MS = 30_000;
 /** One at a time: a project with many clips shouldn't start an FFmpeg for each at once. */
@@ -140,16 +143,19 @@ export function episodeThumbnail(source: unknown, time: unknown, size: unknown):
   // Cards keep the folder they always had, so pictures already made still count.
   const out = path.join(cacheDir(), fingerprint, kind === 'card' ? 'thumbnails' : `thumbnails-${height}`, `${Math.round(at * 1000)}.jpg`);
   let making = makingThumbnails.get(out);
-  if (!making) {
+  // One stopped when its episode was closed may not have failed yet; the episode opened again asks anew.
+  if (!making || making.signal.aborted) {
     const signal = workSignal(fingerprint);
     // Waiting its turn costs nothing once the episode is closed: a stopped call never reaches the worker.
-    making = thumbnailQueue
+    const done = thumbnailQueue
       .then(() => callWorker('makeThumbnail', [{ sourcePath: file, time: at, height, out }], { signal, timeoutMs: THUMBNAIL_TIMEOUT_MS }))
       .then(() => allowMedia(out));
-    thumbnailQueue = making.catch(() => undefined);
-    makingThumbnails.set(out, making);
+    thumbnailQueue = done.catch(() => undefined);
+    makingThumbnails.set(out, (making = { done, signal }));
     // A failure can be tried again; a success stays, the file is in the cache anyway.
-    making.catch(() => makingThumbnails.delete(out));
+    done.catch(() => {
+      if (makingThumbnails.get(out)?.done === done) makingThumbnails.delete(out);
+    });
   }
-  return making;
+  return making.done;
 }

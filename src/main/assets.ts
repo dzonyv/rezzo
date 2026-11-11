@@ -14,6 +14,7 @@ import {
 } from '../shared/assets.ts';
 import { MAX_LOTTIE_BYTES } from '../shared/lottie.ts';
 import { translate } from '../shared/translate.ts';
+import { WorkerError } from '../shared/worker-api.ts';
 import { assetUrl, rememberAsset } from './media-protocol.ts';
 import { getSettings } from './settings.ts';
 import { callWorker, READ_TIMEOUT_MS } from './worker-host.ts';
@@ -48,8 +49,11 @@ async function inspectFile(file: string, kind: AssetKind): Promise<AddAssetResul
   }
   if (size > KINDS[kind].maxBytes) return { ok: false, error: 'too-large' };
   const read = await Promise.all([
-    // A file that stops answering is one Rezzo can't read.
-    callWorker('fingerprint', [file], { timeoutMs: READ_TIMEOUT_MS }).catch(() => null),
+    // A file that stops answering is one Rezzo can't read; any other failure is reported as it is.
+    callWorker('fingerprint', [file], { timeoutMs: READ_TIMEOUT_MS }).catch((e: unknown) => {
+      if (e instanceof WorkerError && e.code === 'timeout') return null;
+      throw e;
+    }),
     kind === 'video' ? callWorker('probeVideo', [file], { timeoutMs: READ_TIMEOUT_MS }).catch(() => null) : undefined,
     kind === 'lottie' ? callWorker('readLottie', [file], { timeoutMs: READ_TIMEOUT_MS }).catch(() => null) : undefined,
     kind === 'audio' ? callWorker('probeAudio', [file], { timeoutMs: READ_TIMEOUT_MS }).catch(() => null) : undefined,

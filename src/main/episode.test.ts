@@ -93,6 +93,23 @@ describe('thumbnails', () => {
     // The one waiting never reached the worker.
     expect(calls).toHaveLength(1);
   });
+
+  it('are made anew when the episode opens again before the stopped ones have gone', async () => {
+    const stopped = episodeThumbnail(source(fp('5')), 1, 'card');
+    await settle();
+    stopEpisodeWork(fp('5'));
+    // Asked for again at once: the stopped call hasn't rejected yet.
+    const again = episodeThumbnail(source(fp('5')), 1, 'card');
+    expect(again).not.toBe(stopped);
+    await expect(stopped).rejects.toMatchObject({ code: 'cancelled' });
+    await settle();
+    const fresh = calls.at(-1)!;
+    expect(fresh.options.signal!.aborted).toBe(false);
+    fresh.resolve();
+    await expect(again).resolves.toContain('media:');
+    // The old one failing didn't drop the new one: asking a third time shares it.
+    expect(episodeThumbnail(source(fp('5')), 1, 'card')).toBe(again);
+  });
 });
 
 describe('importing an episode', () => {

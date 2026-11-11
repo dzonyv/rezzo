@@ -79,6 +79,26 @@ describe('projects', () => {
     await expect.poll(() => nameField(page).inputValue()).toBe('Episode 12');
   });
 
+  it("stops what's being made for the episode when the project is closed", async () => {
+    const { app: a, page } = await launch();
+    // Main's handler is swapped for one that only writes down what it was asked.
+    await a.evaluate(({ ipcMain }) => {
+      const g = globalThis as typeof globalThis & { stopped: unknown[] };
+      g.stopped = [];
+      ipcMain.removeHandler('episode:stop');
+      ipcMain.handle('episode:stop', (_e, fingerprint) => void g.stopped.push(fingerprint));
+    });
+    const stopped = () => a.evaluate(() => (globalThis as typeof globalThis & { stopped: unknown[] }).stopped);
+    await newProjectFrom(a, page, video);
+    await expect.poll(() => nameField(page).inputValue()).toBe('test-episode');
+    expect(await stopped()).toEqual([]);
+
+    await page.getByRole('button', { name: 'Close project' }).click();
+    const dontSave = page.getByRole('button', { name: "Don't save" });
+    if (await dontSave.isVisible().catch(() => false)) await dontSave.click();
+    await expect.poll(stopped).toEqual([expect.stringMatching(/^[0-9a-f]{64}$/)]);
+  });
+
   it('refuses files without a picture', async () => {
     const { app: a, page } = await launch();
     const audio = await makeTestVideo(path.join(dir, 'only-sound.m4a'), { audioOnly: true });
