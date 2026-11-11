@@ -2,7 +2,7 @@ import { mkdtemp, rm, writeFile } from 'node:fs/promises';
 import { tmpdir } from 'node:os';
 import path from 'node:path';
 import { afterAll, beforeAll, describe, expect, it } from 'vitest';
-import { zip } from '../../e2e/zip.ts';
+import { zip } from '../../../e2e/zip.ts';
 import { readLottieInfo } from './lottie-file.ts';
 
 const animation = { v: '5.7.4', fr: 25, ip: 0, op: 50, w: 300, h: 150, layers: [], assets: [{ id: 'i', u: '/i/', p: 'img_0.png', e: 0 }] };
@@ -55,6 +55,27 @@ describe('Lottie files', () => {
     const renamed = path.join(dir, 'renamed.json');
     await writeFile(renamed, zip({ 'manifest.json': '{}', 'a/only.json': JSON.stringify(animation) }));
     expect(await readLottieInfo(renamed)).toEqual(info);
+  });
+
+  it('refuses a package that unpacks to far more than an animation is', async () => {
+    const bomb = path.join(dir, 'bomb.lottie');
+    // 80 MB of spaces around an animation pack down to about 80 KB.
+    const padded = `${' '.repeat(80 * 1024 * 1024)}${JSON.stringify(animation)}`;
+    await writeFile(bomb, zip({ 'manifest.json': '{}', 'a/only.json': padded }));
+    expect(await readLottieInfo(bomb)).toBeNull();
+    const manifest = path.join(dir, 'manifest-bomb.lottie');
+    await writeFile(manifest, zip({ 'first.txt': '', 'manifest.json': `${' '.repeat(2 * 1024 * 1024)}{}`, 'a/only.json': JSON.stringify(animation) }));
+    expect(await readLottieInfo(manifest)).toBeNull();
+  });
+
+  it('refuses a package whose directory points outside the file', async () => {
+    const file = path.join(dir, 'short.lottie');
+    const whole = zip({ 'manifest.json': '{}', 'a/only.json': JSON.stringify(animation) });
+    // The size of the first entry, in the directory, made larger than the file.
+    const entry = whole.indexOf(Buffer.from([0x50, 0x4b, 0x01, 0x02]));
+    whole.writeUInt32LE(whole.length * 2, entry + 20);
+    await writeFile(file, whole);
+    expect(await readLottieInfo(file)).toBeNull();
   });
 
   it('rejects files that are not animations', async () => {

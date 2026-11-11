@@ -2,7 +2,7 @@ import { app, BrowserWindow, shell } from 'electron';
 import path from 'node:path';
 import { pathToFileURL } from 'node:url';
 import { addAsset, assetFileUrl, checkAsset, locateAsset } from './assets.ts';
-import { prepareClip } from './clip.ts';
+import { cancelPrepare, prepareClip } from './clip.ts';
 import { cancelOverlay, prepareOverlay } from './overlay.ts';
 import { cancelExport, openExport, revealExport, startExport } from './export.ts';
 import { addFont, readCustomFont } from './fonts.ts';
@@ -90,6 +90,7 @@ function registerHandlers(): void {
   handle('voices:cancel', () => cancelVoices());
 
   handle('clip:prepare', ({ window }, source, range) => prepareClip(window.webContents, source, range));
+  handle('clip:cancel', ({ window }) => cancelPrepare(window.webContents));
   handle('overlay:prepare', ({ window }, asset, range, rate, requestId) => prepareOverlay(window.webContents, asset, range, rate, requestId));
   handle('overlay:cancel', (_ctx, requestId) => cancelOverlay(requestId));
 

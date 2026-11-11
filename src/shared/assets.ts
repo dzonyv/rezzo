@@ -13,6 +13,18 @@ export const VIDEO_EXTENSIONS = ['mp4', 'mov', 'webm', 'mkv', 'gif'] as const;
 export const LOTTIE_EXTENSIONS = ['json', 'lottie'] as const;
 /** Sound files: music, effects, recordings. FFmpeg reads them all; Chromium decodes them for the preview. */
 export const AUDIO_EXTENSIONS = ['mp3', 'wav', 'm4a', 'aac', 'ogg', 'opus', 'flac'] as const;
+/** The extensions (lower case, no dot) a file of each kind has. */
+export const ASSET_EXTENSIONS = { image: IMAGE_EXTENSIONS, video: VIDEO_EXTENSIONS, lottie: LOTTIE_EXTENSIONS, audio: AUDIO_EXTENSIONS } as const satisfies Record<
+  (typeof ASSET_KINDS)[number],
+  readonly string[]
+>;
+
+/** Whether `file` is named like a file of `kind`. */
+export function hasExtensionOf(kind: (typeof ASSET_KINDS)[number], file: string): boolean {
+  const extension = /\.([^.\\/]+)$/.exec(file)?.[1]?.toLowerCase() ?? '';
+  return (ASSET_EXTENSIONS[kind] as readonly string[]).includes(extension);
+}
+
 /** Larger than any image anyone puts in a clip; keeps a mistaken pick from being read into memory. */
 export const MAX_IMAGE_BYTES = 100 * 1024 * 1024;
 /** Videos are only read by FFmpeg, never into memory whole; this just catches a wrong pick. */

@@ -24,7 +24,8 @@ export class ExecError extends Error {
 
 /**
  * Runs a program to completion and returns its output. Rejects with
- * ExecError on a non-zero exit; aborting the signal kills the program.
+ * ExecError on a non-zero exit; aborting the signal kills the program, and
+ * the rejection comes once it has gone.
  * `onStderrLine` sees stderr line by line as it arrives (progress output).
  */
 export function exec(
@@ -50,7 +51,17 @@ export function exec(
       partial = lines.pop() ?? '';
       for (const line of lines) options.onStderrLine(line);
     });
-    child.on('error', reject);
-    child.on('close', (code) => (code === 0 ? resolve({ stdout, stderr }) : reject(new ExecError(cmd, code, stderr))));
+    // A program that was stopped (the signal) reports the error first and goes a moment later. Callers
+    // delete what it was reading or writing next, which Windows refuses while it's still there.
+    let failure: Error | undefined;
+    child.on('error', (e) => {
+      if (child.pid === undefined) reject(e);
+      else failure = e;
+    });
+    child.on('close', (code) => {
+      if (failure) reject(failure);
+      else if (code === 0) resolve({ stdout, stderr });
+      else reject(new ExecError(cmd, code, stderr));
+    });
   });
 }

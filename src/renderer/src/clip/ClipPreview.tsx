@@ -161,7 +161,10 @@ export function ClipPreview({ clip, source, children }: { clip: Clip; source: So
       playing.setRange({ ...range, skips: clip.skips });
       // A trim past this file and straight back: the new file that was being made isn't needed after all.
       const { status } = clipPlaybackStore.getState();
-      if (status === 'preparing' || status === 'loading') clipPlaybackStore.setState({ status: 'ready', progress: 0, error: null });
+      if (status === 'preparing' || status === 'loading') {
+        void window.rezzo.invoke('clip:cancel');
+        clipPlaybackStore.setState({ status: 'ready', progress: 0, error: null });
+      }
       return;
     }
     playing?.pause();
