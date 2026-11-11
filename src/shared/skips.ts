@@ -138,15 +138,16 @@ const percentile = (sorted: readonly number[], p: number): number => sorted[Math
 
 /**
  * The level (dB) under which a stretch of `db` counts as quiet: between its
- * noise floor and its speech. Null when the two are too close to tell apart
- * (music under everything) or there's nothing to go by. Pauses and ducking
- * both use it.
+ * noise floor and its speech, taken as the level that the loudest
+ * `1 - speechShare` of it reaches (so speech has to fill that much). Null
+ * when the two are too close to tell apart (music under everything) or
+ * there's nothing to go by. Pauses and ducking both use it.
  */
-export function quietLimit(db: ArrayLike<number>): number | null {
+export function quietLimit(db: ArrayLike<number>, speechShare = 0.8): number | null {
   if (db.length === 0) return null;
   const sorted = Array.from(db).sort((a, b) => a - b);
   const floor = percentile(sorted, 0.05);
-  const speech = percentile(sorted, 0.8);
+  const speech = percentile(sorted, speechShare);
   return speech - floor < MIN_RANGE_DB ? null : floor + QUIET_LIMIT * (speech - floor);
 }
 

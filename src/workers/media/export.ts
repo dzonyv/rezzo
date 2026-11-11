@@ -115,20 +115,23 @@ const DUCK_SIGNAL_RATE = 48_000;
 const DUCK_SIGNAL_FORMAT = ['-f', 'f32le', '-ar', String(DUCK_SIGNAL_RATE), '-ac', '1'];
 const FLTP = 'aformat=sample_fmts=fltp';
 
-/**
- * Writes the gain signal of each sound that's turned down under speech to
- * the temp folder: the gain from where the sound starts playing, for as
- * long as it plays. Returns the files by sound, null for one that isn't.
- */
-async function writeDuckSignals(req: ExportRequest): Promise<(string | null)[]> {
+/** Where each sound that's turned down under speech gets its gain signal, in the temp folder; null for one that isn't. */
+function duckSignalFiles(req: ExportRequest): (string | null)[] {
   const name = randomUUID().slice(0, 8);
-  return Promise.all(
+  return req.sounds.map((s, i) => (s.duck ? path.join(tmpdir(), `rezzo-duck-${name}-${i}.f32`) : null));
+}
+
+/**
+ * Writes each sound's gain signal to its file in `files` (duckSignalFiles):
+ * the gain from where the sound starts playing, for as long as it plays.
+ */
+async function writeDuckSignals(req: ExportRequest, files: readonly (string | null)[]): Promise<void> {
+  await Promise.all(
     req.sounds.map(async (s, i) => {
-      if (!s.duck) return null;
-      const file = path.join(tmpdir(), `rezzo-duck-${name}-${i}.f32`);
+      const file = files[i];
+      if (!s.duck || !file) return;
       const signal = duckSignal(s.duck, s.at, s.duration, DUCK_SIGNAL_RATE);
       await writeFile(file, new Uint8Array(signal.buffer, signal.byteOffset, signal.byteLength));
-      return file;
     }),
   );
 }
@@ -207,7 +210,9 @@ export async function encodeExport(ctx: JobContext, req: ExportRequest): Promise
   let duckFiles: (string | null)[] = [];
   try {
     if (req.sounds.some((s) => s.duck)) {
-      duckFiles = await writeDuckSignals(req);
+      // Named before they're written, so those written are removed even if another one fails.
+      duckFiles = duckSignalFiles(req);
+      await writeDuckSignals(req, duckFiles);
       ctx.signal.throwIfAborted();
     }
     await encode(ctx, req, port, part, duckFiles);

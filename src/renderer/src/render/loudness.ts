@@ -8,7 +8,7 @@ import { useEffect } from 'react';
 import { useStore } from 'zustand';
 import { createStore } from 'zustand/vanilla';
 import type { AudioAsset } from '../../../shared/assets.ts';
-import { speechOf } from '../../../shared/ducking.ts';
+import { duckPoints, speechOf, type GainPoint } from '../../../shared/ducking.ts';
 import type { Loudness } from '../../../shared/loudness.ts';
 import type { Clip, Source } from '../../../shared/project.ts';
 import type { Span } from '../../../shared/skips.ts';
@@ -25,6 +25,8 @@ const asking = new Set<string>();
 
 /** Trimming a clip in small steps shouldn't measure it again for every step. */
 const SETTLE_MS = 400;
+/** How often a clip whose working file isn't there yet is asked about again. */
+const RETRY_MS = 1000;
 
 /** What the clip's measurement depends on: the stretches of the source it plays. */
 const clipKey = (source: Source, clip: Pick<Clip, 'start' | 'end' | 'skips'>) => `clip:${source.fingerprint}:${JSON.stringify([clip.start, clip.end, clip.skips])}`;
@@ -99,29 +101,58 @@ export function useClipSpeech(source: Source | null, clip: Clip, ready: boolean,
   const key = source ? `levels:${clipKey(source, clip)}` : 'levels:none';
   useEffect(() => {
     if (!ready || !source?.audio || !wanted) return;
-    if (asking.has(key) || speechStore.getState().found.has(key)) return;
-    const again = speechStore.getState().latest.has(clip.id);
-    const timer = setTimeout(() => {
+    let live = true;
+    let timer: ReturnType<typeof setTimeout> | undefined;
+    const tryAgain = () => {
+      if (live) timer = setTimeout(ask, RETRY_MS);
+    };
+    // Every clip view showing this asks until there's an answer, so one going away doesn't leave the rest waiting.
+    function ask() {
+      if (speechStore.getState().found.has(key)) return;
+      if (asking.has(key)) return tryAgain();
       asking.add(key);
-      const settle = (s: Span[] | null | 'failed' | undefined) => {
+      const settle = (s: Span[] | null | 'failed') => {
         asking.delete(key);
-        // No working file yet: asked again later.
-        if (s !== undefined) speechStore.setState(({ found, latest }) => ({ found: new Map(found).set(key, s), latest: new Map(latest).set(clip.id, s) }));
+        speechStore.setState(({ found, latest }) => ({ found: new Map(found).set(key, s), latest: new Map(latest).set(clip.id, s) }));
       };
-      window.rezzo.invoke('loudness:levels', source, clip).then(
-        (levels) => settle(levels === null ? undefined : speechOf(levels)),
+      window.rezzo.invoke('loudness:levels', source!, clip).then(
+        (levels) => {
+          if (levels !== null) return settle(speechOf(levels));
+          // No working file for the clip yet.
+          asking.delete(key);
+          tryAgain();
+        },
         (e: unknown) => {
           console.warn('measuring speech failed', e);
           settle('failed');
         },
       );
-    }, again ? SETTLE_MS : 0);
-    return () => clearTimeout(timer);
+    }
+    timer = setTimeout(ask, speechStore.getState().latest.has(clip.id) ? SETTLE_MS : 0);
+    return () => {
+      live = false;
+      clearTimeout(timer);
+    };
     // The key holds everything the measurement depends on.
     // eslint-disable-next-line react-hooks/exhaustive-deps
   }, [key, ready, wanted]);
   const found = useStore(speechStore, (s) => s.found.get(key) ?? s.latest.get(clip.id));
   return found === 'failed' ? null : found;
+}
+
+const curves = new WeakMap<readonly Span[], Map<number, GainPoint[]>>();
+
+/**
+ * The corners of a sound turned down by `db` under `speech` (duckPoints),
+ * made once for each: the same array every render, so what's drawn from
+ * it isn't drawn again.
+ */
+export function duckCurve(speech: readonly Span[], db: number): GainPoint[] {
+  let byDb = curves.get(speech);
+  if (!byDb) curves.set(speech, (byDb = new Map()));
+  let points = byDb.get(db);
+  if (!points) byDb.set(db, (points = duckPoints(speech, db)));
+  return points;
 }
 
 /** A measurement as evenGain takes it: 'failed' counts as nothing measured. */

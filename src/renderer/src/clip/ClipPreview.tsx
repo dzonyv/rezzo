@@ -14,10 +14,10 @@ import { analyse } from '../analysis/store.ts';
 import { Compositor, type LayerImage } from '../render/compositor.ts';
 import { forgetOverlayFile, overlayFilesStore, prepareOverlayFiles, readyFiles, retryFailedOverlayFiles, WorkingFileGoneError, type OverlayFile } from '../render/overlay-files.ts';
 import { layerSounds } from '../render/layer-sound.ts';
-import { duckPoints, type GainPoint } from '../../../shared/ducking.ts';
+import type { GainPoint } from '../../../shared/ducking.ts';
 import { evenGain } from '../../../shared/loudness.ts';
 import { evensLoudness, soundLayersOf } from '../../../shared/sound-mix.ts';
-import { assetLoudnessOf, loudnessStore, measuredLoudness, requestAssetLoudness, useClipLoudness, useClipSpeech } from '../render/loudness.ts';
+import { assetLoudnessOf, loudnessStore, measuredLoudness, requestAssetLoudness, useClipLoudness, useClipSpeech, duckCurve } from '../render/loudness.ts';
 import type { LottieData } from '../render/lottie.ts';
 import { assetsOf, loadImages, loadLotties, SceneRenderer } from '../render/scene-renderer.ts';
 import { useSettings } from '../settings.ts';
@@ -76,7 +76,7 @@ export function ClipPreview({ clip, source, children }: { clip: Clip; source: So
   );
   // Sounds turned down while someone talks, by layer id: the gain's corners once the speech is found.
   const speech = useClipSpeech(source, clip, status === 'ready', heardSounds.some(({ layer }) => layer.duck.on));
-  const ducks = Object.fromEntries(heardSounds.flatMap(({ layer }) => (layer.duck.on && speech ? [[layer.id, duckPoints(speech, layer.duck.db)]] : [])));
+  const ducks = Object.fromEntries(heardSounds.flatMap(({ layer }) => (layer.duck.on && speech ? [[layer.id, duckCurve(speech, layer.duck.db)]] : [])));
   // What the layers' sound depends on, as a value that changes only when that does (not when a layer moves on screen).
   const soundJson = JSON.stringify({
     clip: {

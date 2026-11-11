@@ -500,9 +500,13 @@ export class ClipPlayer {
       const gain = this.context.createGain();
       ramp(gain.gain, gainPoints(e, start), toContext);
       // Turned down under speech by a gain of its own, multiplied in as the export does.
-      const ducked = this.context.createGain();
-      if (duck) ramp(ducked.gain, duckPointsFrom(duck, start), toContext);
-      node.connect(gain).connect(ducked).connect(this.output);
+      let last: AudioNode = node.connect(gain);
+      if (duck && duck.length > 0) {
+        const ducked = this.context.createGain();
+        ramp(ducked.gain, duckPointsFrom(duck, start), toContext);
+        last = last.connect(ducked);
+      }
+      last.connect(this.output);
       node.start(toContext(start), offset);
       node.stop(toContext(end));
       this.soundNodes.push(node);

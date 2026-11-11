@@ -1,4 +1,4 @@
-import { useEffect, useLayoutEffect, useRef, useState } from 'react';
+import { memo, useEffect, useLayoutEffect, useRef, useState } from 'react';
 import { useTranslation } from 'react-i18next';
 import type { Asset } from '../../../shared/assets.ts';
 import type { CaptionPage } from '../../../shared/captions.ts';
@@ -6,7 +6,7 @@ import { EFFECTS } from '../../../shared/effects.ts';
 import { isTimed, keyframesOf, soundLayers, videoLayerOf, type Animated, type Clip, type SoundLayer, type TimedLayer } from '../../../shared/project.ts';
 import { playedLength, soundAsset, soundDuration } from '../../../shared/sound-mix.ts';
 import { outputTime, type ClipSpan } from '../../../shared/skips.ts';
-import { duckGainAt, duckPoints, type GainPoint } from '../../../shared/ducking.ts';
+import { duckGainAt, type GainPoint } from '../../../shared/ducking.ts';
 import { moveLayer, reorderLayer, setSoundSettings, trimLayer } from '../project/layers.ts';
 import { restoreSkip } from '../project/skips.ts';
 import { videoLayersOverLimit } from '../../../shared/overlay-files.ts';
@@ -15,7 +15,7 @@ import type { VoiceTurn } from '../../../shared/voices.ts';
 import { useAnalysis } from '../analysis/store.ts';
 import { formatClipTime } from '../format.ts';
 import { useHeardVoices } from '../project/voices.ts';
-import { useClipSpeech } from '../render/loudness.ts';
+import { duckCurve, useClipSpeech } from '../render/loudness.ts';
 import { useOverlayFile } from '../render/overlay-files.ts';
 import { loadLibrarySound, loadSoundFile, useWaveform, WAVEFORM_PER_SECOND, type Waveform } from '../render/sound-files.ts';
 import { voiceColor, voiceLabel } from '../voice-colors.ts';
@@ -133,7 +133,7 @@ export function ClipTimeline({ clip, assets, keys, pages, selectedId, time }: Pr
   const source = useProject((s) => s.project?.source ?? null);
   const ready = useClipPlayback((s) => s.status === 'ready');
   const speech = useClipSpeech(source, clip, ready, sounds.some((l) => l.duck.on));
-  const duckOf = (layer: SoundLayer) => (layer.duck.on && speech ? duckPoints(speech, layer.duck.db) : null);
+  const duckOf = (layer: SoundLayer) => (layer.duck.on && speech ? duckCurve(speech, layer.duck.db) : null);
   const overLimit = videoLayersOverLimit(clip);
   const nameOf = (layer: TimedLayer) => layerName(t, layer, assets);
   /** Effects' bars have their group's colour. */
@@ -645,7 +645,8 @@ function peakBetween(wave: Waveform, from: number, to: number): number {
  * up over the fade in, level, down over the fade out. Skips inside the bar
  * aren't shown: the sound plays on through them.
  */
-function SoundShape({ layer, assets, clip, duck }: { layer: SoundLayer; assets: readonly Asset[]; clip: ClipSpan; duck: readonly GainPoint[] | null }) {
+/** Memoized: the timeline draws on every frame while playing, and this only changes with its layer, the clip or the duck. */
+const SoundShape = memo(function SoundShape({ layer, assets, clip, duck }: { layer: SoundLayer; assets: readonly Asset[]; clip: ClipSpan; duck: readonly GainPoint[] | null }) {
   const library = 'library' in layer.sound ? layer.sound.library : null;
   const asset = soundAsset(layer, assets);
   const load = library ? () => loadLibrarySound(library) : asset ? () => loadSoundFile(asset) : null;
@@ -685,7 +686,7 @@ function SoundShape({ layer, assets, clip, duck }: { layer: SoundLayer; assets: 
       <polyline className="gain" points={gain} />
     </svg>
   );
-}
+});
 
 /**
  * The box on the overview around the part of the clip in view. It follows

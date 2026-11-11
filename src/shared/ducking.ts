@@ -26,6 +26,13 @@ const UP_SECONDS = 0.4;
 const HOLD_SECONDS = 0.5;
 /** Louder stretches shorter than this are a cough or a click, not speech. */
 const MIN_SPEECH_SECONDS = 0.1;
+/** A dip this short inside speech (between syllables) doesn't break it, so short words aren't taken for clicks. */
+const BRIDGE_SECONDS = 0.1;
+/**
+ * Speech has to fill this much of the clip to be found: less than Pauses
+ * need, since music is often laid over a clip that's mostly something else.
+ */
+const SPEECH_SHARE = 0.9;
 /** What a level of no sound at all (FFmpeg's -inf) counts as. */
 const SILENT_DB = -100;
 
@@ -56,23 +63,32 @@ export function parseLevels(stderr: string): number[] {
  * turned down.
  */
 export function speechOf(levels: readonly number[], step = DUCK_STEP): Span[] | null {
-  const limit = quietLimit(levels);
+  const limit = quietLimit(levels, SPEECH_SHARE);
   if (limit === null) return null;
-  const spans: Span[] = [];
+  const runs: Span[] = [];
   let begun: number | null = null;
-  const close = (end: number) => {
-    if (begun === null) return;
-    const last = spans.at(-1);
-    if (last && begun - last.end < HOLD_SECONDS) last.end = end;
-    else spans.push({ start: begun, end });
-    begun = null;
-  };
   levels.forEach((db, i) => {
     if (db >= limit) begun ??= i * step;
-    else close(i * step);
+    else if (begun !== null) {
+      runs.push({ start: begun, end: i * step });
+      begun = null;
+    }
   });
-  close(levels.length * step);
-  return spans.filter((s) => s.end - s.start >= MIN_SPEECH_SECONDS);
+  if (begun !== null) runs.push({ start: begun, end: levels.length * step });
+  // Clicks are left out before speech is joined over its gaps, so one just before a sentence doesn't stretch it.
+  const words = joined(runs, BRIDGE_SECONDS).filter((s) => s.end - s.start >= MIN_SPEECH_SECONDS);
+  return joined(words, HOLD_SECONDS);
+}
+
+/** `spans` with the ones less than `gap` apart made one. */
+function joined(spans: readonly Span[], gap: number): Span[] {
+  const out: Span[] = [];
+  for (const s of spans) {
+    const last = out.at(-1);
+    if (last && s.start - last.end < gap) last.end = s.end;
+    else out.push({ ...s });
+  }
+  return out;
 }
 
 /**

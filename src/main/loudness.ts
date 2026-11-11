@@ -21,7 +21,9 @@ const KEEP = 200;
 const measured = new Map<string, Promise<Loudness | number[]>>();
 
 /** Measures `request` with `method` unless the same file, unchanged, was measured that way over the same stretches before. */
-async function remembered<M extends 'measureLoudness' | 'measureLevels'>(method: M, request: LoudnessRequest): Promise<M extends 'measureLevels' ? number[] : Loudness> {
+function remembered(method: 'measureLoudness', request: LoudnessRequest): Promise<Loudness>;
+function remembered(method: 'measureLevels', request: LoudnessRequest): Promise<number[]>;
+async function remembered(method: 'measureLoudness' | 'measureLevels', request: LoudnessRequest): Promise<Loudness | number[]> {
   const { size, mtimeMs } = await stat(request.file);
   const key = JSON.stringify([method, request.file, size, mtimeMs, request.pieces]);
   let held = measured.get(key);
@@ -31,7 +33,7 @@ async function remembered<M extends 'measureLoudness' | 'measureLevels'>(method:
     held.catch(() => measured.delete(key));
     if (measured.size > KEEP) measured.delete(measured.keys().next().value!);
   }
-  return held as Promise<M extends 'measureLevels' ? number[] : Loudness>;
+  return held;
 }
 
 const measure = (request: LoudnessRequest): Promise<Loudness> => remembered('measureLoudness', request);

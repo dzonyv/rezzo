@@ -31,6 +31,23 @@ describe('finding speech', () => {
     expect(spans[0]!.end).toBeCloseTo(3);
   });
 
+  it("leaves out a click just before speech, so the speech doesn't start early", () => {
+    const spans = speechOf(levels(6, [[2, 2.04], [2.46, 4]]))!;
+    expect(spans).toHaveLength(1);
+    expect(spans[0]!.start).toBeCloseTo(2.46);
+  });
+
+  it('keeps a short word, whose syllables have a dip between them', () => {
+    const spans = speechOf(levels(6, [[1, 1.06], [1.1, 1.16], [3, 4]]))!;
+    expect(spans.map((s) => s.start)).toEqual([expect.closeTo(1, 5), expect.closeTo(3, 5)]);
+  });
+
+  it('finds speech in a clip that is mostly quiet', () => {
+    // 1.5 s of talking in 12 s: too little for Pauses' limit, enough for ducking.
+    const spans = speechOf(levels(12, [[4, 5.5]]))!;
+    expect(spans).toEqual([{ start: expect.closeTo(4, 5), end: expect.closeTo(5.5, 5) }]);
+  });
+
   it("can't tell speech when everything is about as loud, or there's nothing", () => {
     expect(speechOf(levels(6, [[1, 2]], -25, -20))).toBeNull();
     expect(speechOf([])).toBeNull();
