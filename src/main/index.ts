@@ -7,7 +7,7 @@ import { cancelOverlay, prepareOverlay } from './overlay.ts';
 import { cancelExport, openExport, revealExport, startExport } from './export.ts';
 import { addFont, readCustomFont } from './fonts.ts';
 import { librarySoundUrl } from './sounds.ts';
-import { assetLoudness, clipLoudness } from './loudness.ts';
+import { assetLoudness, clipLevels, clipLoudness } from './loudness.ts';
 import { checkEpisode, chooseEpisode, episodeMediaUrl, episodeThumbnail, importEpisode, locateEpisode, makePreview } from './episode.ts';
 import { handleMediaProtocol, registerMediaScheme } from './media-protocol.ts';
 import { broadcast, handle, trustPagesFrom } from './ipc.ts';
@@ -115,6 +115,7 @@ function registerHandlers(): void {
   handle('sound:url', (_ctx, name) => librarySoundUrl(name));
   handle('loudness:clip', (_ctx, source, clip) => clipLoudness(source, clip));
   handle('loudness:asset', (_ctx, asset) => assetLoudness(asset));
+  handle('loudness:levels', (_ctx, source, clip) => clipLevels(source, clip));
 
   handle('app:listening', ({ window }) => void closeListening.add(window));
   handle('app:close', ({ window }) => {

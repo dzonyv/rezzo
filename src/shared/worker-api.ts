@@ -4,6 +4,7 @@
  * every window event, never stalls.
  */
 import type { AudioInfo, VideoInfo } from './assets.ts';
+import type { GainPoint } from './ducking.ts';
 import type { Loudness } from './loudness.ts';
 import type { LottieInfo } from './lottie.ts';
 import type { FrameRate } from './frames.ts';
@@ -98,6 +99,8 @@ export interface ExportSound {
   /** Seconds, each at most half of `duration`. */
   fadeIn: number;
   fadeOut: number;
+  /** Turned down while someone talks: the gain's corners in output time (shared/ducking.ts), or null. */
+  duck: GainPoint[] | null;
 }
 
 /** One clip to encode. The frames come over the MessagePort sent with the call. */
@@ -169,6 +172,8 @@ export interface WorkerMethods {
   makeOverlayFile(request: OverlayFileRequest): void;
   /** Integrated loudness and true peak (shared/loudness.ts). */
   measureLoudness(request: LoudnessRequest): Loudness;
+  /** The sound's level in dB every DUCK_STEP, for finding speech (shared/ducking.ts). */
+  measureLevels(request: LoudnessRequest): number[];
   /** NVENC if a quick test encode works, else x264. Decided once per run. */
   pickEncoder(): Encoder;
   /**

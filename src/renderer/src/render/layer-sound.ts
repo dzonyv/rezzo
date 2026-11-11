@@ -5,6 +5,7 @@
  * clipSoundPieces and shaped by shared/sound-mix.ts, as the export does.
  */
 import type { Asset } from '../../../shared/assets.ts';
+import type { GainPoint } from '../../../shared/ducking.ts';
 import { clipSoundPieces, videoLayersOf } from '../../../shared/overlay-files.ts';
 import type { Clip } from '../../../shared/project.ts';
 import { playedSound, soundLayersOf } from '../../../shared/sound-mix.ts';
@@ -30,7 +31,8 @@ function soundOf(url: string): Promise<AudioBuffer | null> {
 /**
  * The sound of `clip`'s video layers that have any, from their working
  * files in `files` (by layer id), and of its sound layers, each turned up
- * or down by its gain in `gains` (by layer id, 1 when not there). Decoded
+ * or down by its gain in `gains` (by layer id, 1 when not there) and
+ * turned down under speech by its corners in `ducks` (by layer id). Decoded
  * working file sound no layer uses any more is let go of. A sound layer
  * whose file can't be read is left out; `onFile` hears whether each file
  * was there.
@@ -40,6 +42,7 @@ export async function layerSounds(
   assets: readonly Asset[],
   files: ReadonlyMap<string, OverlayFile>,
   gains: Readonly<Record<string, number>> = {},
+  ducks: Readonly<Record<string, GainPoint[]>> = {},
   onFile: (asset: Asset, there: boolean) => void = () => {},
 ): Promise<LayerSound[]> {
   const used = new Set<string>();
@@ -50,7 +53,7 @@ export async function layerSounds(
     const played = playedSound(clipSoundPieces(clip, layer, asset.duration), asset.duration, layer.volume);
     const buffer = played ? await soundOf(file.url) : null;
     if (!played || !buffer) return null;
-    return { buffer, played: { ...played, from: Math.max(0, played.from - file.start) } };
+    return { buffer, played: { ...played, from: Math.max(0, played.from - file.start) }, duck: null };
   });
   const sounds = soundLayersOf(clip, assets).map(async ({ layer, duration, asset }): Promise<LayerSound | null> => {
     const played = playedSound(clipSoundPieces(clip, layer, duration), duration, layer.volume * (gains[layer.id] ?? 1), layer.fadeIn, layer.fadeOut);
@@ -58,7 +61,7 @@ export async function layerSounds(
     try {
       const buffer = 'library' in layer.sound ? await loadLibrarySound(layer.sound.library) : await loadSoundFile(asset!);
       if (asset) onFile(asset, true);
-      return { buffer, played };
+      return { buffer, played, duck: ducks[layer.id] ?? null };
     } catch {
       if (asset) onFile(asset, false);
       return null;

@@ -30,9 +30,20 @@ let now = 0;
 /** Every piece of sound the player started: when, how long, and when it was stopped (null: left to play out). */
 let started: { at: number; length: number; stoppedAt: number | null }[] = [];
 
-const param = { setValueAtTime() {}, linearRampToValueAtTime() {} };
+/** A gain's value over time as the player set it: [value, at] for setValueAtTime and each ramp after it. */
+class FakeParam {
+  points: [number, number][] = [];
+  setValueAtTime(value: number, at: number) {
+    this.points.push([value, at]);
+  }
+  linearRampToValueAtTime(value: number, at: number) {
+    this.points.push([value, at]);
+  }
+}
+/** Every gain the player made, in order. */
+let gains: FakeParam[] = [];
 class FakeNode {
-  gain = param;
+  gain = new FakeParam();
   connect<T>(to: T): T {
     return to;
   }
@@ -62,7 +73,9 @@ class FakeContext {
     return new FakeSource();
   }
   createGain() {
-    return new FakeNode();
+    const node = new FakeNode();
+    gains.push(node.gain);
+    return node;
   }
 }
 
@@ -78,6 +91,7 @@ beforeEach(() => {
   vi.useFakeTimers();
   now = 0;
   started = [];
+  gains = [];
   vi.stubGlobal('fetch', async () => ({ ok: true, arrayBuffer: async () => new ArrayBuffer(8) }));
   vi.stubGlobal('AudioContext', FakeContext);
   vi.stubGlobal('OfflineAudioContext', class {
@@ -102,6 +116,26 @@ afterEach(() => {
 });
 
 describe('ClipPlayer', () => {
+  it("turns a layer's sound down under speech by its own gain, through the duck's corners", async () => {
+    const player = await ClipPlayer.load(file, compositor, { start: 0, end: 3, skips: [] }, () => {});
+    const duck = [{ t: 0.85, gain: 1 }, { t: 1, gain: 0.25 }, { t: 2, gain: 0.25 }, { t: 2.4, gain: 1 }];
+    const played = { envelope: { at: 0, length: 3, volume: 0.5, fadeIn: 0, fadeOut: 0 }, from: 0, loop: false, period: 3 };
+    player.setSounds([{ buffer: { duration: 3 } as AudioBuffer, played, duck }]);
+    gains = [];
+    player.play();
+    await playUntil(0.1);
+    player.dispose();
+    // The last two gains made are the sound's: its envelope, then the duck.
+    const [envelope, ducked] = gains.slice(-2);
+    expect(envelope!.points.every(([v]) => v === 0.5)).toBe(true);
+    const values = ducked!.points.map(([v]) => v);
+    expect(values).toEqual([1, 1, 0.25, 0.25, 1]);
+    // On the context's clock, the corners are as far apart as in the clip.
+    const times = ducked!.points.map(([, at]) => at);
+    expect(times[2]! - times[1]!).toBeCloseTo(0.15);
+    expect(times[4]! - times[3]!).toBeCloseTo(0.4);
+  });
+
   it('plays the clip to its end before going around again', async () => {
     const player = await ClipPlayer.load(file, compositor, { start: 0, end: 1, skips: [] }, () => {});
     player.play();

@@ -1,14 +1,17 @@
 /**
- * How loud the open clip's own sound and the user's sound files are, from
- * the page's side: asked of the main process once (it measures in the
- * media worker and remembers) and kept here for the preview and the panels.
+ * How loud the open clip's own sound and the user's sound files are, and
+ * where someone talks in the clip, from the page's side: asked of the main
+ * process once (it measures in the media worker and remembers) and kept
+ * here for the preview and the panels.
  */
 import { useEffect } from 'react';
 import { useStore } from 'zustand';
 import { createStore } from 'zustand/vanilla';
 import type { AudioAsset } from '../../../shared/assets.ts';
+import { speechOf } from '../../../shared/ducking.ts';
 import type { Loudness } from '../../../shared/loudness.ts';
 import type { Clip, Source } from '../../../shared/project.ts';
+import type { Span } from '../../../shared/skips.ts';
 
 /** A measurement, or 'failed'; not there yet while it's being made. */
 export type Measured = Loudness | 'failed';
@@ -73,6 +76,52 @@ export function useAssetLoudness(asset: AudioAsset | undefined): Measured | unde
     if (asset) requestAssetLoudness(asset);
   }, [asset]);
   return useStore(loudnessStore, (s) => (asset ? assetLoudnessOf(s.measured, asset) : undefined));
+}
+
+/**
+ * Where someone talks in the clip (shared/ducking.ts), in output time, by
+ * clipKey: null when speech can't be told apart, 'failed' when measuring
+ * failed; and each clip's latest, by clip id.
+ */
+export const speechStore = createStore<{ found: ReadonlyMap<string, Span[] | null | 'failed'>; latest: ReadonlyMap<string, Span[] | null | 'failed'> }>()(() => ({
+  found: new Map(),
+  latest: new Map(),
+}));
+
+/**
+ * Where someone talks in the clip, found once its working file is there
+ * (`ready`) and only when a sound is turned down under it (`wanted`);
+ * undefined until then. Null when it can't be told, and also when
+ * measuring failed: then nothing is turned down, as in the export. While a
+ * trimmed clip is measured again, the last answer stands in.
+ */
+export function useClipSpeech(source: Source | null, clip: Clip, ready: boolean, wanted: boolean): Span[] | null | undefined {
+  const key = source ? `levels:${clipKey(source, clip)}` : 'levels:none';
+  useEffect(() => {
+    if (!ready || !source?.audio || !wanted) return;
+    if (asking.has(key) || speechStore.getState().found.has(key)) return;
+    const again = speechStore.getState().latest.has(clip.id);
+    const timer = setTimeout(() => {
+      asking.add(key);
+      const settle = (s: Span[] | null | 'failed' | undefined) => {
+        asking.delete(key);
+        // No working file yet: asked again later.
+        if (s !== undefined) speechStore.setState(({ found, latest }) => ({ found: new Map(found).set(key, s), latest: new Map(latest).set(clip.id, s) }));
+      };
+      window.rezzo.invoke('loudness:levels', source, clip).then(
+        (levels) => settle(levels === null ? undefined : speechOf(levels)),
+        (e: unknown) => {
+          console.warn('measuring speech failed', e);
+          settle('failed');
+        },
+      );
+    }, again ? SETTLE_MS : 0);
+    return () => clearTimeout(timer);
+    // The key holds everything the measurement depends on.
+    // eslint-disable-next-line react-hooks/exhaustive-deps
+  }, [key, ready, wanted]);
+  const found = useStore(speechStore, (s) => s.found.get(key) ?? s.latest.get(clip.id));
+  return found === 'failed' ? null : found;
 }
 
 /** A measurement as evenGain takes it: 'failed' counts as nothing measured. */

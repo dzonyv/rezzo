@@ -1,8 +1,10 @@
 import { useTranslation } from 'react-i18next';
+import { MAX_DUCK_DB, MIN_DUCK_DB } from '../../../shared/ducking.ts';
 import { evenGainDb } from '../../../shared/loudness.ts';
-import type { Clip, Source } from '../../../shared/project.ts';
-import { setClipEvenLoudness } from '../project/layers.ts';
-import { useClipLoudness, type Measured } from '../render/loudness.ts';
+import type { Clip, SoundLayer, Source } from '../../../shared/project.ts';
+import { setClipEvenLoudness, setSoundDuck } from '../project/layers.ts';
+import { projectStore, useProject } from '../project/store.ts';
+import { useClipLoudness, useClipSpeech, type Measured } from '../render/loudness.ts';
 import { useClipPlayback } from './playback.ts';
 
 /** A number of decibels as the panels show it, with a real minus sign. */
@@ -43,6 +45,52 @@ export function EvenLoudness({ on, onChange, measured, help }: { on: boolean; on
         <>
           <LoudnessReadout measured={measured} />
           <p className="dim hint">{help}</p>
+        </>
+      )}
+    </div>
+  );
+}
+
+/**
+ * The switch for turning a sound down while someone talks, how far, and
+ * while it's on, what it found: still looking, no speech, or speech that
+ * can't be told from the rest (nothing is turned down then).
+ */
+export function DuckSpeech({ clip, layer }: { clip: Clip; layer: SoundLayer }) {
+  const { t } = useTranslation();
+  const store = projectStore.getState();
+  const source = useProject((s) => s.project?.source ?? null);
+  const ready = useClipPlayback((s) => s.status === 'ready');
+  const speech = useClipSpeech(source, clip, ready, layer.duck.on);
+  const status = !source?.audio ? 'noSound' : speech === undefined ? 'finding' : speech === null ? 'unclear' : speech.length === 0 ? 'noSpeech' : null;
+  return (
+    <div className="duck-speech">
+      <label className="switch-row">
+        {t('sounds.duck.title')}
+        <input type="checkbox" role="switch" className="switch" checked={layer.duck.on} onChange={(e) => setSoundDuck(clip.id, layer.id, { on: e.target.checked })} />
+      </label>
+      {layer.duck.on && (
+        <>
+          <label className="layer-slider">
+            <span>{t('sounds.duck.amount')}</span>
+            <input
+              type="range"
+              min={MIN_DUCK_DB}
+              max={MAX_DUCK_DB}
+              step={1}
+              value={layer.duck.db}
+              onPointerDown={() => store.beginGesture('history.duck')}
+              onPointerUp={() => store.endGesture()}
+              onChange={(e) => setSoundDuck(clip.id, layer.id, { db: Number(e.target.value) })}
+            />
+            <output>{t('sounds.loudness.gain', { db: `−${layer.duck.db}` })}</output>
+          </label>
+          {status && (
+            <p className="dim hint" role="status">
+              {t(`sounds.duck.${status}`)}
+            </p>
+          )}
+          <p className="dim hint">{t('sounds.duck.help')}</p>
         </>
       )}
     </div>

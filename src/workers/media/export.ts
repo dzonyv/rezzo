@@ -7,8 +7,11 @@
  */
 import { spawn } from 'node:child_process';
 import { randomUUID } from 'node:crypto';
-import { rename, rm } from 'node:fs/promises';
+import { rename, rm, writeFile } from 'node:fs/promises';
+import { tmpdir } from 'node:os';
+import path from 'node:path';
 import type { MessagePortMain } from 'electron';
+import { duckSignal } from '../../shared/ducking.ts';
 import { OUTPUT } from '../../shared/framing.ts';
 import { fps } from '../../shared/frames.ts';
 import { LIMITER } from '../../shared/loudness.ts';
@@ -50,12 +53,16 @@ function joinedSound(pieces: ExportRequest['audioPieces']): string {
  * The clip's sound, turned up or down by its gain, with the layers' sound
  * over it: each layer's file is an input of its own (looped when the layer
  * loops), cut to what plays, set to its volume (its own evening-out gain
- * included), faded and delayed to where it plays. Then everything is added
- * up as it is, cut to the clip's length and held under the ceiling by the
- * limiter (shared/loudness.ts), which only touches the rare peaks.
+ * included), faded, turned down under speech where it has a gain signal in
+ * `duckFiles` (by sound) and delayed to where it plays. Then everything is
+ * added up as it is, cut to the clip's length and held under the ceiling by
+ * the limiter (shared/loudness.ts), which only touches the rare peaks.
  */
-function soundMix(req: ExportRequest): { inputs: string[]; graph: string } {
+function soundMix(req: ExportRequest, duckFiles: readonly (string | null)[]): { inputs: string[]; graph: string } {
   const inputs: string[] = [];
+  // The gain signals come after all the sounds' files.
+  let nextInput = 2 + req.sounds.length;
+  const duckInputs: string[] = [];
   const parts: string[] = [];
   const mix: string[] = [];
   if (req.hasAudio) {
@@ -80,21 +87,56 @@ function soundMix(req: ExportRequest): { inputs: string[]; graph: string } {
       `volume=${s.volume.toFixed(4)}`,
       ...(s.fadeIn > 0 ? [`afade=t=in:d=${s.fadeIn.toFixed(6)}`] : []),
       ...(s.fadeOut > 0 ? [`afade=t=out:st=${(s.duration - s.fadeOut).toFixed(6)}:d=${s.fadeOut.toFixed(6)}`] : []),
-      `adelay=${Math.round(s.at * 1000)}:all=1`,
     );
-    parts.push(`[${i + 2}:a:0]${filters.join(',')}[s${i}]`);
+    const delay = `adelay=${Math.round(s.at * 1000)}:all=1`;
+    const duck = duckFiles[i];
+    if (duck) {
+      // Sample by sample, by the gain signal that starts where the sound does (writeDuckSignals).
+      duckInputs.push(...DUCK_SIGNAL_FORMAT, '-i', duck);
+      parts.push(
+        `[${i + 2}:a:0]${filters.join(',')},${FLTP}[x${i}]`,
+        `[${nextInput++}:a:0]aformat=sample_fmts=fltp:channel_layouts=stereo[g${i}]`,
+        `[x${i}][g${i}]amultiply,${delay}[s${i}]`,
+      );
+    } else {
+      parts.push(`[${i + 2}:a:0]${[...filters, delay].join(',')}[s${i}]`);
+    }
     mix.push(`[s${i}]`);
   });
+  inputs.push(...duckInputs);
   const limiter = `alimiter=limit=${LIMITER.ceiling.toFixed(4)}:attack=${LIMITER.attack * 1000}:release=${LIMITER.release * 1000}:level=false:latency=true`;
   const sum = mix.length > 1 ? `${mix.join('')}amix=inputs=${mix.length}:normalize=0:duration=longest,` : `${mix[0]}anull,`;
   parts.push(`${sum}apad,atrim=end=${req.duration.toFixed(6)},${limiter}[a]`);
   return { inputs, graph: parts.join(';') };
 }
 
-/** FFmpeg arguments for an export written to `out`. Frames come on stdin. */
-export function exportArgs(req: ExportRequest, out: string): string[] {
+/** Gain signals are raw 32-bit floats, one channel at the mix's rate, so no resampling bends their straight lines. */
+const DUCK_SIGNAL_RATE = 48_000;
+const DUCK_SIGNAL_FORMAT = ['-f', 'f32le', '-ar', String(DUCK_SIGNAL_RATE), '-ac', '1'];
+const FLTP = 'aformat=sample_fmts=fltp';
+
+/**
+ * Writes the gain signal of each sound that's turned down under speech to
+ * the temp folder: the gain from where the sound starts playing, for as
+ * long as it plays. Returns the files by sound, null for one that isn't.
+ */
+async function writeDuckSignals(req: ExportRequest): Promise<(string | null)[]> {
+  const name = randomUUID().slice(0, 8);
+  return Promise.all(
+    req.sounds.map(async (s, i) => {
+      if (!s.duck) return null;
+      const file = path.join(tmpdir(), `rezzo-duck-${name}-${i}.f32`);
+      const signal = duckSignal(s.duck, s.at, s.duration, DUCK_SIGNAL_RATE);
+      await writeFile(file, new Uint8Array(signal.buffer, signal.byteOffset, signal.byteLength));
+      return file;
+    }),
+  );
+}
+
+/** FFmpeg arguments for an export written to `out`. Frames come on stdin; `duckFiles` are writeDuckSignals' files. */
+export function exportArgs(req: ExportRequest, out: string, duckFiles: readonly (string | null)[] = []): string[] {
   const [num, den] = req.frameRate;
-  const mix = req.sounds.length > 0 || req.hasAudio ? soundMix(req) : null;
+  const mix = req.sounds.length > 0 || req.hasAudio ? soundMix(req, duckFiles) : null;
   const first = req.audioPieces[0]!;
   const last = req.audioPieces.at(-1)!;
   return [
@@ -162,8 +204,13 @@ export async function encodeExport(ctx: JobContext, req: ExportRequest): Promise
   if (!port) throw new Error('encodeExport needs a MessagePort');
   // Next to the chosen file, so the final rename stays on one drive.
   const part = `${req.out}.${randomUUID().slice(0, 8)}.part`;
+  let duckFiles: (string | null)[] = [];
   try {
-    await encode(ctx, req, port, part);
+    if (req.sounds.some((s) => s.duck)) {
+      duckFiles = await writeDuckSignals(req);
+      ctx.signal.throwIfAborted();
+    }
+    await encode(ctx, req, port, part, duckFiles);
     const frames = await countFrames(part, ctx.signal);
     if (frames !== req.frames) throw new ExportError('frame-count', `expected ${req.frames} frames, the file has ${frames}`);
     // Cancelled this late, the file chosen in the save dialog still stays as it was.
@@ -175,11 +222,12 @@ export async function encodeExport(ctx: JobContext, req: ExportRequest): Promise
     throw e;
   } finally {
     port.close();
+    await Promise.all(duckFiles.map((f) => f && rm(f, { force: true, maxRetries: 5, retryDelay: 40 }).catch(() => {})));
   }
 }
 
-function encode(ctx: JobContext, req: ExportRequest, port: MessagePortMain, part: string): Promise<void> {
-  const child = spawn(ffmpegExe(), exportArgs(req, part), { stdio: ['pipe', 'ignore', 'pipe'], windowsHide: true });
+function encode(ctx: JobContext, req: ExportRequest, port: MessagePortMain, part: string, duckFiles: readonly (string | null)[]): Promise<void> {
+  const child = spawn(ffmpegExe(), exportArgs(req, part, duckFiles), { stdio: ['pipe', 'ignore', 'pipe'], windowsHide: true });
   let stderr = '';
   child.stderr.setEncoding('utf8').on('data', (d: string) => (stderr += d));
   // Writes after FFmpeg has gone fail with EPIPE; its exit code says why.

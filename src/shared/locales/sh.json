@@ -90,6 +90,7 @@
     "soundStart": "početak zvuka",
     "followSound": "zvuk uz animaciju",
     "unlinkSound": "odvezivanje zvuka",
+    "duck": "utišavanje dok se priča",
     "evenLoudness": "ujednačavanje glasnoće"
   },
   "files": {
@@ -673,6 +674,15 @@
       "tagIn": "{{name}} · ulaz",
       "tagOut": "{{name}} · izlaz",
       "locked": "„{{name}}“ se pomera sa svojim slojem"
+    },
+    "duck": {
+      "title": "Tiše dok se priča",
+      "amount": "Koliko tiše",
+      "help": "Utiša se malo pre svake rečenice i vrati posle nje, da muzika nikad ne pokrije glas.",
+      "finding": "Tražim gde se priča…",
+      "unclear": "Ovde se glas ne razlikuje od ostatka zvuka, pa se ništa ne utišava.",
+      "noSpeech": "U ovom klipu niko ne priča.",
+      "noSound": "Video ovog klipa nema zvuk, pa nema glasa kome bi se napravilo mesta."
     }
   },
   "voices": {

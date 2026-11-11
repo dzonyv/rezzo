@@ -63,7 +63,7 @@ async function audioAsset(file: string, duration: number): Promise<AudioAsset> {
 }
 
 function sound(asset: AudioAsset, patch: Partial<SoundLayer>): SoundLayer {
-  return { id: crypto.randomUUID(), kind: 'sound', sound: { assetId: asset.id }, start: START, end: END, offset: 0, volume: 1, fadeIn: 0, fadeOut: 0, loop: false, evenLoudness: false, follows: null, ...patch };
+  return { id: crypto.randomUUID(), kind: 'sound', sound: { assetId: asset.id }, start: START, end: END, offset: 0, volume: 1, fadeIn: 0, fadeOut: 0, loop: false, evenLoudness: false, follows: null, duck: { on: false, db: 12 }, ...patch };
 }
 
 beforeAll(async () => {

@@ -136,6 +136,20 @@ const BRIDGE_SECONDS = 0.06;
 
 const percentile = (sorted: readonly number[], p: number): number => sorted[Math.min(sorted.length - 1, Math.floor(sorted.length * p))] ?? 0;
 
+/**
+ * The level (dB) under which a stretch of `db` counts as quiet: between its
+ * noise floor and its speech. Null when the two are too close to tell apart
+ * (music under everything) or there's nothing to go by. Pauses and ducking
+ * both use it.
+ */
+export function quietLimit(db: ArrayLike<number>): number | null {
+  if (db.length === 0) return null;
+  const sorted = Array.from(db).sort((a, b) => a - b);
+  const floor = percentile(sorted, 0.05);
+  const speech = percentile(sorted, 0.8);
+  return speech - floor < MIN_RANGE_DB ? null : floor + QUIET_LIMIT * (speech - floor);
+}
+
 function quietRuns({ db, step, start }: Loudness, from: number, to: number, limit: number): Span[] {
   const runs: Span[] = [];
   let begun: number | null = null;
@@ -180,11 +194,9 @@ export function pausesOf(clip: ClipSpan, words: readonly Pick<Word, 'start' | 'e
   const from = Math.max(0, Math.ceil((clip.start - sound.start) / sound.step));
   const to = Math.min(sound.db.length, Math.floor((clip.end - sound.start) / sound.step));
   if (to <= from) return [];
-  const sorted = Array.from(sound.db.subarray(from, to)).sort((a, b) => a - b);
-  const floor = percentile(sorted, 0.05);
-  const speech = percentile(sorted, 0.8);
-  if (speech - floor < MIN_RANGE_DB) return [];
-  return quietRuns(sound, from, to, floor + QUIET_LIMIT * (speech - floor))
+  const limit = quietLimit(sound.db.subarray(from, to));
+  if (limit === null) return [];
+  return quietRuns(sound, from, to, limit)
     .flatMap((run) => clearOfWords(run, words))
     .filter((p) => p.end - p.start >= minPause)
     .map((p) => ({ start: p.start + air, end: p.end - air }))

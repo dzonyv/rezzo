@@ -73,8 +73,8 @@ describe('export arguments', () => {
 
   it("mixes layers' sound over the clip's, each delayed to where it plays", () => {
     const sounds = [
-      { file: 'a.mp4', start: 1.5, duration: 2, loop: false, period: 4, at: 3.25, volume: 0.5, fadeIn: 0, fadeOut: 0 },
-      { file: 'b.mp4', start: 0, duration: 1, loop: false, period: 1, at: 0, volume: 1, fadeIn: 0, fadeOut: 0 },
+      { file: 'a.mp4', start: 1.5, duration: 2, loop: false, period: 4, at: 3.25, volume: 0.5, fadeIn: 0, fadeOut: 0, duck: null },
+      { file: 'b.mp4', start: 0, duration: 1, loop: false, period: 1, at: 0, volume: 1, fadeIn: 0, fadeOut: 0, duck: null },
     ];
     const args = exportArgs(request({ sounds }), 'out.part');
     const inputs = args.flatMap((a, i) => (a === '-i' ? [args[i + 1]] : []));
@@ -90,21 +90,40 @@ describe('export arguments', () => {
   });
 
   it("mixes layers' sound into silence when the source has none", () => {
-    const args = exportArgs(request({ hasAudio: false, sounds: [{ file: 'b.mp4', start: 0, duration: 1, loop: false, period: 1, at: 2, volume: 1, fadeIn: 0, fadeOut: 0 }] }), 'o');
+    const args = exportArgs(request({ hasAudio: false, sounds: [{ file: 'b.mp4', start: 0, duration: 1, loop: false, period: 1, at: 2, volume: 1, fadeIn: 0, fadeOut: 0, duck: null }] }), 'o');
     const graph = arg(args, '-filter_complex')!;
     expect(graph).not.toContain('[1:a');
     expect(graph).toContain('[s0]anull,apad');
   });
 
   it("fades a layer's sound in and out where it plays", () => {
-    const args = exportArgs(request({ sounds: [{ file: 'm.mp3', start: 4, duration: 10, loop: false, period: 60, at: 1, volume: 0.3, fadeIn: 1.5, fadeOut: 2 }] }), 'o');
+    const args = exportArgs(request({ sounds: [{ file: 'm.mp3', start: 4, duration: 10, loop: false, period: 60, at: 1, volume: 0.3, fadeIn: 1.5, fadeOut: 2, duck: null }] }), 'o');
     expect(arg(args, '-filter_complex')).toContain(
       '[2:a:0]aformat=sample_rates=48000:channel_layouts=stereo,volume=0.3000,afade=t=in:d=1.500000,afade=t=out:st=8.000000:d=2.000000,adelay=1000:all=1[s0]',
     );
   });
 
+  it('multiplies a sound turned down under speech by its gain signal before delaying it', () => {
+    const duck = [{ t: 0.85, gain: 1 }, { t: 1, gain: 0.25 }, { t: 2, gain: 0.25 }, { t: 2.4, gain: 1 }];
+    const sounds = [
+      { file: 'a.wav', start: 0, duration: 1, loop: false, period: 1, at: 0, volume: 1, fadeIn: 0, fadeOut: 0, duck: null },
+      { file: 'm.mp3', start: 0, duration: 3, loop: false, period: 60, at: 0.5, volume: 0.3, fadeIn: 0, fadeOut: 0, duck },
+    ];
+    const args = exportArgs(request({ sounds }), 'o', [null, 'D:\\tmp\\rezzo-duck-1.f32']);
+    const inputs = args.flatMap((a, i) => (a === '-i' ? [args[i + 1]] : []));
+    // The gain signals come after all the sounds' files.
+    expect(inputs).toEqual(['pipe:0', 'D:\\cache\\work.mp4', 'a.wav', 'm.mp3', 'D:\\tmp\\rezzo-duck-1.f32']);
+    const g = args.indexOf('D:\\tmp\\rezzo-duck-1.f32');
+    expect(args.slice(g - 7, g)).toEqual(['-f', 'f32le', '-ar', '48000', '-ac', '1', '-i']);
+    const graph = arg(args, '-filter_complex')!;
+    expect(graph).toContain('[2:a:0]aformat=sample_rates=48000:channel_layouts=stereo,volume=1.0000,adelay=0:all=1[s0]');
+    expect(graph).toContain('[3:a:0]aformat=sample_rates=48000:channel_layouts=stereo,volume=0.3000,aformat=sample_fmts=fltp[x1]');
+    expect(graph).toContain('[4:a:0]aformat=sample_fmts=fltp:channel_layouts=stereo[g1]');
+    expect(graph).toContain('[x1][g1]amultiply,adelay=500:all=1[s1]');
+  });
+
   it('loops exactly the period of a looping sound, then cuts it to what plays', () => {
-    const args = exportArgs(request({ sounds: [{ file: 'click.ogg', start: 0.1, duration: 5, loop: true, period: 0.3, at: 0, volume: 1, fadeIn: 0, fadeOut: 0 }] }), 'o');
+    const args = exportArgs(request({ sounds: [{ file: 'click.ogg', start: 0.1, duration: 5, loop: true, period: 0.3, at: 0, volume: 1, fadeIn: 0, fadeOut: 0, duck: null }] }), 'o');
     const i = args.indexOf('click.ogg');
     expect(args[i - 2]).not.toBe('-t');
     expect(arg(args, '-filter_complex')).toContain(

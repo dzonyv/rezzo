@@ -12,6 +12,7 @@ import { assetSchema, type Asset } from '../shared/assets.ts';
 import { fps, type FrameRate } from '../shared/frames.ts';
 import { clipSoundPieces, overlayRange, videoLayersOf } from '../shared/overlay-files.ts';
 import { clipSchema, sourceSchema, type Clip } from '../shared/project.ts';
+import { duckPoints, speechOf, type GainPoint } from '../shared/ducking.ts';
 import { evenGain } from '../shared/loudness.ts';
 import { evensLoudness, playedSound, soundLayersOf, type PlayedSound } from '../shared/sound-mix.ts';
 import type { ExportSound } from '../shared/worker-api.ts';
@@ -19,7 +20,7 @@ import { translate } from '../shared/translate.ts';
 import { spanStart } from '../shared/working.ts';
 import { allowMedia, assetUrl, sourceUrl } from './media-protocol.ts';
 import { ensureWorkingFile, parseRange } from './clip.ts';
-import { clipLoudnessIn, clipPieces, fileLoudness } from './loudness.ts';
+import { clipLevelsIn, clipLoudnessIn, clipPieces, fileLoudness } from './loudness.ts';
 import { ensureOverlayFile } from './overlay.ts';
 import { librarySoundPath } from './sounds.ts';
 import { getSettings, rememberExportDir } from './settings.ts';
@@ -41,19 +42,27 @@ async function chooseExportFile(win: BrowserWindow, clipName: string): Promise<s
   return canceled || !filePath ? null : filePath;
 }
 
-const exportSound = (file: string, played: PlayedSound, start: number): ExportSound => {
+const exportSound = (file: string, played: PlayedSound, start: number, duck: GainPoint[] | null = null): ExportSound => {
   const { at, length, volume, fadeIn, fadeOut } = played.envelope;
-  return { file, start, duration: length, loop: played.loop, period: played.period, at, volume, fadeIn, fadeOut };
+  return { file, start, duration: length, loop: played.loop, period: played.period, at, volume, fadeIn, fadeOut, duck };
 };
 
-/** The sound layers' sound in the clip, straight from their files, evened out where asked. Times are output time. */
-async function soundLayerSounds(clip: Clip, assets: readonly Asset[]): Promise<ExportSound[]> {
-  const sounds = soundLayersOf(clip, assets).map(async ({ layer, duration, asset }) => {
-    if (layer.volume === 0) return [];
+/**
+ * The sound layers' sound in the clip, straight from their files, evened
+ * out where asked, and turned down under the clip's speech where asked.
+ * `levels` (clipLevelsIn) says where the speech is; without them, or when
+ * speech can't be told apart, nothing is turned down, as in the preview.
+ * Times are output time.
+ */
+async function soundLayerSounds(clip: Clip, assets: readonly Asset[], levels: () => Promise<number[] | null>): Promise<ExportSound[]> {
+  const heard = soundLayersOf(clip, assets).filter(({ layer }) => layer.volume > 0);
+  const speech = heard.some(({ layer }) => layer.duck.on) ? speechOf((await levels()) ?? []) : null;
+  const sounds = heard.map(async ({ layer, duration, asset }) => {
     const file = 'library' in layer.sound ? librarySoundPath(layer.sound.library) : asset!.path;
     const gain = evensLoudness(layer) ? evenGain(await fileLoudness(file).catch(() => null), true) : 1;
     const played = playedSound(clipSoundPieces(clip, layer, duration), duration, layer.volume * gain, layer.fadeIn, layer.fadeOut);
-    return played ? [exportSound(file, played, played.from)] : [];
+    const duck = layer.duck.on && speech ? duckPoints(speech, layer.duck.db) : [];
+    return played ? [exportSound(file, played, played.from, duck.length > 0 ? duck : null)] : [];
   });
   return (await Promise.all(sounds)).flat();
 }
@@ -123,7 +132,7 @@ export async function startExport(win: BrowserWindow, sourceArg: unknown, clipAr
     const hasAudio = source.audio !== null;
     const [videoSounds, layerSounds, loudness] = await Promise.all([
       videoLayerSounds(clip, assets, span.rate, { signal: abort.signal, onProgress: progress }),
-      soundLayerSounds(clip, assets),
+      soundLayerSounds(clip, assets, () => (hasAudio ? clipLevelsIn(file, span, clip).catch(() => null) : Promise.resolve(null))),
       // Not measurable is heard as it is, as in the preview.
       hasAudio && clip.evenLoudness ? clipLoudnessIn(file, span, clip).catch(() => null) : null,
     ]);

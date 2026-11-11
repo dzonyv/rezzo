@@ -14,6 +14,7 @@ import { fps, frameAt, timeOfFrame, workingFrameRate } from '../../../shared/fra
 import { lottieSeconds, type LottieInfo } from '../../../shared/lottie.ts';
 import { clampTransform, DEFAULT_MOTION, type Motion, type Transform } from '../../../shared/motion.ts';
 import { videoLayersOverLimit } from '../../../shared/overlay-files.ts';
+import { DEFAULT_DUCK_DB, DUCK_BY_DEFAULT_SECONDS, MAX_DUCK_DB, MIN_DUCK_DB, type Duck } from '../../../shared/ducking.ts';
 import { followerOf, syncFollowers } from '../../../shared/follow-sounds.ts';
 import { FOLLOW_PARTS, MAX_FADE_SECONDS, MAX_FOLLOW_SHIFT, SOUNDS, type FollowPart, type SoundName, type SoundSource } from '../../../shared/sounds.ts';
 import {
@@ -439,10 +440,18 @@ export function setEffectParam(clipId: string, layerId: string, param: string, v
   });
 }
 
-/** A new sound layer: `seconds` long from `time` on, at full volume, with no fades; a file of the user's own evened out. */
+/**
+ * A new sound layer: `seconds` long from `time` on, at full volume, with
+ * no fades. A file of the user's own is evened out, and turned down while
+ * someone talks when it's long enough to be music.
+ */
 function newSoundLayer(clip: Pick<Clip, 'start' | 'end'>, sound: SoundLayer['sound'], time: number, seconds: number): SoundLayer {
   const { start, end } = newLayerTime(clip, time, seconds);
-  return { id: crypto.randomUUID(), kind: 'sound', sound, start, end, offset: 0, volume: 1, fadeIn: 0, fadeOut: 0, loop: false, evenLoudness: 'assetId' in sound, follows: null };
+  const own = 'assetId' in sound;
+  return {
+    id: crypto.randomUUID(), kind: 'sound', sound, start, end, offset: 0, volume: 1, fadeIn: 0, fadeOut: 0, loop: false, evenLoudness: own, follows: null,
+    duck: { on: own && seconds >= DUCK_BY_DEFAULT_SECONDS, db: DEFAULT_DUCK_DB },
+  };
 }
 
 /**
@@ -555,6 +564,15 @@ export function setSoundSettings(clipId: string, layerId: string, patch: Partial
     if (patch.fadeOut !== undefined) layer.fadeOut = fade(patch.fadeOut);
     if (patch.loop !== undefined) layer.loop = patch.loop;
     if (patch.evenLoudness !== undefined) layer.evenLoudness = patch.evenLoudness;
+  });
+}
+
+/** Whether a sound layer is turned down while someone talks, and by how many dB; the slider calls it inside a gesture. */
+export function setSoundDuck(clipId: string, layerId: string, patch: Partial<Duck>): void {
+  editLayer(clipId, layerId, 'history.duck', (layer) => {
+    if (layer.kind !== 'sound') return;
+    if (patch.on !== undefined) layer.duck.on = patch.on;
+    if (patch.db !== undefined) layer.duck.db = Math.round(Math.min(MAX_DUCK_DB, Math.max(MIN_DUCK_DB, patch.db)));
   });
 }
 
