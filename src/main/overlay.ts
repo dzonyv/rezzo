@@ -107,14 +107,15 @@ export async function prepareOverlay(sender: WebContents, assetArg: unknown, ran
   const id = z.string().parse(requestId);
   assetUrl(asset.path); // the same check as reading it: only a file we know
 
-  try {
-    await stat(asset.path);
-  } catch {
-    return { ok: false, error: 'missing' };
-  }
+  // Known before anything is awaited, so a cancel sent right after the request finds it.
   const abort = new AbortController();
   requests.set(id, abort);
   try {
+    try {
+      await stat(asset.path);
+    } catch {
+      return { ok: false, error: 'missing' };
+    }
     const { file, span } = await ensureOverlayFile(asset, range, rate, {
       signal: abort.signal,
       onProgress: (fraction) => {

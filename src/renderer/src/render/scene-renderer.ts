@@ -82,18 +82,30 @@ export const loadLotties = (assets: readonly Asset[], options: LoadOptions = {})
 /**
  * The working files of the clip's video layers at `rate`, made now if
  * they aren't in the cache. A layer file that's gone is a MissingFilesError.
+ * Aborting `signal` stops the conversions nobody else waits for and rejects.
  */
-export async function loadOverlayFiles(clip: Clip, assets: readonly Asset[], rate: FrameRate): Promise<Map<string, OverlayFile>> {
+export async function loadOverlayFiles(clip: Clip, assets: readonly Asset[], rate: FrameRate, signal?: AbortSignal): Promise<Map<string, OverlayFile>> {
   const files = new Map<string, OverlayFile>();
   const missing = new Set<string>();
-  await Promise.all(
-    videoLayersOf(clip, assets).map(async ({ layer, asset }) => {
-      const state = await requestOverlayFile(layer, asset, rate);
-      if (state?.status === 'ready') files.set(layer.id, state.file);
-      else if (state?.status === 'missing') missing.add(asset.name);
-      else if (state?.status === 'failed') throw new Error(state.detail);
-    }),
-  );
+  const asked: string[] = [];
+  const stop = () => asked.forEach((requestId) => void window.rezzo.invoke('overlay:cancel', requestId));
+  signal?.addEventListener('abort', stop, { once: true });
+  try {
+    await Promise.all(
+      videoLayersOf(clip, assets).map(async ({ layer, asset }) => {
+        if (signal?.aborted) return;
+        const requestId = crypto.randomUUID();
+        asked.push(requestId);
+        const state = await requestOverlayFile(layer, asset, rate, requestId);
+        if (state?.status === 'ready') files.set(layer.id, state.file);
+        else if (state?.status === 'missing') missing.add(asset.name);
+        else if (state?.status === 'failed') throw new Error(state.detail);
+      }),
+    );
+  } finally {
+    signal?.removeEventListener('abort', stop);
+  }
+  signal?.throwIfAborted();
   if (missing.size > 0) throw new MissingFilesError([...missing].sort());
   return files;
 }
@@ -106,13 +118,13 @@ export async function checkMediaFiles(assets: readonly Asset[]): Promise<void> {
   if (missing.length > 0) throw new MissingFilesError(missing.sort());
 }
 
-/** A Scene for the export: every font, picture, animation and video layer's file loaded, or an error. */
-export async function loadScene(clip: Clip, assets: readonly Asset[], words: readonly Word[], rate: FrameRate): Promise<Scene> {
+/** A Scene for the export: every font, picture, animation and video layer's file loaded, or an error. `signal` stops the wait for the video layers' files. */
+export async function loadScene(clip: Clip, assets: readonly Asset[], words: readonly Word[], rate: FrameRate, signal?: AbortSignal): Promise<Scene> {
   const [captions, images, lotties, overlays] = await Promise.all([
     loadCaptionScene(captionLayerOf(clip), words, clip),
     loadImages(assetsOf(clip, assets), { strict: true }),
     loadLotties(assetsOf(clip, assets), { strict: true }),
-    loadOverlayFiles(clip, assets, rate),
+    loadOverlayFiles(clip, assets, rate, signal),
   ]);
   return { clip, assets, captions, images, overlays, lotties };
 }

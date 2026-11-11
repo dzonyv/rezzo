@@ -6,7 +6,7 @@
  * an edit changes them for the layer's whole time.
  */
 import { current, type Draft } from 'immer';
-import type { AssetFile, AudioInfo, VideoInfo } from '../../../shared/assets.ts';
+import type { Asset, AssetFile, AudioInfo, VideoInfo } from '../../../shared/assets.ts';
 import { DEFAULT_CHROMA_KEY, type ChromaKey } from '../../../shared/chroma-key.ts';
 import { defaultParams, EFFECTS, type EffectName, type ParamDef } from '../../../shared/effects.ts';
 import { editAt, OUTPUT, removeKey, setKey, valueAt, type Size } from '../../../shared/framing.ts';
@@ -56,6 +56,21 @@ function pruneAssets(d: Draft<Project>): void {
   d.assets = d.assets.filter((a) => used.has(a.id));
 }
 
+/**
+ * The project's asset for a picked file, when it already has that file
+ * (told by its content); undefined for a file new to it. The asset learns
+ * where the file is now, so picking a moved file again finds it. Like
+ * finding a moved file that's not an edit (see locateAsset): undo would
+ * point the project back where the file isn't.
+ */
+function adoptFile(kind: Asset['kind'], file: AssetFile): Asset | undefined {
+  const existing = store().project?.assets.find((a) => a.kind === kind && a.fingerprint === file.fingerprint);
+  if (existing && (existing.path !== file.path || existing.name !== file.name || existing.size !== file.size)) {
+    store().replace((d) => void Object.assign(d.assets.find((a) => a.id === existing.id)!, { path: file.path, name: file.name, size: file.size }));
+  }
+  return existing;
+}
+
 /** Puts a new layer over the others but under the captions. */
 function insertLayer(clip: Draft<Clip>, layer: Layer): void {
   const captions = clip.layers.findIndex((l) => l.kind === 'caption');
@@ -95,7 +110,7 @@ export function addImageLayer(clipId: string, file: AssetFile, size: Size, time:
   const length = Math.min(end - first, Math.round(NEW_LAYER_SECONDS * fps(rate)));
   const from = Math.min(Math.max(frameAt(time, rate), first), end - length);
   const start = timeOfFrame(from, rate);
-  const existing = project.assets.find((a) => a.kind === 'image' && a.fingerprint === file.fingerprint);
+  const existing = adoptFile('image', file);
   const assetId = existing?.id ?? crypto.randomUUID();
   const layer: TimedLayer = {
     id: crypto.randomUUID(),
@@ -108,8 +123,7 @@ export function addImageLayer(clipId: string, file: AssetFile, size: Size, time:
     key: null,
   };
   editClip(clipId, 'history.addImage', (c, d) => {
-    if (existing) Object.assign(d.assets.find((a) => a.id === existing.id)!, { path: file.path, name: file.name });
-    else d.assets.push({ id: assetId, kind: 'image', ...file, ...size });
+    if (!existing) d.assets.push({ id: assetId, kind: 'image', ...file, ...size });
     insertLayer(c, layer);
   });
   return layer.id;
@@ -117,7 +131,7 @@ export function addImageLayer(clipId: string, file: AssetFile, size: Size, time:
 
 /** Puts a different picture in the layer, keeping where it is and how it moves. */
 export function replaceImage(clipId: string, layerId: string, file: AssetFile, size: Size): void {
-  const existing = store().project?.assets.find((a) => a.kind === 'image' && a.fingerprint === file.fingerprint);
+  const existing = adoptFile('image', file);
   const assetId = existing?.id ?? crypto.randomUUID();
   editClip(clipId, 'history.replaceImage', (c, d) => {
     const layer = c.layers.find((l) => l.id === layerId);
@@ -257,7 +271,7 @@ export function addVideoLayer(clipId: string, file: AssetFile, info: VideoInfo, 
   const length = Math.max(1, Math.min(end - first, Math.round(info.duration * fps(rate))));
   const from = Math.min(Math.max(frameAt(time, rate), first), end - length);
   const start = timeOfFrame(from, rate);
-  const existing = project.assets.find((a) => a.kind === 'video' && a.fingerprint === file.fingerprint);
+  const existing = adoptFile('video', file);
   const assetId = existing?.id ?? crypto.randomUUID();
   const layer: OverlayLayer = {
     id: crypto.randomUUID(),
@@ -274,8 +288,7 @@ export function addVideoLayer(clipId: string, file: AssetFile, info: VideoInfo, 
   };
   if (videoLayersOverLimit({ layers: [...clip.layers, layer] }).has(layer.id)) return 'too-many';
   editClip(clipId, 'history.addVideo', (c, d) => {
-    if (existing) Object.assign(d.assets.find((a) => a.id === existing.id)!, { path: file.path, name: file.name });
-    else d.assets.push({ id: assetId, kind: 'video', ...file, ...info });
+    if (!existing) d.assets.push({ id: assetId, kind: 'video', ...file, ...info });
     insertLayer(c, layer);
   });
   return layer.id;
@@ -283,7 +296,7 @@ export function addVideoLayer(clipId: string, file: AssetFile, info: VideoInfo, 
 
 /** Puts a different video in the layer, keeping where it is, how it moves and its sound settings. */
 export function replaceVideo(clipId: string, layerId: string, file: AssetFile, info: VideoInfo): void {
-  const existing = store().project?.assets.find((a) => a.kind === 'video' && a.fingerprint === file.fingerprint);
+  const existing = adoptFile('video', file);
   const assetId = existing?.id ?? crypto.randomUUID();
   editClip(clipId, 'history.replaceVideo', (c, d) => {
     const layer = c.layers.find((l) => l.id === layerId);
@@ -337,7 +350,7 @@ export function addLottieLayer(clipId: string, file: AssetFile, info: LottieInfo
   const clip = project?.clips.find((c) => c.id === clipId);
   if (!project || !clip) return null;
   const { start, end } = newLayerTime(clip, time, lottieSeconds(info));
-  const existing = project.assets.find((a) => a.kind === 'lottie' && a.fingerprint === file.fingerprint);
+  const existing = adoptFile('lottie', file);
   const assetId = existing?.id ?? crypto.randomUUID();
   const layer: LottieLayer = {
     id: crypto.randomUUID(),
@@ -352,8 +365,7 @@ export function addLottieLayer(clipId: string, file: AssetFile, info: LottieInfo
     loop: false,
   };
   editClip(clipId, 'history.addLottie', (c, d) => {
-    if (existing) Object.assign(d.assets.find((a) => a.id === existing.id)!, { path: file.path, name: file.name });
-    else d.assets.push({ id: assetId, kind: 'lottie', ...file, ...info });
+    if (!existing) d.assets.push({ id: assetId, kind: 'lottie', ...file, ...info });
     insertLayer(c, layer);
   });
   return layer.id;
@@ -361,7 +373,7 @@ export function addLottieLayer(clipId: string, file: AssetFile, info: LottieInfo
 
 /** Puts a different animation in the layer, keeping where it is, how it moves and how it plays. */
 export function replaceLottie(clipId: string, layerId: string, file: AssetFile, info: LottieInfo): void {
-  const existing = store().project?.assets.find((a) => a.kind === 'lottie' && a.fingerprint === file.fingerprint);
+  const existing = adoptFile('lottie', file);
   const assetId = existing?.id ?? crypto.randomUUID();
   editClip(clipId, 'history.replaceLottie', (c, d) => {
     const layer = c.layers.find((l) => l.id === layerId);
@@ -436,12 +448,11 @@ export function addSoundFile(clipId: string, file: AssetFile, info: AudioInfo, t
   const project = store().project;
   const clip = project?.clips.find((c) => c.id === clipId);
   if (!project || !clip) return null;
-  const existing = project.assets.find((a) => a.kind === 'audio' && a.fingerprint === file.fingerprint);
+  const existing = adoptFile('audio', file);
   const assetId = existing?.id ?? crypto.randomUUID();
   const layer = newSoundLayer(clip, { assetId }, time, info.duration);
   editClip(clipId, 'history.addSound', (c, d) => {
-    if (existing) Object.assign(d.assets.find((a) => a.id === existing.id)!, { path: file.path, name: file.name });
-    else d.assets.push({ id: assetId, kind: 'audio', ...file, ...info });
+    if (!existing) d.assets.push({ id: assetId, kind: 'audio', ...file, ...info });
     c.layers.push(layer);
   });
   return layer.id;
@@ -449,7 +460,7 @@ export function addSoundFile(clipId: string, file: AssetFile, info: AudioInfo, t
 
 /** Puts a different sound file in the layer, keeping where it plays and how. */
 export function replaceSoundFile(clipId: string, layerId: string, file: AssetFile, info: AudioInfo): void {
-  const existing = store().project?.assets.find((a) => a.kind === 'audio' && a.fingerprint === file.fingerprint);
+  const existing = adoptFile('audio', file);
   const assetId = existing?.id ?? crypto.randomUUID();
   editClip(clipId, 'history.replaceSound', (c, d) => {
     const layer = c.layers.find((l) => l.id === layerId);

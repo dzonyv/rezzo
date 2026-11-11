@@ -8,6 +8,7 @@ import type { WorkerMethod, WorkerMethods, WorkerReply, WorkerRequest } from '..
 import { encodeExport, pickEncoder } from './export.ts';
 import { fingerprint } from './fingerprint.ts';
 import { measureLoudness } from './loudness.ts';
+import { readLottieInfo } from './lottie-file.ts';
 import { makePreview } from './preview.ts';
 import { probe, probeAudio, probeVideo } from './probe.ts';
 import { makeThumbnail } from './thumbnail.ts';
@@ -32,6 +33,7 @@ const handlers: Handlers = {
   probe: (_ctx, file) => probe(file),
   probeVideo: (_ctx, file) => probeVideo(file),
   probeAudio: (_ctx, file) => probeAudio(file),
+  readLottie: (_ctx, file) => readLottieInfo(file),
   fingerprint: (_ctx, file) => fingerprint(file),
   installTool: (ctx, id, dir) => install(tool(id), dir, { onProgress: ctx.progress, signal: ctx.signal }),
   transcribe: (ctx, request) => transcribe(ctx, request),

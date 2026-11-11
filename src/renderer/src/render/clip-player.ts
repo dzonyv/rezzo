@@ -111,6 +111,9 @@ function loudnessOf(audio: AudioBuffer): Float32Array {
   return out;
 }
 
+/** A range changed while playing is played from once it has stayed the same this long. */
+const RANGE_SETTLE_MS = 150;
+
 const nextAnimationFrame = () => new Promise<void>((resolve) => requestAnimationFrame(() => resolve()));
 
 export class ClipPlayer {
@@ -142,6 +145,8 @@ export class ClipPlayer {
   private playing = false;
   /** Bumped to stop the running playback loop. */
   private run = 0;
+  /** The restart waiting for a changing range to settle. */
+  private rescheduling: ReturnType<typeof setTimeout> | undefined;
   /** Frame shown on the canvas, -1 for none. */
   private shown = -1;
   /** Frame a paused seek still has to show. */
@@ -215,10 +220,14 @@ export class ClipPlayer {
   }
 
   setRange(range: ClipSpan): void {
-    const skipsChanged = range.skips !== this.range.skips;
+    const changed = range.start !== this.range.start || range.end !== this.range.end || range.skips !== this.range.skips;
     this.range = range;
+    // A restart still waiting was for a range that has changed again or not at all; either way it's decided anew.
+    if (changed) clearTimeout(this.rescheduling);
     if (this.time < range.start || this.time >= range.end) this.seek(range.start);
-    else if (skipsChanged && this.playing) this.startPlaying();
+    // What's playing was scheduled for the old range, its sound to the old end: start again from where it
+    // is, once the range stops changing (an end being dragged changes it at every step).
+    else if (changed && this.playing) this.rescheduling = setTimeout(() => this.playing && this.startPlaying(), RANGE_SETTLE_MS);
   }
 
   /**
@@ -267,6 +276,7 @@ export class ClipPlayer {
 
   pause(): void {
     if (!this.playing) return;
+    clearTimeout(this.rescheduling);
     this.playing = false;
     this.run++;
     this.stopAudio();
@@ -342,6 +352,7 @@ export class ClipPlayer {
   }
 
   private startPlaying(): void {
+    clearTimeout(this.rescheduling);
     const run = ++this.run;
     this.stopAudio();
     const from = this.time;
@@ -410,6 +421,9 @@ export class ClipPlayer {
         this.emit();
       }
     }
+    // The last frame goes up half a frame early and stays for a whole one, and the sound runs to the end.
+    const endOutput = fromOutput + pieces.reduce((sum, p) => sum + p.end - p.start, 0);
+    while (run === this.run && this.clock() < endOutput) await nextAnimationFrame();
     if (run !== this.run) return;
     // The end of the clip: around again from the start.
     this.time = this.range.start;
