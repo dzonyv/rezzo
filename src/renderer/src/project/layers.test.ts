@@ -2,9 +2,10 @@ import { beforeEach, describe, expect, it } from 'vitest';
 import type { AssetFile, VideoInfo } from '../../../shared/assets.ts';
 import { lottieInfoSchema } from '../../../shared/lottie.ts';
 import { defaultVideoLayer } from '../../../shared/framing.ts';
-import { newProject, projectSchema, type ImageLayer, type Project } from '../../../shared/project.ts';
+import { newProject, projectSchema, type ImageLayer, type Project, type SoundLayer } from '../../../shared/project.ts';
 import {
-  addImageLayer, addLibrarySound, addLottieLayer, addSoundFile, addVideoLayer, deleteLayer, replaceImage, replaceLottie, replaceSoundFile, replaceVideo, duplicateLayer, moveLayer, reorderLayer, setClipEvenLoudness, setSoundSettings, setTransform, trimLayer,
+  addImageLayer, addLibrarySound, addLottieLayer, addSoundFile, addVideoLayer, deleteLayer, replaceImage, replaceLottie, replaceSoundFile, replaceVideo, duplicateLayer, moveLayer, reorderLayer, setClipEvenLoudness, setFollowShift, setFollowSound,
+  setFollowSoundAsset, setFollowSoundFile, setMotion, setSoundSettings, setTransform, trimLayer, unlinkSound,
 } from './layers.ts';
 import { projectStore } from './store.ts';
 
@@ -197,6 +198,100 @@ describe('layer edits', () => {
     expect(state().undoLabel).toBe('history.evenLoudness');
     state().undo();
     expect(clip().evenLoudness).toBe(false);
+  });
+
+  describe('sounds with an entrance or exit', () => {
+    const sounds = () => clip().layers.filter((l): l is SoundLayer => l.kind === 'sound');
+    const OWN: AssetFile = { ...FILE, name: 'udarac.wav', fingerprint: 'f'.repeat(64) };
+
+    it('adds one where the layer comes in, and moves it with the layer', () => {
+      const id = addImageLayer(CLIP, FILE, SIZE, 12)!;
+      const sound = setFollowSound(CLIP, id, 'in', 'pop')!;
+      expect(sounds()).toMatchObject([{ id: sound, sound: { library: 'pop' }, start: 12, follows: { layerId: id, part: 'in', shift: 0 } }]);
+      expect(state().undoLabel).toBe('history.followSound');
+      moveLayer(CLIP, id, 13);
+      expect(sounds()[0]!.start).toBe(13);
+      trimLayer(CLIP, id, 'start', 13.5);
+      expect(sounds()[0]!.start).toBe(13.5);
+      expect(() => projectSchema.parse(state().project)).not.toThrow();
+    });
+
+    it('starts one for the exit where the layer starts going out, and follows a new exit length', () => {
+      const id = addImageLayer(CLIP, FILE, SIZE, 12)!;
+      setMotion(CLIP, id, 'out', { kind: 'slide', seconds: 0.5 });
+      setFollowSound(CLIP, id, 'out', 'whoosh');
+      expect(sounds()[0]!.start).toBe(14.5);
+      setMotion(CLIP, id, 'out', { seconds: 1 });
+      expect(sounds()[0]!.start).toBe(14);
+    });
+
+    it("keeps a dragged sound with its layer, and moves it by its shift", () => {
+      const id = addImageLayer(CLIP, FILE, SIZE, 12)!;
+      const sound = setFollowSound(CLIP, id, 'in', 'pop')!;
+      moveLayer(CLIP, sound, 16);
+      expect(sounds()[0]!.start).toBe(12);
+      setFollowShift(CLIP, sound, -0.2);
+      expect(sounds()[0]).toMatchObject({ start: 11.8, follows: { shift: -0.2 } });
+      setFollowShift(CLIP, sound, 3);
+      expect(sounds()[0]!.follows!.shift).toBe(0.5);
+    });
+
+    it('swaps the sound for another one in its place, or takes it away', () => {
+      const id = addImageLayer(CLIP, FILE, SIZE, 12)!;
+      const sound = setFollowSound(CLIP, id, 'in', 'pop')!;
+      setSoundSettings(CLIP, sound, { volume: 0.4 });
+      expect(setFollowSound(CLIP, id, 'in', 'ding')).toBe(sound);
+      expect(sounds()).toMatchObject([{ id: sound, sound: { library: 'ding' }, volume: 0.4 }]);
+      setFollowSound(CLIP, id, 'in', null);
+      expect(sounds()).toEqual([]);
+    });
+
+    it('plays a file of your own, evened out, and drops it when the sound goes', () => {
+      const id = addImageLayer(CLIP, FILE, SIZE, 12)!;
+      setFollowSoundFile(CLIP, id, 'out', OWN, { codec: 'pcm_s16le', duration: 0.6 });
+      const asset = state().project!.assets.find((a) => a.kind === 'audio')!;
+      expect(sounds()[0]).toMatchObject({ sound: { assetId: asset.id }, evenLoudness: true, start: 15 });
+      // Picking the same file for the entrance uses it again.
+      setFollowSoundAsset(CLIP, id, 'in', asset.id);
+      expect(state().project!.assets.filter((a) => a.kind === 'audio')).toHaveLength(1);
+      setFollowSound(CLIP, id, 'in', 'pop');
+      setFollowSound(CLIP, id, 'out', null);
+      expect(state().project!.assets.filter((a) => a.kind === 'audio')).toEqual([]);
+    });
+
+    it('deletes its sounds with the layer, in one undo step', () => {
+      const id = addImageLayer(CLIP, FILE, SIZE, 12)!;
+      setFollowSoundFile(CLIP, id, 'in', OWN, { codec: 'pcm_s16le', duration: 0.6 });
+      setFollowSound(CLIP, id, 'out', 'whoosh');
+      deleteLayer(CLIP, id);
+      expect(clip().layers).toHaveLength(1);
+      expect(state().project!.assets).toEqual([]);
+      state().undo();
+      expect(sounds()).toHaveLength(2);
+      expect(state().project!.assets).toHaveLength(2);
+    });
+
+    it('copies its sounds with the layer, and a copied sound stands on its own', () => {
+      const id = addImageLayer(CLIP, FILE, SIZE, 12)!;
+      const sound = setFollowSound(CLIP, id, 'in', 'pop')!;
+      const copy = duplicateLayer(CLIP, id);
+      expect(sounds().map((s) => s.follows?.layerId)).toEqual([id, copy]);
+      moveLayer(CLIP, copy, 15);
+      expect(sounds().map((s) => s.start)).toEqual([12, 15]);
+      duplicateLayer(CLIP, sound);
+      expect(sounds()).toHaveLength(3);
+      expect(sounds().filter((s) => s.follows === null)).toHaveLength(1);
+      expect(() => projectSchema.parse(state().project)).not.toThrow();
+    });
+
+    it('lets a sound stand on its own where it is', () => {
+      const id = addImageLayer(CLIP, FILE, SIZE, 12)!;
+      const sound = setFollowSound(CLIP, id, 'in', 'pop')!;
+      unlinkSound(CLIP, sound);
+      moveLayer(CLIP, id, 15);
+      expect(sounds()[0]).toMatchObject({ start: 12, follows: null });
+      expect(state().undoLabel).toBe('history.moveLayer');
+    });
   });
 
   it('drops the file with its last image, and undo brings both back', () => {

@@ -2743,6 +2743,43 @@ button.icon {
   display: contents;
 }
 
+/* The sound with an entrance or exit: a full row of the grid, the picker and its ▶. */
+.follow-sound {
+  display: flex;
+  grid-column: 1 / -1;
+  align-items: flex-end;
+  gap: 4px;
+}
+
+.follow-sound label {
+  flex: 1;
+  min-width: 0;
+}
+
+.follow-sound .listen {
+  flex: none;
+  padding: 7px;
+  border-radius: 8px;
+  background: none;
+  color: var(--text-dim);
+}
+
+.follow-sound .listen:hover,
+.follow-sound .listen[aria-pressed='true'] {
+  color: var(--accent);
+}
+
+.follow-info p,
+.follow-info .layer-slider,
+.follow-info button {
+  grid-column: 1 / -1;
+  margin: 0;
+}
+
+.follow-info button {
+  justify-self: start;
+}
+
 .layer-grid label {
   display: flex;
   flex-direction: column;
@@ -3098,6 +3135,25 @@ button.icon {
 
 .layer-bar.sound .layer-name {
   position: relative;
+}
+
+/* A sound that goes with a layer takes its time from it, so it has no drag cursor or edges. */
+.layer-bar.sound.linked,
+.layer-bar.sound.linked:active {
+  cursor: pointer;
+  box-shadow: inset 0 0 0 1px var(--accent);
+}
+
+.layer-bar.sound.linked.selected {
+  box-shadow: 0 0 0 2px var(--text);
+}
+
+/* Bottom left, clear of the fade-in handle at the top. */
+.layer-bar .link-mark {
+  position: absolute;
+  bottom: 2px;
+  left: 3px;
+  color: var(--accent);
 }
 
 .layer-bar .fade-handle {

@@ -125,19 +125,31 @@ export interface Timed {
   motion: Motion;
 }
 
+/**
+ * How much of its length each of the layer's entrance and exit gets: all
+ * of it, unless the layer is too short for both, when each gets its share
+ * of the layer's time. A part that's off takes none.
+ */
+function motionShare({ start, end, motion }: Pick<Timed, 'start' | 'end' | 'motion'>): number {
+  const total = Math.max(end - start, 1e-6);
+  const wanted = (motion.in.kind === 'none' ? 0 : motion.in.seconds) + (motion.out.kind === 'none' ? 0 : motion.out.seconds);
+  return wanted > total ? total / wanted : 1;
+}
+
+/** Seconds the layer's exit really takes, 0 when it has none: where it starts going out is that long before its end. */
+export function exitSeconds(layer: Pick<Timed, 'start' | 'end' | 'motion'>): number {
+  return layer.motion.out.kind === 'none' ? 0 : layer.motion.out.seconds * motionShare(layer);
+}
+
 /** The layer's transform at source time `t`, with its animations applied. */
 export function layerTransformAt(layer: Timed, t: number): Transform {
   const base = valueAt(layer.transform, t);
   let { x, y, scale, rotation, opacity } = base;
   const { motion } = layer;
-  const total = Math.max(layer.end - layer.start, 1e-6);
   const since = t - layer.start;
   const left = layer.end - t;
 
-  // If the layer is too short for both, coming in and going out each get
-  // their share of its time. A part that's off takes none.
-  const wanted = (motion.in.kind === 'none' ? 0 : motion.in.seconds) + (motion.out.kind === 'none' ? 0 : motion.out.seconds);
-  const share = wanted > total ? total / wanted : 1;
+  const share = motionShare(layer);
   const inSeconds = motion.in.seconds * share;
   const outSeconds = motion.out.seconds * share;
 
@@ -209,7 +221,7 @@ export function layerTransformAt(layer: Timed, t: number): Transform {
       scale *= 1 + PULSE_GROWTH * s * (1 - Math.cos((2 * Math.PI * since) / PULSE_SECONDS)) * 0.5;
       break;
     case 'kenBurns': {
-      const p = clamp01(since / total);
+      const p = clamp01(since / Math.max(layer.end - layer.start, 1e-6));
       const step = STEP[motion.loop.direction];
       scale *= 1 + KEN_BURNS_GROWTH * s * p;
       x += step.x * KEN_BURNS_DRIFT * s * (p - 0.5);

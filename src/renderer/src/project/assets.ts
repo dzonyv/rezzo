@@ -14,7 +14,8 @@ import { decodeImage, keepImage, keepOnlyImages } from '../render/images.ts';
 import { keepOnlyLotties } from '../render/lottie.ts';
 import { keepOnlySoundFiles } from '../render/sound-files.ts';
 import { notify } from '../ui/prompts.ts';
-import { addImageLayer, addLottieLayer, addSoundFile, addVideoLayer, replaceImage, replaceLottie, replaceSoundFile, replaceVideo } from './layers.ts';
+import type { FollowPart } from '../../../shared/sounds.ts';
+import { addImageLayer, addLottieLayer, addSoundFile, addVideoLayer, replaceImage, replaceLottie, replaceSoundFile, replaceVideo, setFollowSoundFile } from './layers.ts';
 import { projectStore } from './store.ts';
 import { MAX_VIDEO_LAYERS } from '../../../shared/overlay-files.ts';
 
@@ -91,6 +92,12 @@ export async function addLayerFile(kind: AssetKind, clipId: string, time: number
   if (added !== 'too-many') return added;
   notify('error', i18n.t('layers.errors.tooManyVideos', { count: MAX_VIDEO_LAYERS }));
   return null;
+}
+
+/** Asks for a sound file to go with part of a layer's animation. Returns the sound layer's id. */
+export async function addFollowSoundFile(clipId: string, layerId: string, part: FollowPart): Promise<string | null> {
+  const picked = await readPicked('audio', await window.rezzo.invoke('asset:add', 'audio'));
+  return picked?.kind === 'audio' ? setFollowSoundFile(clipId, layerId, part, picked.file, picked.audio) : null;
 }
 
 /** Asks for another file of the same kind for the layer. */

@@ -41,3 +41,21 @@ export type SoundSource = z.infer<typeof soundSourceSchema>;
 
 /** The longest fade in or out a sound layer can have, in seconds. */
 export const MAX_FADE_SECONDS = 10;
+
+/** The parts of a layer's animation a sound can go with: its entrance and its exit. */
+export const FOLLOW_PARTS = ['in', 'out'] as const;
+export type FollowPart = (typeof FOLLOW_PARTS)[number];
+
+/** How far a sound that goes with a layer can be moved from where it would start, in seconds. */
+export const MAX_FOLLOW_SHIFT = 0.5;
+
+/**
+ * A sound that goes with a layer's entrance or exit: it starts where the
+ * layer comes in (or starts going out), `shift` seconds later or earlier.
+ */
+export const followSchema = z.object({
+  layerId: z.uuid(),
+  part: z.enum(FOLLOW_PARTS),
+  shift: z.number().min(-MAX_FOLLOW_SHIFT).max(MAX_FOLLOW_SHIFT),
+});
+export type Follow = z.infer<typeof followSchema>;

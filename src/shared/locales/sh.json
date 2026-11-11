@@ -88,6 +88,8 @@
     "replaceSound": "zamena zvučnog fajla",
     "soundSettings": "podešavanje zvuka",
     "soundStart": "početak zvuka",
+    "followSound": "zvuk uz animaciju",
+    "unlinkSound": "odvezivanje zvuka",
     "evenLoudness": "ujednačavanje glasnoće"
   },
   "files": {
@@ -655,6 +657,22 @@
       "applause": "Aplauz",
       "laugh": "Smeh",
       "crickets": "Cvrčci"
+    },
+    "follow": {
+      "in": "Zvuk ulaza",
+      "out": "Zvuk izlaza",
+      "none": "Bez zvuka",
+      "suggested": "Predlog",
+      "files": "Tvoji fajlovi",
+      "listen": "Preslušaj: {{part}}",
+      "withIn": "Ide uz ulaz sloja „{{name}}“. Pomera se sa njim i briše se sa njim.",
+      "withOut": "Ide uz izlaz sloja „{{name}}“. Pomera se sa njim i briše se sa njim.",
+      "shift": "Ranije ili kasnije",
+      "unlink": "Odveži",
+      "unlinkHelp": "Zvuk ostaje gde je, a od tada ga pomeraš posebno.",
+      "tagIn": "{{name}} · ulaz",
+      "tagOut": "{{name}} · izlaz",
+      "locked": "„{{name}}“ se pomera sa svojim slojem"
     }
   },
   "voices": {

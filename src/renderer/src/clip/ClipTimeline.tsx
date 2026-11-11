@@ -515,17 +515,29 @@ export function ClipTimeline({ clip, assets, keys, pages, selectedId, time }: Pr
                 {nameOf(layer)}
               </button>
               <div
-                className={`layer-bar sound${layer.id === selectedId ? ' selected' : ''}`}
+                className={`layer-bar sound${layer.follows ? ' linked' : ''}${layer.id === selectedId ? ' selected' : ''}`}
                 style={span(layer.start, layer.end)}
                 role="button"
-                aria-label={t('layers.moveBar', { name: nameOf(layer) })}
-                title={nameOf(layer)}
-                onPointerDown={(e) => startLayerDrag(e, layer, 'move')}
+                aria-label={layer.follows ? t('sounds.follow.locked', { name: nameOf(layer) }) : t('layers.moveBar', { name: nameOf(layer) })}
+                title={layer.follows ? t('sounds.follow.locked', { name: nameOf(layer) }) : nameOf(layer)}
+                onPointerDown={(e) => {
+                  // A sound that goes with a layer takes its time from it: pressing it only selects it.
+                  if (!layer.follows) startLayerDrag(e, layer, 'move');
+                  else if (e.button === 0) {
+                    e.stopPropagation();
+                    selectLayer(layer.id);
+                  }
+                }}
               >
                 <SoundShape layer={layer} assets={assets} />
+                {layer.follows && <LinkMark />}
                 <span className="layer-name">{nameOf(layer)}</span>
-                <div className="edge start" role="separator" aria-label={t('layers.startHandle', { name: nameOf(layer) })} onPointerDown={(e) => startLayerDrag(e, layer, 'start')} />
-                <div className="edge end" role="separator" aria-label={t('layers.endHandle', { name: nameOf(layer) })} onPointerDown={(e) => startLayerDrag(e, layer, 'end')} />
+                {!layer.follows && (
+                  <>
+                    <div className="edge start" role="separator" aria-label={t('layers.startHandle', { name: nameOf(layer) })} onPointerDown={(e) => startLayerDrag(e, layer, 'start')} />
+                    <div className="edge end" role="separator" aria-label={t('layers.endHandle', { name: nameOf(layer) })} onPointerDown={(e) => startLayerDrag(e, layer, 'end')} />
+                  </>
+                )}
                 {FADES.map((kind) => (
                   <div
                     key={kind}
@@ -596,6 +608,15 @@ function fadesIn(layer: SoundLayer, duration: number): { played: number; fadeIn:
 function fadeHandleAt(layer: SoundLayer, kind: (typeof FADES)[number], duration: number): React.CSSProperties {
   const f = fadesIn(layer, duration);
   return kind === 'fadeIn' ? { left: `${f.fadeIn * 100}%` } : { left: `${(f.played - f.fadeOut) * 100}%`, transform: 'translateX(-7px)' };
+}
+
+/** Two chain links: the sound goes with another layer. */
+function LinkMark() {
+  return (
+    <svg className="link-mark" width="12" height="12" viewBox="0 0 24 24" aria-hidden="true">
+      <path d="M9 15l6-6M11 6l.5-.5a4.2 4.2 0 0 1 6 6l-.5.5M13 18l-.5.5a4.2 4.2 0 0 1-6-6l.5-.5" fill="none" stroke="currentColor" strokeWidth="2.2" strokeLinecap="round" />
+    </svg>
+  );
 }
 
 /** A sound's two fade handles. */

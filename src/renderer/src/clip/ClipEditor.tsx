@@ -330,9 +330,10 @@ export function ClipEditor({ clip, source, side, voices }: { clip: Clip; source:
           <>
             {selectedLayer && isPlaced(selectedLayer) ? (
               <LayerPanel
-                clipId={clip.id}
+                clip={clip}
                 layer={selectedLayer}
                 asset={assets.find((a) => a.id === selectedLayer.assetId)}
+                assets={assets}
                 time={time}
                 rate={rate}
                 overLimit={videoLayersOverLimit(clip).has(selectedLayer.id)}

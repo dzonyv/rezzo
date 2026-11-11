@@ -1,6 +1,6 @@
 import { useEffect } from 'react';
 import { useTranslation } from 'react-i18next';
-import type { Asset } from '../../../shared/assets.ts';
+import type { Asset, AudioAsset } from '../../../shared/assets.ts';
 import { keyAt, valueAt } from '../../../shared/framing.ts';
 import { fps, type FrameRate } from '../../../shared/frames.ts';
 import {
@@ -8,7 +8,8 @@ import {
   type Transform,
 } from '../../../shared/motion.ts';
 import { MAX_VIDEO_LAYERS } from '../../../shared/overlay-files.ts';
-import { ASSET_KIND_OF, MAX_LOTTIE_SPEED, MIN_LOTTIE_SPEED, type PlacedLayer } from '../../../shared/project.ts';
+import { followerOf } from '../../../shared/follow-sounds.ts';
+import { ASSET_KIND_OF, MAX_LOTTIE_SPEED, MIN_LOTTIE_SPEED, type Clip, type PlacedLayer } from '../../../shared/project.ts';
 import { changeLayerFile, locateAsset, useAssetMissing } from '../project/assets.ts';
 import {
   addLayerKey, deleteLayer, deleteLayerKey, duplicateLayer, insideLayer, setChromaKey, setLayerKeySmooth, setLayerSound, setLottiePlayback, setMotion,
@@ -16,12 +17,15 @@ import {
 } from '../project/layers.ts';
 import { projectStore, type EditLabel } from '../project/store.ts';
 import { startPicking, stopPicking, usePicking } from './eyedropper.ts';
+import { FollowSound } from './FollowSound.tsx';
 import { selectLayer } from './state.ts';
 
 interface Props {
-  clipId: string;
+  clip: Clip;
   layer: PlacedLayer;
   asset: Asset | undefined;
+  /** The project's files, for the sounds that go with the layer's entrance and exit. */
+  assets: readonly Asset[];
   /** Source seconds of the frame on screen; placement edits and keyframes land there. */
   time: number;
   rate: FrameRate;
@@ -64,8 +68,10 @@ const PARTS = [
 ] as const;
 
 /** The selected layer's settings: its file, placement, keyframes, animations, a video's sound, an animation's playback and the green screen. */
-export function LayerPanel({ clipId, layer, asset, time, rate, overLimit }: Props) {
+export function LayerPanel({ clip, layer, asset, assets, time, rate, overLimit }: Props) {
   const { t } = useTranslation();
+  const clipId = clip.id;
+  const soundFiles = assets.filter((a): a is AudioAsset => a.kind === 'audio');
   const missing = useAssetMissing(asset?.id);
   const picking = usePicking() === layer.id;
   useEffect(() => stopPicking, []);
@@ -132,6 +138,7 @@ export function LayerPanel({ clipId, layer, asset, time, rate, overLimit }: Prop
           slider(t('layers.seconds'), m.seconds, { min: MIN_MOTION_SECONDS, max: MAX_MOTION_SECONDS, step: 0.05 }, t('layers.units.seconds', { value: m.seconds.toFixed(2) }), ANIMATE, (seconds) => set({ seconds }))}
         {m.kind !== 'none' && 'strength' in m &&
           slider(t('layers.strength'), m.strength, { min: 0, max: 1, step: 0.01 }, percent(m.strength), ANIMATE, (strength) => set({ strength }))}
+        {part !== 'loop' && <FollowSound clipId={clipId} layer={layer} part={part} sound={followerOf(clip, layer.id, part)} files={soundFiles} />}
       </div>
     );
   };
