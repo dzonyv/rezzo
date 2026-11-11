@@ -1,5 +1,5 @@
 import { describe, expect, it } from 'vitest';
-import { DEFAULT_MOTION, layerTransformAt, type Motion, type Timed, type Transform } from './motion.ts';
+import { DEFAULT_MOTION, layerTransformAt, MOTION_SECONDS, secondsForKind, type Motion, type Timed, type Transform } from './motion.ts';
 
 const BASE: Transform = { x: 0.5, y: 0.5, scale: 0.6, rotation: 0, opacity: 1 };
 
@@ -56,10 +56,69 @@ describe('layer motion', () => {
     expect(layerTransformAt(l, 10.75).opacity).toBeCloseTo(0.5);
   });
 
-  it('bounces in from above', () => {
-    const l = layer({ in: { kind: 'bounce', direction: 'left', seconds: 0.6 } });
+  it('bounces in from above, twice, each bounce a few frames long at 25 fps', () => {
+    const l = layer({ in: { kind: 'bounce', direction: 'left', seconds: MOTION_SECONDS.bounce } });
     expect(layerTransformAt(l, 10).y).toBeCloseTo(0.25);
-    expect(layerTransformAt(l, 10.6).y).toBeCloseTo(0.5);
+    expect(layerTransformAt(l, 10 + MOTION_SECONDS.bounce).y).toBeCloseTo(0.5);
+    const ys = Array.from({ length: 21 }, (_, i) => layerTransformAt(l, 10 + i / 25).y);
+    // Each bounce turns falling (y growing) into rising (y shrinking) once.
+    const ways = ys.slice(1).map((y, i) => Math.sign(y - ys[i]!)).filter((w) => w !== 0);
+    expect(ways.filter((w, i) => w < 0 && ways[i - 1]! > 0)).toHaveLength(2);
+    expect(ys.every((y) => y <= 0.5 + 1e-9)).toBe(true);
+  });
+
+  it('moves no more than a sixth of the way in one 25 fps frame, at the default lengths', () => {
+    for (const kind of ['slide', 'zoom', 'pop', 'bounce'] as const) {
+      const l = layer({ in: { kind, direction: 'left', seconds: MOTION_SECONDS[kind] } });
+      const at = (i: number) => layerTransformAt(l, 10 + i / 25);
+      for (let i = 1; i <= 25; i++) {
+        expect(Math.abs(at(i).x - at(i - 1).x)).toBeLessThanOrEqual(1 / 6);
+        expect(Math.abs(at(i).y - at(i - 1).y)).toBeLessThanOrEqual(1 / 6);
+        expect(Math.abs(at(i).scale - at(i - 1).scale) / BASE.scale).toBeLessThanOrEqual(1 / 6);
+      }
+    }
+  });
+
+  it('moves no more than a sixth of the way in one 25 fps frame going out, at the default lengths', () => {
+    for (const kind of ['slide', 'zoom', 'pop'] as const) {
+      const l = layer({ out: { kind, direction: 'right', seconds: MOTION_SECONDS[kind] } });
+      const at = (i: number) => layerTransformAt(l, 13 - i / 25);
+      for (let i = 1; i <= 25; i++) {
+        expect(Math.abs(at(i).x - at(i - 1).x)).toBeLessThanOrEqual(1 / 6);
+        expect(Math.abs(at(i).scale - at(i - 1).scale) / BASE.scale).toBeLessThanOrEqual(1 / 6);
+      }
+    }
+  });
+
+  it('zooms out to a third of the size and slides out the whole way', () => {
+    const zoom = layer({ out: { kind: 'zoom', direction: 'left', seconds: 0.45 } });
+    expect(layerTransformAt(zoom, 12.55).scale).toBeCloseTo(0.6);
+    expect(layerTransformAt(zoom, 13).scale).toBeCloseTo(0.6 * 0.3);
+    expect(layerTransformAt(zoom, 13).opacity).toBe(0);
+    const slide = layer({ out: { kind: 'slide', direction: 'right', seconds: 0.5 } });
+    expect(layerTransformAt(slide, 13).x).toBeCloseTo(1.5);
+  });
+
+  it('gives a short layer to coming in and going out by their lengths, and none to a part that is off', () => {
+    const both = { ...layer({ in: { kind: 'bounce', direction: 'left', seconds: 0.8 }, out: { kind: 'fade', direction: 'left', seconds: 0.2 } }), end: 10.5 };
+    // 1 s wanted, 0.5 s there: the bounce gets 0.4 s and the fade 0.1 s.
+    expect(layerTransformAt(both, 10.4).y).toBeCloseTo(0.5);
+    expect(layerTransformAt(both, 10.45).opacity).toBeCloseTo(0.5);
+    const alone = { ...layer({ in: { kind: 'bounce', direction: 'left', seconds: 0.8 } }), end: 11 };
+    expect(layerTransformAt(alone, 10.4).y).toBeLessThan(0.5);
+    expect(layerTransformAt(alone, 10.8).y).toBeCloseTo(0.5);
+  });
+
+  it('takes the length of the new kind unless the old one was set by hand', () => {
+    expect(secondsForKind({ kind: 'pop', seconds: MOTION_SECONDS.pop }, 'slide')).toBe(MOTION_SECONDS.slide);
+    expect(secondsForKind({ kind: 'slide', seconds: 0.3 }, 'bounce')).toBe(MOTION_SECONDS.bounce);
+    expect(secondsForKind({ kind: 'slide', seconds: 1.2 }, 'zoom')).toBe(1.2);
+  });
+
+  it('zooms from a third of the size, not from nothing', () => {
+    const l = layer({ in: { kind: 'zoom', direction: 'left', seconds: 0.45 } });
+    expect(layerTransformAt(l, 10).scale).toBeCloseTo(0.6 * 0.3);
+    expect(layerTransformAt(l, 10.45).scale).toBeCloseTo(0.6);
   });
 
   it('shakes the same way every time, and not at all at strength 0', () => {

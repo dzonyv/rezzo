@@ -5,7 +5,7 @@
  * the preview and the export put it in exactly the same place.
  */
 import { z } from 'zod';
-import { clamp01, easeInCubic, easeOutBack, easeOutBounce, easeOutCubic, noise } from './easing.ts';
+import { clamp01, easeInQuad, easeOutBack, easeOutBounce, easeOutCubic, easeOutQuad, noise } from './easing.ts';
 import { valueAt } from './framing.ts';
 import type { Animated } from './project.ts';
 
@@ -61,13 +61,43 @@ export const motionSchema = z.object({
 export type Motion = z.infer<typeof motionSchema>;
 
 export const DEFAULT_MOTION: Motion = {
-  in: { kind: 'pop', direction: 'left', seconds: 0.3 },
+  in: { kind: 'pop', direction: 'left', seconds: 0.35 },
   out: { kind: 'none', direction: 'right', seconds: 0.3 },
   loop: { kind: 'none', direction: 'left', strength: 0.5 },
 };
 
+/**
+ * How long each kind takes when it's picked. A slide or a bounce in 0.3 s
+ * is only seven or eight frames at 25 fps, and jumps a long way per frame.
+ */
+export const MOTION_SECONDS: Record<(typeof ENTRANCES)[number] | (typeof EXITS)[number], number> = {
+  none: 0.3,
+  fade: 0.3,
+  pop: 0.35,
+  slide: 0.5,
+  zoom: 0.45,
+  bounce: 0.8,
+};
+
+type TimedKind = keyof typeof MOTION_SECONDS;
+
+/** Whether `kind` is an entrance or exit, which have a length, rather than a loop. */
+export const isTimedKind = (kind: string): kind is TimedKind => Object.hasOwn(MOTION_SECONDS, kind);
+
+/**
+ * The length to keep when an entrance or exit changes from `from` to
+ * `kind`: the new kind's own length, unless the old one was set by hand.
+ * 0.3 s was every kind's length before they had their own.
+ */
+export function secondsForKind(from: { kind: TimedKind; seconds: number }, kind: TimedKind): number {
+  const untouched = from.seconds === MOTION_SECONDS[from.kind] || from.seconds === 0.3;
+  return untouched ? MOTION_SECONDS[kind] : from.seconds;
+}
+
 /** A pop starts (or ends) at this size. */
 const POP_FROM = 0.7;
+/** A zoom starts (or ends) at this size: from nothing the first frames grow too fast to follow. */
+const ZOOM_FROM = 0.3;
 /** A bounce drops in from this far above, as a share of the output height. */
 const BOUNCE_DROP = 0.25;
 /** Shake: wobbles per second, how far (share of the output width) and how much it tilts at full strength. */
@@ -104,9 +134,12 @@ export function layerTransformAt(layer: Timed, t: number): Transform {
   const since = t - layer.start;
   const left = layer.end - t;
 
-  // Coming in and going out share the layer's time if it's short.
-  const inSeconds = Math.min(motion.in.seconds, total / 2);
-  const outSeconds = Math.min(motion.out.seconds, total / 2);
+  // If the layer is too short for both, coming in and going out each get
+  // their share of its time. A part that's off takes none.
+  const wanted = (motion.in.kind === 'none' ? 0 : motion.in.seconds) + (motion.out.kind === 'none' ? 0 : motion.out.seconds);
+  const share = wanted > total ? total / wanted : 1;
+  const inSeconds = motion.in.seconds * share;
+  const outSeconds = motion.out.seconds * share;
 
   const f = clamp01(since / inSeconds);
   if (f < 1) {
@@ -121,13 +154,13 @@ export function layerTransformAt(layer: Timed, t: number): Transform {
         break;
       case 'slide': {
         // From one output width (or height) away, in the chosen direction.
-        const away = 1 - easeOutCubic(f);
+        const away = 1 - easeOutQuad(f);
         x += step.x * away;
         y += step.y * away;
         break;
       }
       case 'zoom':
-        scale *= easeOutCubic(f);
+        scale *= ZOOM_FROM + (1 - ZOOM_FROM) * easeOutQuad(f);
         opacity *= clamp01(f * 2);
         break;
       case 'bounce':
@@ -151,13 +184,13 @@ export function layerTransformAt(layer: Timed, t: number): Transform {
         opacity *= clamp01(g * 3);
         break;
       case 'slide': {
-        const away = easeInCubic(1 - g);
+        const away = easeInQuad(1 - g);
         x += step.x * away;
         y += step.y * away;
         break;
       }
       case 'zoom':
-        scale *= easeOutCubic(g);
+        scale *= ZOOM_FROM + (1 - ZOOM_FROM) * easeOutQuad(g);
         opacity *= clamp01(g * 2);
         break;
       case 'none':
