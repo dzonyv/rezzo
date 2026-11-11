@@ -8,7 +8,7 @@ import { cancelExport, openExport, revealExport, startExport } from './export.ts
 import { addFont, readCustomFont } from './fonts.ts';
 import { librarySoundUrl } from './sounds.ts';
 import { assetLoudness, clipLevels, clipLoudness } from './loudness.ts';
-import { checkEpisode, chooseEpisode, episodeMediaUrl, episodeThumbnail, importEpisode, locateEpisode, makePreview } from './episode.ts';
+import { checkEpisode, chooseEpisode, episodeMediaUrl, episodeThumbnail, importEpisode, locateEpisode, makePreview, stopEpisodeWork } from './episode.ts';
 import { handleMediaProtocol, registerMediaScheme } from './media-protocol.ts';
 import { broadcast, handle, trustPagesFrom } from './ipc.ts';
 import {
@@ -81,6 +81,7 @@ function registerHandlers(): void {
   handle('episode:media-url', (_ctx, source) => episodeMediaUrl(source));
   handle('episode:preview', ({ window }, source) => makePreview(window.webContents, source));
   handle('episode:thumbnail', (_ctx, source, time, size) => episodeThumbnail(source, time, size));
+  handle('episode:stop', (_ctx, fingerprint) => stopEpisodeWork(fingerprint));
 
   handle('transcribe:status', () => transcriptionStatus());
   handle('transcribe:start', ({ window }, request) => startTranscription(window.webContents, request));

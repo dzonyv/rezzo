@@ -6,6 +6,10 @@ import { keptPieces } from '../../../shared/skips.ts';
 import { useClipPlayback } from '../clip/playback.ts';
 import { useOpenClipId } from '../clip/state.ts';
 
+/** A thumbnail that failed (one that took too long, say) is asked for again this many times, this far apart. */
+const RETRIES = 2;
+const RETRY_MS = 3000;
+
 /** Thumbnails already asked for, by source, time and size; each is made once. */
 const thumbnails = new Map<string, Promise<string>>();
 
@@ -30,6 +34,7 @@ export function ClipThumb({ clip, source, size = 'card' }: { clip: Clip; source:
   // On a half-second grid, so trimming the start a step at a time keeps the same picture.
   const time = Math.ceil((keptPieces(clip)[0]?.start ?? clip.start) * 2) / 2;
   const [url, setUrl] = useState<string | null>(null);
+  const [tries, setTries] = useState(0);
   // The open clip's working file comes first: both are made by FFmpeg in the same worker.
   // With no clip open (the episode screen) nothing is being made, whatever the status last said.
   const clipOpen = useOpenClipId() !== null;
@@ -37,14 +42,20 @@ export function ClipThumb({ clip, source, size = 'card' }: { clip: Clip; source:
   useEffect(() => {
     if (preparing) return;
     let current = true;
+    let retry: ReturnType<typeof setTimeout> | undefined;
     thumbnailOf(source, time, size).then(
       (u) => current && setUrl(u),
-      () => current && setUrl(null),
+      () => {
+        if (!current) return;
+        setUrl(null);
+        if (tries < RETRIES) retry = setTimeout(() => setTries(tries + 1), RETRY_MS);
+      },
     );
     return () => {
       current = false;
+      clearTimeout(retry);
     };
-  }, [source, time, size, preparing]);
+  }, [source, time, size, preparing, tries]);
 
   const video = videoLayerOf(clip);
   const layout = valueAt(video.layout, time);

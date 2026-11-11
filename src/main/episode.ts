@@ -10,7 +10,7 @@ import { THUMBNAIL_HEIGHTS, WorkerError } from '../shared/worker-api.ts';
 import { allowMedia, rememberSource, sourceUrl } from './media-protocol.ts';
 import { cacheDir } from './paths.ts';
 import { getSettings } from './settings.ts';
-import { callWorker } from './worker-host.ts';
+import { callWorker, READ_TIMEOUT_MS } from './worker-host.ts';
 
 const VIDEO_EXTENSIONS = ['mp4', 'mov', 'mkv', 'webm', 'm4v', 'avi', 'ts', 'mts', 'm2ts', 'flv', 'wmv'];
 
@@ -36,11 +36,11 @@ export async function importEpisode(file: string): Promise<ImportResult> {
     return { ok: false, error: 'not-found' };
   }
   try {
-    const [probed, fingerprint] = await Promise.all([callWorker('probe', [file]), callWorker('fingerprint', [file])]);
+    const [probed, fingerprint] = await Promise.all([callWorker('probe', [file], { timeoutMs: READ_TIMEOUT_MS }), callWorker('fingerprint', [file], { timeoutMs: READ_TIMEOUT_MS })]);
     rememberSource(file);
     return { ok: true, source: { path: file, size, fingerprint, ...probed } };
   } catch (e) {
-    if (e instanceof WorkerError && (e.code === 'unreadable' || e.code === 'no-video')) return { ok: false, error: e.code };
+    if (e instanceof WorkerError && (e.code === 'unreadable' || e.code === 'no-video' || e.code === 'timeout')) return { ok: false, error: e.code };
     throw e;
   }
 }
@@ -72,23 +72,63 @@ export async function episodeMediaUrl(source: unknown): Promise<string> {
 }
 
 /**
+ * What's being made for each open episode (by fingerprint): its preview and
+ * its clips' thumbnails. Closing the episode stops all of it (stopEpisodeWork).
+ */
+const episodeWork = new Map<string, AbortController>();
+
+function workSignal(fingerprint: string): AbortSignal {
+  let abort = episodeWork.get(fingerprint);
+  if (!abort) episodeWork.set(fingerprint, (abort = new AbortController()));
+  return abort.signal;
+}
+
+/** Stops the preview and thumbnails being made for an episode that was closed. What's made already stays in the cache. */
+export function stopEpisodeWork(fingerprint: unknown): void {
+  const key = z.string().parse(fingerprint);
+  episodeWork.get(key)?.abort();
+  episodeWork.delete(key);
+}
+
+/** Previews being made, by output file, with the windows that asked: asking twice shares one FFmpeg. */
+const makingPreviews = new Map<string, { done: Promise<string>; senders: Set<WebContents>; signal: AbortSignal }>();
+
+/**
  * A small H.264 copy of the source for formats Chromium can't play (HEVC
  * without hardware support, some MKVs). Made once per source, in the cache.
  */
-export async function makePreview(sender: WebContents, source: unknown): Promise<string> {
+export function makePreview(sender: WebContents, source: unknown): Promise<string> {
   const { path: file, fingerprint, duration } = sourceSchema.parse(source);
   sourceUrl(file); // the same check: only a source we know
   const out = path.join(cacheDir(), fingerprint, 'preview-480p.mp4');
-  await callWorker('makePreview', [{ sourcePath: file, duration, out }], {
-    onProgress: (fraction) => {
-      if (!sender.isDestroyed()) sender.send('episode:preview-progress', { fingerprint, fraction: fraction as number });
-    },
-  });
-  return allowMedia(out);
+  let making = makingPreviews.get(out);
+  // One stopped when its episode was closed is still on its way out; the episode opened again makes a new one.
+  if (!making || making.signal.aborted) {
+    const senders = new Set<WebContents>();
+    const signal = workSignal(fingerprint);
+    const done: Promise<string> = callWorker('makePreview', [{ sourcePath: file, duration, out }], {
+      signal,
+      onProgress: (fraction) => {
+        for (const s of senders) {
+          if (s.isDestroyed()) senders.delete(s);
+          else s.send('episode:preview-progress', { fingerprint, fraction: fraction as number });
+        }
+      },
+    })
+      .then(() => allowMedia(out))
+      .finally(() => {
+        if (makingPreviews.get(out)?.done === done) makingPreviews.delete(out);
+      });
+    makingPreviews.set(out, (making = { done, senders, signal }));
+  }
+  making.senders.add(sender);
+  return making.done;
 }
 
 /** Thumbnails being made, by output file, so two cards asking for the same one share the work. */
-const makingThumbnails = new Map<string, Promise<string>>();
+const makingThumbnails = new Map<string, { done: Promise<string>; signal: AbortSignal }>();
+/** A thumbnail takes well under a second; one that takes this long would hold up the rest. */
+const THUMBNAIL_TIMEOUT_MS = 30_000;
 /** One at a time: a project with many clips shouldn't start an FFmpeg for each at once. */
 let thumbnailQueue: Promise<unknown> = Promise.resolve();
 
@@ -103,12 +143,19 @@ export function episodeThumbnail(source: unknown, time: unknown, size: unknown):
   // Cards keep the folder they always had, so pictures already made still count.
   const out = path.join(cacheDir(), fingerprint, kind === 'card' ? 'thumbnails' : `thumbnails-${height}`, `${Math.round(at * 1000)}.jpg`);
   let making = makingThumbnails.get(out);
-  if (!making) {
-    making = thumbnailQueue.then(() => callWorker('makeThumbnail', [{ sourcePath: file, time: at, height, out }])).then(() => allowMedia(out));
-    thumbnailQueue = making.catch(() => undefined);
-    makingThumbnails.set(out, making);
+  // One stopped when its episode was closed may not have failed yet; the episode opened again asks anew.
+  if (!making || making.signal.aborted) {
+    const signal = workSignal(fingerprint);
+    // Waiting its turn costs nothing once the episode is closed: a stopped call never reaches the worker.
+    const done = thumbnailQueue
+      .then(() => callWorker('makeThumbnail', [{ sourcePath: file, time: at, height, out }], { signal, timeoutMs: THUMBNAIL_TIMEOUT_MS }))
+      .then(() => allowMedia(out));
+    thumbnailQueue = done.catch(() => undefined);
+    makingThumbnails.set(out, (making = { done, signal }));
     // A failure can be tried again; a success stays, the file is in the cache anyway.
-    making.catch(() => makingThumbnails.delete(out));
+    done.catch(() => {
+      if (makingThumbnails.get(out)?.done === done) makingThumbnails.delete(out);
+    });
   }
-  return making;
+  return making.done;
 }

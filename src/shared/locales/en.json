@@ -125,7 +125,8 @@
     "import": {
       "not-found": "{{path}} can't be found.",
       "unreadable": "{{path}} can't be read as a video.",
-      "no-video": "{{path}} has no picture, only sound."
+      "no-video": "{{path}} has no picture, only sound.",
+      "timeout": "Reading {{path}} took too long. If it's on a network drive or a disk that was asleep, try again."
     },
     "locate": {
       "different": "That's a different video. Choose the file this project was made from."

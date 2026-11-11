@@ -17,6 +17,12 @@ import { TranscribePanel } from './TranscribePanel.tsx';
 import { VoicesPanel } from './VoicesPanel.tsx';
 
 export function Editor() {
+  const fingerprint = useProject((s) => s.project?.source?.fingerprint);
+  // Leaving an episode (closing it, or opening another) stops what was being made for it.
+  useEffect(() => {
+    if (!fingerprint) return;
+    return () => void window.rezzo.invoke('episode:stop', fingerprint);
+  }, [fingerprint]);
   const { t } = useTranslation();
   const name = useProject((s) => s.project?.name ?? '');
   const project = useProject((s) => s.project);

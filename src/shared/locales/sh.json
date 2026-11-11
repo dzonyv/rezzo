@@ -125,7 +125,8 @@
     "import": {
       "not-found": "{{path}} nije pronađen.",
       "unreadable": "{{path}} ne može da se pročita kao video.",
-      "no-video": "{{path}} nema sliku, samo zvuk."
+      "no-video": "{{path}} nema sliku, samo zvuk.",
+      "timeout": "Čitanje fajla {{path}} je predugo trajalo. Ako je na mrežnom disku ili disku koji je spavao, probaj ponovo."
     },
     "locate": {
       "different": "To je drugi video. Izaberi fajl od kog je ovaj projekat napravljen."
