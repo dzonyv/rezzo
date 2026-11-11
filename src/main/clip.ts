@@ -66,6 +66,11 @@ export async function ensureWorkingFile(
   return { file, span };
 }
 
+/** The window no longer needs the working file it asked for (the clip is back inside the one it has); the conversion stops. */
+export function cancelPrepare(sender: WebContents): void {
+  running.get(sender.id)?.abort();
+}
+
 /** Parses a clip range sent by the renderer. */
 export const parseRange = (range: unknown): { start: number; end: number } => rangeSchema.parse(range);
 

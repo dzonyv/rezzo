@@ -37,6 +37,10 @@ export function rememberAsset(file: string): void {
   knownAssets.add(key(file));
 }
 
+/** Whether the main process came across this file itself, as a source video or as a layer's file. */
+export const isKnownSource = (file: string): boolean => knownSources.has(key(file));
+export const isKnownAsset = (file: string): boolean => knownAssets.has(key(file));
+
 /** A URL for reading a layer's file; like sourceUrl, only for files the main process came across. */
 export function assetUrl(file: string): string {
   if (!knownAssets.has(key(file))) throw new Error('Not a known file');

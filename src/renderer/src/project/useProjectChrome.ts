@@ -55,6 +55,7 @@ export function useProjectChrome(): void {
           return state.project && isDirty(state) ? { project: state.project, filePath: state.filePath } : null;
         },
         write: (project, filePath) => window.rezzo.invoke('project:autosave', project, filePath),
+        discard: (projectId) => window.rezzo.invoke('project:discard-recovery', projectId),
         onFailing: (detail) => notify('error', i18n.t('errors.recovery', { detail })),
       }),
     [],

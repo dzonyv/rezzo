@@ -2,14 +2,15 @@
  * Installs a tool from tools.json into its own folder: download (resuming a
  * partial download), check size and SHA-256, unpack, and leave an
  * ".installed" marker. The marker names the checksum, so a tool whose
- * pinned version changes gets installed again.
+ * pinned version changes gets installed again, and the files that were
+ * installed, so a tool that lost one (antivirus does this) is too.
  *
  * Node only; used by the app's media worker and by scripts/fetch-tools.mts.
  */
 import { spawn } from 'node:child_process';
 import { createHash, type Hash } from 'node:crypto';
 import { createReadStream, createWriteStream } from 'node:fs';
-import { mkdir, readFile, rename, rm, stat, writeFile } from 'node:fs/promises';
+import { mkdir, readdir, readFile, rename, rm, stat, writeFile } from 'node:fs/promises';
 import path from 'node:path';
 import { Readable } from 'node:stream';
 import { pipeline } from 'node:stream/promises';
@@ -22,9 +23,34 @@ export interface DownloadProgress {
 
 const MARKER = '.installed';
 
+const fileNameOf = (tool: Tool): string => path.basename(new URL(tool.url).pathname);
+
+/** Every file under `dir` except the marker, with its size; paths relative to `dir`. */
+async function installedFiles(dir: string): Promise<{ path: string; size: number }[]> {
+  const entries = await readdir(dir, { recursive: true, withFileTypes: true });
+  const files = entries.filter((e) => e.isFile()).map((e) => path.relative(dir, path.join(e.parentPath, e.name)));
+  return Promise.all(files.filter((f) => f !== MARKER).map(async (f) => ({ path: f, size: (await stat(path.join(dir, f))).size })));
+}
+
+/**
+ * Whether the tool is in `dir`, whole: the marker is for this version and
+ * every file it lists is still there at its size. A marker from before
+ * files were listed counts if the folder still holds what it should: the
+ * downloaded file at its size, or an unpacked tool's entry file (anything
+ * at all for a tool that names none).
+ */
 export async function isInstalled(tool: Tool, dir: string): Promise<boolean> {
   try {
-    return JSON.parse(await readFile(path.join(dir, MARKER), 'utf8')).sha256 === tool.sha256;
+    const marker = JSON.parse(await readFile(path.join(dir, MARKER), 'utf8')) as { sha256?: unknown; files?: { path: string; size: number }[] };
+    if (marker.sha256 !== tool.sha256) return false;
+    if (marker.files) {
+      const sizes = await Promise.all(marker.files.map((f) => sizeOf(path.join(dir, f.path))));
+      return marker.files.length > 0 && marker.files.every((f, i) => sizes[i] === f.size);
+    }
+    if (!tool.extract) return (await sizeOf(path.join(dir, fileNameOf(tool)))) === tool.size;
+    const left = await installedFiles(dir);
+    const entry = tool.entry?.toLowerCase();
+    return entry ? left.some((f) => path.basename(f.path).toLowerCase() === entry) : left.length > 0;
   } catch {
     return false;
   }
@@ -48,8 +74,7 @@ export async function install(
   await mkdir(dir, { recursive: true });
   await rm(path.join(dir, MARKER), { force: true });
 
-  const fileName = path.basename(new URL(tool.url).pathname);
-  const file = path.join(dir, fileName);
+  const file = path.join(dir, fileNameOf(tool));
   const part = `${file}.part`;
 
   // An earlier attempt may have finished the download and failed to unpack.
@@ -70,7 +95,7 @@ export async function install(
     }
     await rm(file, { force: true });
   }
-  await writeFile(path.join(dir, MARKER), JSON.stringify({ id: tool.id, sha256: tool.sha256 }));
+  await writeFile(path.join(dir, MARKER), JSON.stringify({ id: tool.id, sha256: tool.sha256, files: await installedFiles(dir) }));
 }
 
 /** Downloads into `part`, continuing an earlier partial download. Returns the SHA-256 of the whole file. */
@@ -109,6 +134,11 @@ async function download(
   body.on('data', (chunk: Buffer) => {
     hash.update(chunk);
     received += chunk.length;
+    // More than the file is: not what was asked for, and no reason to fill the disk finding out.
+    if (received > tool.size) {
+      body.destroy(new DownloadError('checksum', `${tool.id}: the download is larger than it should be`));
+      return;
+    }
     if (received - reported >= 1 << 20 || received === tool.size) {
       reported = received;
       onProgress?.({ received, total: tool.size });
@@ -118,6 +148,10 @@ async function download(
     await pipeline(body, createWriteStream(part, { flags: have > 0 ? 'a' : 'w' }), { signal });
   } catch (e) {
     if (signal?.aborted) throw e;
+    if (e instanceof DownloadError) {
+      await rm(part, { force: true });
+      throw e;
+    }
     throw new DownloadError('network', `${tool.id}: ${String(e)}`);
   }
   return hash.digest('hex');

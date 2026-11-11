@@ -44,6 +44,17 @@ describe("changing a layer's file", () => {
     expect(images()[0]!.assetId).toBe(state().project!.assets[0]!.id);
   });
 
+  it('keeps the new place when the change is undone', () => {
+    const other: AssetFile = { ...FILE, path: 'D:\\Slike\\drugi.png', name: 'drugi.png', fingerprint: '9'.repeat(64) };
+    addImageLayer(CLIP, other, SIZE, 10);
+    const id = addImageLayer(CLIP, FILE, SIZE, 12)!;
+    // The second layer now shows the first one's file, picked where it has moved to.
+    replaceImage(CLIP, id, { ...other, path: MOVED.path, name: MOVED.name }, SIZE);
+    state().undo();
+    expect(state().project!.assets.find((a) => a.fingerprint === other.fingerprint)).toMatchObject({ path: MOVED.path });
+    expect(images().find((l) => l.id === id)!.assetId).toBe(state().project!.assets.find((a) => a.fingerprint === FILE.fingerprint)!.id);
+  });
+
   it('does the same for videos, animations and sounds', () => {
     const video: VideoInfo = { codec: 'h264', width: 640, height: 360, duration: 4, frameRate: [30, 1], colorSpace: null, alpha: false, hasAudio: false };
     const lottie = lottieInfoSchema.parse({ width: 200, height: 200, frames: 60, frameRate: 30 });

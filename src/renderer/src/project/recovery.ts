@@ -10,7 +10,9 @@ export interface RecoveryCopies {
   /** The project to copy and where it was last saved, or null when there is nothing unsaved. */
   unsaved(): { project: Project; filePath: string | null } | null;
   write(project: Project, filePath: string | null): Promise<unknown>;
-  /** Called when a copy couldn't be written, once until one is written again. */
+  /** Removes a project's copy. */
+  discard(projectId: string): Promise<unknown>;
+  /** Called when a project's copy couldn't be written, once until one is written again. */
   onFailing(detail: string): void;
 }
 
@@ -19,22 +21,26 @@ export interface RecoveryCopies {
  * that couldn't be written is tried again on the next round, without waiting
  * for another edit.
  */
-export function startRecoveryCopies({ unsaved, write, onFailing }: RecoveryCopies, everyMs = AUTOSAVE_MS): () => void {
+export function startRecoveryCopies({ unsaved, write, discard, onFailing }: RecoveryCopies, everyMs = AUTOSAVE_MS): () => void {
   let written: Project | null = null;
   let writing = false;
-  let failing = false;
+  /** The project whose user has been told its copies fail. */
+  let toldAbout: string | null = null;
   const timer = setInterval(() => {
     const now = unsaved();
     if (!now || now.project === written || writing) return;
+    const { id } = now.project;
     writing = true;
     write(now.project, now.filePath)
       .then(() => {
         written = now.project;
-        failing = false;
+        if (toldAbout === id) toldAbout = null;
+        // Saved or closed while the copy was being written: the copy came after its clean-up, and would be offered as lost work.
+        if (unsaved()?.project.id !== id) return discard(id);
       })
       .catch((e: unknown) => {
-        if (!failing) onFailing(e instanceof Error ? e.message : String(e));
-        failing = true;
+        if (toldAbout !== id) onFailing(e instanceof Error ? e.message : String(e));
+        toldAbout = id;
       })
       .finally(() => (writing = false));
   }, everyMs);

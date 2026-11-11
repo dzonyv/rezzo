@@ -61,6 +61,7 @@
       "size": 684913404,
       "sha256": "afef0b881c500958921c3f5523b50e59ee2ec9b6f5cbd25b324c51ed308a957a",
       "extract": true,
+      "entry": "whisper-cli.exe",
       "license": "MIT (whisper.cpp); the NVIDIA CUDA runtime DLLs in the archive fall under the NVIDIA CUDA EULA",
       "source": "https://github.com/ggml-org/whisper.cpp"
     },
@@ -72,6 +73,7 @@
       "size": 21715607,
       "sha256": "b1158bd10edf92c9799149a6fc5d3e58da3f495241d6fb3423088130e88ffbf3",
       "extract": true,
+      "entry": "whisper-cli.exe",
       "license": "MIT (whisper.cpp); BSD-3-Clause (OpenBLAS)",
       "source": "https://github.com/ggml-org/whisper.cpp"
     },

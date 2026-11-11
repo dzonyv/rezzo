@@ -162,6 +162,8 @@ export interface InvokeApi {
    * window cancels an older one.
    */
   'clip:prepare': (source: Source, range: { start: number; end: number }) => PrepareResult;
+  /** Stops this window's clip:prepare, which then resolves as cancelled. */
+  'clip:cancel': () => void;
   /**
    * Makes (or finds in the cache) the working file of a video layer's file
    * for `range` (seconds of that file, see overlayRange) at the clip's
@@ -262,6 +264,7 @@ export const INVOKE_CHANNELS = {
   'voices:start': true,
   'voices:cancel': true,
   'clip:prepare': true,
+  'clip:cancel': true,
   'overlay:prepare': true,
   'overlay:cancel': true,
   'analysis:models': true,

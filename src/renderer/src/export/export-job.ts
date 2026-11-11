@@ -97,11 +97,11 @@ export async function renderExport(job: ExportJob, port: MessagePort, clip: Clip
   let renderer: SceneRenderer | undefined;
   let frames: FrameSource | undefined;
   try {
-    const response = await fetch(job.url);
+    const response = await fetch(job.url, { signal });
     if (!response.ok) throw new Error(`loading the working file failed: ${response.status}`);
     const media = await demux(await response.arrayBuffer());
     // Fonts and pictures are loaded before the first frame, so none is drawn without them.
-    const scene = await loadScene(clip, assets, words, job.frameRate);
+    const scene = await loadScene(clip, assets, words, job.frameRate, signal);
     compositor = new Compositor(canvas);
     renderer = new SceneRenderer(compositor);
     const r = renderer;
