@@ -19,6 +19,12 @@ let honourRanges = true;
 beforeAll(async () => {
   server = createServer((req, res) => {
     requests.push({ range: req.headers.range });
+    if (req.url === '/stall.bin') {
+      // A megabyte, then nothing more: a connection that hangs.
+      res.writeHead(200, { 'Content-Length': content.length });
+      res.write(content.subarray(0, 1 << 20));
+      return;
+    }
     const m = honourRanges ? /^bytes=(\d+)-$/.exec(req.headers.range ?? '') : null;
     if (m) {
       const from = Number(m[1]);
@@ -34,7 +40,10 @@ beforeAll(async () => {
   base = `http://127.0.0.1:${typeof addr === 'object' && addr ? addr.port : 0}`;
 });
 
-afterAll(() => new Promise<void>((r) => server.close(() => r())));
+afterAll(() => {
+  server.closeAllConnections();
+  return new Promise<void>((r) => server.close(() => r()));
+});
 
 beforeEach(async () => {
   dir = await mkdtemp(path.join(tmpdir(), 'rezzo-dl-'));
@@ -142,6 +151,13 @@ describe('install', () => {
     expect(err).toBeInstanceOf(DownloadError);
     expect(err.code).toBe('checksum');
     await expect(readFile(path.join(dir, 'model.bin.part'))).rejects.toThrow();
+  });
+
+  it('gives up on a download that stops arriving, keeping what came for the next try', async () => {
+    const failed = await install(tool({ url: `${base}/stall.bin` }), dir, { stallMs: 300 }).catch((e: unknown) => e);
+    expect(failed).toBeInstanceOf(DownloadError);
+    expect((failed as DownloadError).code).toBe('network');
+    expect((await readFile(path.join(dir, 'stall.bin.part'))).length).toBe(1 << 20);
   });
 
   it('reinstalls when the pinned checksum changes', async () => {

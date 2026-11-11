@@ -66,6 +66,10 @@ export function TranscriptView({ transcript, source }: { transcript: Transcript;
   const scroller = useRef<HTMLDivElement>(null);
   const searchBox = useRef<HTMLInputElement>(null);
   const manualScrollAt = useRef(0);
+  // The rule warns that the React Compiler would skip this component, since
+  // the virtualizer returns functions that change without a new object. The
+  // app doesn't use the compiler; if it ever does, this component should stay out of it.
+  // eslint-disable-next-line react-hooks/incompatible-library
   const virtualizer = useVirtualizer({
     count: transcript.segments.length,
     getScrollElement: () => scroller.current,

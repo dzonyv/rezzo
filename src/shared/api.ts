@@ -22,7 +22,7 @@ export type OpenResult =
 
 export type SaveResult = { ok: true; path: string } | { ok: false; error: 'write-failed'; detail: string };
 
-export type ImportResult = { ok: true; source: Source } | { ok: false; error: 'not-found' | 'unreadable' | 'no-video' };
+export type ImportResult = { ok: true; source: Source } | { ok: false; error: 'not-found' | 'unreadable' | 'no-video' | 'timeout' };
 
 export type LocateResult = ImportResult | { ok: false; error: 'different-file' };
 
@@ -142,6 +142,8 @@ export interface InvokeApi {
   'episode:preview': (source: Source) => string;
   /** A picture of the source at `time` seconds (a clip's card, or the export screen's `large` one), made once and kept in the cache. */
   'episode:thumbnail': (source: Source, time: number, size?: ThumbnailSize) => string;
+  /** The episode with this fingerprint was closed: stops making its preview and thumbnails. */
+  'episode:stop': (fingerprint: string) => void;
 
   'transcribe:status': () => TranscriptionStatus;
   /** Runs until the transcript is ready; progress comes as transcribe:progress events. */
@@ -263,6 +265,7 @@ export const INVOKE_CHANNELS = {
   'episode:media-url': true,
   'episode:preview': true,
   'episode:thumbnail': true,
+  'episode:stop': true,
   'transcribe:status': true,
   'transcribe:start': true,
   'transcribe:cancel': true,

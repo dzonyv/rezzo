@@ -65,11 +65,17 @@ export class DownloadError extends Error {
   }
 }
 
-export async function install(
-  tool: Tool,
-  dir: string,
-  options: { onProgress?: (p: DownloadProgress) => void; signal?: AbortSignal } = {},
-): Promise<void> {
+/** A download that gets nothing for this long has stalled: it fails, and the next try continues where it stopped. */
+const STALL_MS = 60_000;
+
+interface DownloadOptions {
+  onProgress?: (p: DownloadProgress) => void;
+  signal?: AbortSignal;
+  /** STALL_MS, shorter in tests. */
+  stallMs?: number;
+}
+
+export async function install(tool: Tool, dir: string, options: DownloadOptions = {}): Promise<void> {
   if (await isInstalled(tool, dir)) return;
   await mkdir(dir, { recursive: true });
   await rm(path.join(dir, MARKER), { force: true });
@@ -99,11 +105,8 @@ export async function install(
 }
 
 /** Downloads into `part`, continuing an earlier partial download. Returns the SHA-256 of the whole file. */
-async function download(
-  tool: Tool,
-  part: string,
-  { onProgress, signal }: { onProgress?: (p: DownloadProgress) => void; signal?: AbortSignal },
-): Promise<string> {
+async function download(tool: Tool, part: string, options: DownloadOptions): Promise<string> {
+  const { onProgress, signal, stallMs = STALL_MS } = options;
   const hash = createHash('sha256');
   let have = await sizeOf(part);
   if (have > tool.size) {
@@ -113,46 +116,55 @@ async function download(
   if (have > 0) await hashFile(part, hash);
   if (have === tool.size) return hash.digest('hex');
 
-  let res: Response;
+  // Stopped when nothing arrives for stallMs, while waiting for the answer or between pieces of it.
+  const stalled = new AbortController();
+  let timer = setTimeout(() => stalled.abort(), stallMs);
+  const heard = () => {
+    clearTimeout(timer);
+    timer = setTimeout(() => stalled.abort(), stallMs);
+  };
+  const stopped = signal ? AbortSignal.any([signal, stalled.signal]) : stalled.signal;
   try {
-    res = await fetch(tool.url, { redirect: 'follow', signal, headers: have > 0 ? { Range: `bytes=${have}-` } : {} });
-  } catch (e) {
-    if (signal?.aborted) throw e;
-    throw new DownloadError('network', `${tool.id}: ${String(e)}`);
-  }
-  if (have > 0 && res.status === 200) {
-    // The server ignored the range; start over.
-    await res.body?.cancel();
-    await rm(part, { force: true });
-    return download(tool, part, { onProgress, signal });
-  }
-  if (!res.ok || !res.body) throw new DownloadError('http', `${tool.id}: HTTP ${res.status}`);
-
-  let received = have;
-  let reported = 0;
-  const body = Readable.fromWeb(res.body as import('node:stream/web').ReadableStream);
-  body.on('data', (chunk: Buffer) => {
-    hash.update(chunk);
-    received += chunk.length;
-    // More than the file is: not what was asked for, and no reason to fill the disk finding out.
-    if (received > tool.size) {
-      body.destroy(new DownloadError('checksum', `${tool.id}: the download is larger than it should be`));
-      return;
-    }
-    if (received - reported >= 1 << 20 || received === tool.size) {
-      reported = received;
-      onProgress?.({ received, total: tool.size });
-    }
-  });
-  try {
-    await pipeline(body, createWriteStream(part, { flags: have > 0 ? 'a' : 'w' }), { signal });
-  } catch (e) {
-    if (signal?.aborted) throw e;
-    if (e instanceof DownloadError) {
+    const res = await fetch(tool.url, { redirect: 'follow', signal: stopped, headers: have > 0 ? { Range: `bytes=${have}-` } : {} });
+    heard();
+    if (have > 0 && res.status === 200) {
+      // The server ignored the range; start over.
+      await res.body?.cancel();
       await rm(part, { force: true });
+      clearTimeout(timer);
+      return download(tool, part, options);
+    }
+    if (!res.ok || !res.body) throw new DownloadError('http', `${tool.id}: HTTP ${res.status}`);
+
+    let received = have;
+    let reported = 0;
+    const body = Readable.fromWeb(res.body as import('node:stream/web').ReadableStream);
+    body.on('data', (chunk: Buffer) => {
+      heard();
+      hash.update(chunk);
+      received += chunk.length;
+      // More than the file is: not what was asked for, and no reason to fill the disk finding out.
+      if (received > tool.size) {
+        body.destroy(new DownloadError('checksum', `${tool.id}: the download is larger than it should be`));
+        return;
+      }
+      if (received - reported >= 1 << 20 || received === tool.size) {
+        reported = received;
+        onProgress?.({ received, total: tool.size });
+      }
+    });
+    await pipeline(body, createWriteStream(part, { flags: have > 0 ? 'a' : 'w' }), { signal: stopped });
+  } catch (e) {
+    if (signal?.aborted) throw e;
+    // Too large: none of it is worth keeping. Stalled or cut off: what came stays, and the next try continues it.
+    if (e instanceof DownloadError) {
+      if (e.code === 'checksum') await rm(part, { force: true });
       throw e;
     }
+    if (stalled.signal.aborted) throw new DownloadError('network', `${tool.id}: nothing arrived for ${Math.round(stallMs / 1000)} s`);
     throw new DownloadError('network', `${tool.id}: ${String(e)}`);
+  } finally {
+    clearTimeout(timer);
   }
   return hash.digest('hex');
 }

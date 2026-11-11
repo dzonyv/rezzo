@@ -33,10 +33,10 @@ export class ProbeError extends Error {
   }
 }
 
-export async function probe(file: string): Promise<ProbeResult> {
+export async function probe(file: string, signal?: AbortSignal): Promise<ProbeResult> {
   let stdout: string;
   try {
-    ({ stdout } = await exec(ffprobeExe(), ['-v', 'error', '-show_streams', '-show_format', '-of', 'json', file]));
+    ({ stdout } = await exec(ffprobeExe(), ['-v', 'error', '-show_streams', '-show_format', '-of', 'json', file], { signal }));
   } catch (e) {
     throw new ProbeError('unreadable', String(e));
   }
@@ -130,11 +130,11 @@ export function lowestAlpha(metadata: string): number {
 }
 
 /** Whether any of the first frames of stream `index` has a pixel that isn't fully opaque. */
-async function hasTransparentPixels(file: string, index: number): Promise<boolean> {
+async function hasTransparentPixels(file: string, index: number, signal?: AbortSignal): Promise<boolean> {
   const { stdout } = await exec(ffmpegExe(), [
     '-v', 'error', '-i', file, '-map', `0:${index}`, '-frames:v', String(ALPHA_CHECK_FRAMES),
     '-vf', 'alphaextract,signalstats,metadata=print:key=lavfi.signalstats.YMIN:file=-', '-f', 'null', '-',
-  ]);
+  ], { signal });
   return lowestAlpha(stdout) < 255;
 }
 
@@ -180,10 +180,10 @@ export function parseAudioInfo(json: FfprobeJson): AudioInfo {
 }
 
 /** Reads a sound layer's file. */
-export async function probeAudio(file: string): Promise<AudioInfo> {
+export async function probeAudio(file: string, signal?: AbortSignal): Promise<AudioInfo> {
   let json: FfprobeJson;
   try {
-    const { stdout } = await exec(ffprobeExe(), ['-v', 'error', '-show_streams', '-show_format', '-of', 'json', file]);
+    const { stdout } = await exec(ffprobeExe(), ['-v', 'error', '-show_streams', '-show_format', '-of', 'json', file], { signal });
     json = JSON.parse(stdout) as FfprobeJson;
   } catch (e) {
     throw new ProbeError('unreadable', String(e));
@@ -192,10 +192,10 @@ export async function probeAudio(file: string): Promise<AudioInfo> {
 }
 
 /** Reads a video layer's file, including whether it has a transparent background. */
-export async function probeVideo(file: string): Promise<VideoInfo> {
+export async function probeVideo(file: string, signal?: AbortSignal): Promise<VideoInfo> {
   let json: FfprobeJson;
   try {
-    const { stdout } = await exec(ffprobeExe(), ['-v', 'error', '-show_streams', '-show_format', '-of', 'json', file]);
+    const { stdout } = await exec(ffprobeExe(), ['-v', 'error', '-show_streams', '-show_format', '-of', 'json', file], { signal });
     json = JSON.parse(stdout) as FfprobeJson;
   } catch (e) {
     throw new ProbeError('unreadable', String(e));
@@ -204,7 +204,7 @@ export async function probeVideo(file: string): Promise<VideoInfo> {
   let alpha = streamAlpha(video);
   if (alpha && isPackedRgba(video.pix_fmt)) {
     try {
-      alpha = await hasTransparentPixels(file, video.index);
+      alpha = await hasTransparentPixels(file, video.index, signal);
     } catch (e) {
       throw new ProbeError('unreadable', String(e));
     }
@@ -214,7 +214,7 @@ export async function probeVideo(file: string): Promise<VideoInfo> {
       const { stdout } = await exec(ffprobeExe(), [
         '-v', 'error', ...(decoder ? ['-c:v', decoder] : []), '-select_streams', String(video.index),
         '-read_intervals', '%+#1', '-show_entries', 'frame=pix_fmt', '-of', 'json', file,
-      ]);
+      ], { signal });
       const frames = (JSON.parse(stdout) as { frames?: { pix_fmt?: string }[] }).frames ?? [];
       alpha = hasAlphaChannel(frames[0]?.pix_fmt);
     } catch (e) {

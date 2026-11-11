@@ -49,6 +49,24 @@ describe('callWorker', () => {
     await expect(call).rejects.toMatchObject({ code: 'cancelled' });
   });
 
+  it('fails a call that runs out of time, tells the worker, and ignores its late answer', async () => {
+    vi.useFakeTimers();
+    try {
+      const call = callWorker('fingerprint', ['a.mp4'], { timeoutMs: 1000 });
+      const failed = expect(call).rejects.toMatchObject({ code: 'timeout' });
+      const worker = forked[0]!;
+      const { id } = worker.sent[0]!;
+      await vi.advanceTimersByTimeAsync(999);
+      expect(worker.sent).toHaveLength(1);
+      await vi.advanceTimersByTimeAsync(1);
+      await failed;
+      expect(worker.sent.at(-1)).toEqual({ type: 'cancel', id });
+      worker.emit('message', { type: 'result', id, value: 'abc' });
+    } finally {
+      vi.useRealTimers();
+    }
+  });
+
   it('stops listening to the signal once the call is over', async () => {
     const abort = new AbortController();
     const removed = vi.spyOn(abort.signal, 'removeEventListener');

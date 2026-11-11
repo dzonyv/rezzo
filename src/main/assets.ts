@@ -16,7 +16,7 @@ import { MAX_LOTTIE_BYTES } from '../shared/lottie.ts';
 import { translate } from '../shared/translate.ts';
 import { assetUrl, rememberAsset } from './media-protocol.ts';
 import { getSettings } from './settings.ts';
-import { callWorker } from './worker-host.ts';
+import { callWorker, READ_TIMEOUT_MS } from './worker-host.ts';
 
 const kindSchema = z.enum(ASSET_KINDS);
 const KINDS: Record<AssetKind, { maxBytes: number; label: string }> = {
@@ -47,13 +47,15 @@ async function inspectFile(file: string, kind: AssetKind): Promise<AddAssetResul
     return { ok: false, error: 'unreadable' };
   }
   if (size > KINDS[kind].maxBytes) return { ok: false, error: 'too-large' };
-  const [fingerprint, video, lottie, audio] = await Promise.all([
-    callWorker('fingerprint', [file]),
-    kind === 'video' ? callWorker('probeVideo', [file]).catch(() => null) : undefined,
-    kind === 'lottie' ? callWorker('readLottie', [file]).catch(() => null) : undefined,
-    kind === 'audio' ? callWorker('probeAudio', [file]).catch(() => null) : undefined,
+  const read = await Promise.all([
+    // A file that stops answering is one Rezzo can't read.
+    callWorker('fingerprint', [file], { timeoutMs: READ_TIMEOUT_MS }).catch(() => null),
+    kind === 'video' ? callWorker('probeVideo', [file], { timeoutMs: READ_TIMEOUT_MS }).catch(() => null) : undefined,
+    kind === 'lottie' ? callWorker('readLottie', [file], { timeoutMs: READ_TIMEOUT_MS }).catch(() => null) : undefined,
+    kind === 'audio' ? callWorker('probeAudio', [file], { timeoutMs: READ_TIMEOUT_MS }).catch(() => null) : undefined,
   ]);
-  if (video === null || lottie === null || audio === null) return { ok: false, error: 'unreadable' };
+  const [fingerprint, video, lottie, audio] = read;
+  if (fingerprint === null || video === null || lottie === null || audio === null) return { ok: false, error: 'unreadable' };
   if (lottie === 'external-images') return { ok: false, error: 'external-images' };
   if (audio && audio.duration > MAX_AUDIO_SECONDS) return { ok: false, error: 'too-long' };
   rememberAsset(file);

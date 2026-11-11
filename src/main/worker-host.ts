@@ -44,18 +44,29 @@ function worker(): UtilityProcess {
   return proc;
 }
 
+/** Reading a file's streams or fingerprint takes a second or two; this long means the file stopped answering. */
+export const READ_TIMEOUT_MS = 60_000;
+
 export interface CallOptions<P = unknown> {
   onProgress?: (progress: P) => void;
   signal?: AbortSignal;
   /** Ports handed to the worker with the call. */
   transfer?: MessagePortMain[];
+  /**
+   * For a job that should be quick and could hang (a file on a network
+   * drive that stopped answering): after this long the call fails with
+   * code "timeout" and the worker is told to stop it.
+   */
+  timeoutMs?: number;
 }
 
 /**
  * Runs `method` in the media worker. How every long job is cancelled: the
  * caller aborts `signal`, the worker stops the job (and the program it runs)
  * and the call rejects with a WorkerError whose code is "cancelled". A call
- * whose signal is aborted already never reaches the worker.
+ * whose signal is aborted already never reaches the worker. A call with a
+ * `timeoutMs` fails at once when it runs out, without waiting for the job
+ * to notice: some (reading a file) can't be stopped halfway.
  */
 export function callWorker<M extends WorkerMethod>(
   method: M,
@@ -71,11 +82,24 @@ export function callWorker<M extends WorkerMethod>(
   const proc = worker();
   const id = nextId++;
   const cancel = () => proc.postMessage({ type: 'cancel', id });
+  let timer: ReturnType<typeof setTimeout> | undefined;
   return new Promise<ReturnType<WorkerMethods[M]>>((resolve, reject) => {
     pending.set(id, { resolve: resolve as (v: unknown) => void, reject, onProgress: options.onProgress });
     proc.postMessage({ type: 'call', id, method, args }, options.transfer);
     signal?.addEventListener('abort', cancel, { once: true });
-  }).finally(() => signal?.removeEventListener('abort', cancel));
+    if (options.timeoutMs !== undefined) {
+      const ms = options.timeoutMs;
+      timer = setTimeout(() => {
+        // Its answer, if it ever comes, finds nobody waiting.
+        pending.delete(id);
+        cancel();
+        reject(new WorkerError(`${method} took longer than ${ms / 1000} s`, 'timeout'));
+      }, ms);
+    }
+  }).finally(() => {
+    clearTimeout(timer);
+    signal?.removeEventListener('abort', cancel);
+  });
 }
 
 export function stopWorker(): void {

@@ -30,9 +30,9 @@ type Handlers = {
 };
 
 const handlers: Handlers = {
-  probe: (_ctx, file) => probe(file),
-  probeVideo: (_ctx, file) => probeVideo(file),
-  probeAudio: (_ctx, file) => probeAudio(file),
+  probe: (ctx, file) => probe(file, ctx.signal),
+  probeVideo: (ctx, file) => probeVideo(file, ctx.signal),
+  probeAudio: (ctx, file) => probeAudio(file, ctx.signal),
   readLottie: (_ctx, file) => readLottieInfo(file),
   fingerprint: (_ctx, file) => fingerprint(file),
   installTool: (ctx, id, dir) => install(tool(id), dir, { onProgress: ctx.progress, signal: ctx.signal }),
