@@ -290,6 +290,22 @@ describe('export', () => {
     expect(Math.abs(Number(audio.duration) - COUNT / 30)).toBeLessThan(1 / 30 + 0.025);
   });
 
+  // First, while the long clip has no working file yet: making it is the export's first stage.
+  it('stops making the working file when cancelled while preparing', async () => {
+    const cache = path.join(dir, 'local', 'cache');
+    const workingFiles = async () =>
+      (await Promise.all((await readdir(cache).catch(() => [])).map((f) => readdir(path.join(cache, f, 'work')).catch(() => [])))).flat();
+    const before = await workingFiles();
+    await exportFromList('Dugi', path.join(dir, 'out', 'dugi.mp4'));
+    await page.locator('.export-dialog').getByText('Preparing the clip…').waitFor();
+    await page.locator('.export-dialog').getByRole('button', { name: 'Cancel' }).click();
+    await expect.poll(() => page.locator('.export-dialog[open]').count(), { timeout: 5_000 }).toBe(0);
+    // FFmpeg stopped: no working file came of it, whole or half-made, even a while later.
+    await new Promise((r) => setTimeout(r, 3000));
+    expect((await workingFiles()).filter((f) => !before.includes(f))).toEqual([]);
+    expect(await readdir(path.join(dir, 'out'))).not.toContain('dugi.mp4');
+  });
+
   it('asks before closing the window during an export, and leaves nothing behind when cancelled', async () => {
     const target = path.join(dir, 'out', 'dugi.mp4');
     await exportFromList('Dugi', target);

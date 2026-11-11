@@ -384,4 +384,18 @@ describe('clips', () => {
     await page.getByRole('button', { name: 'Open Danas pričamo o kadriranju klipova' }).click();
     await expect.poll(() => page.getByRole('textbox', { name: 'Clip name' }).inputValue()).toBe('Danas pričamo o kadriranju klipova');
   });
+
+  it('plays again at once when a trim past the working file is undone', async () => {
+    const play = page.locator('.transport button.play');
+    const preparing = page.locator('.clip-preview-message');
+    await expect.poll(() => play.isEnabled(), { timeout: 30_000 }).toBe(true);
+    // The working file has 2 s on either side of the clip; 2.5 s later is past it.
+    const later = page.getByRole('button', { name: 'End later' });
+    for (let i = 0; i < 25; i++) await later.click();
+    await preparing.waitFor();
+    for (let i = 0; i < 25; i++) await page.getByRole('button', { name: 'Undo', exact: true }).click();
+    // Back inside the file it has: nothing to prepare, and Play works straight away.
+    await expect.poll(() => preparing.count(), { timeout: 3000 }).toBe(0);
+    expect(await play.isEnabled()).toBe(true);
+  });
 });

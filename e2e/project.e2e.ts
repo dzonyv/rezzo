@@ -99,6 +99,47 @@ describe('projects', () => {
     await expect.poll(stopped).toEqual([expect.stringMatching(/^[0-9a-f]{64}$/)]);
   });
 
+  it('leaves a project opened during a save with its own file', async () => {
+    const { app: a, page } = await launch();
+    // Project B, saved, to open later.
+    await newProjectFrom(a, page, video);
+    const fileB = path.join(dir, 'b.rezzo');
+    await answerSaveDialog(a, fileB);
+    await nameField(page).fill('B');
+    await nameField(page).press('Enter');
+    await page.keyboard.press('Control+S');
+    await expect.poll(() => page.locator('.dirty').count()).toBe(0);
+    await page.getByRole('button', { name: 'Close project' }).click();
+
+    // Project A, saved with Save As, whose dialog doesn't answer until the test says so.
+    await newProjectFrom(a, page, video);
+    await nameField(page).fill('A');
+    await nameField(page).press('Enter');
+    const fileA = path.join(dir, 'a.rezzo');
+    await a.evaluate(({ dialog }, f) => {
+      const g = globalThis as typeof globalThis & { answerSave?: () => void };
+      dialog.showSaveDialog = (() => new Promise((resolve) => (g.answerSave = () => resolve({ canceled: false, filePath: f })))) as typeof dialog.showSaveDialog;
+    }, fileA);
+    await page.keyboard.press('Control+Shift+S');
+    await expect.poll(() => a.evaluate(() => typeof (globalThis as typeof globalThis & { answerSave?: () => void }).answerSave)).toBe('function');
+
+    // While A is being saved, B is opened, dropping A's changes.
+    await answerOpenDialog(a, fileB);
+    await page.keyboard.press('Control+O');
+    await page.locator('dialog[open]').getByRole('button', { name: "Don't save" }).click();
+    await expect.poll(() => nameField(page).inputValue()).toBe('B');
+    await a.evaluate(() => (globalThis as typeof globalThis & { answerSave: () => void }).answerSave());
+    await expect.poll(async () => JSON.parse(await readFile(fileA, 'utf8').catch(() => '{}')).name).toBe('A');
+
+    // B is still B, with its own file: saving it doesn't write over A.
+    await nameField(page).fill('B2');
+    await nameField(page).press('Enter');
+    await page.keyboard.press('Control+S');
+    await expect.poll(async () => JSON.parse(await readFile(fileB, 'utf8')).name).toBe('B2');
+    expect(JSON.parse(await readFile(fileA, 'utf8')).name).toBe('A');
+    expect(await page.title()).toBe('B2 — Rezzo');
+  });
+
   it('refuses files without a picture', async () => {
     const { app: a, page } = await launch();
     const audio = await makeTestVideo(path.join(dir, 'only-sound.m4a'), { audioOnly: true });

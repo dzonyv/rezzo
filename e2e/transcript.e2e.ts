@@ -226,6 +226,22 @@ describe('transcript', () => {
     const saved = JSON.parse(await readFile(path.join(dir, 'show.rezzo'), 'utf8')) as { transcript: { segments: Segment[] } };
     expect(saved.transcript.segments.at(-1)!.words[0]!.text).toBe('I');
   });
+
+  // Last: it closes the app.
+  it('asks to save a word still being corrected when the window closes, and saves it', async () => {
+    await page.locator('.w', { hasText: /^Dobro\s*$/ }).dblclick();
+    await page.keyboard.type('Govorimo');
+    // Nothing else is unsaved: the word in the editor is the only change.
+    expect(await page.locator('.topbar .dirty').count()).toBe(0);
+    const closed = app!.waitForEvent('close');
+    await app!.evaluate(({ BrowserWindow }) => BrowserWindow.getAllWindows()[0]!.close());
+    await page.getByRole('heading', { name: /^Save changes to/ }).waitFor();
+    await page.locator('dialog[open]').getByRole('button', { name: 'Save', exact: true }).click();
+    await closed;
+    app = undefined;
+    const saved = JSON.parse(await readFile(path.join(dir, 'show.rezzo'), 'utf8')) as { transcript: { segments: Segment[] } };
+    expect(saved.transcript.segments[0]!.words[0]!.text).toBe('Govorimo');
+  });
 });
 
 /** The transcript's text as shown, one line per segment. */
