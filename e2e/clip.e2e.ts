@@ -389,11 +389,16 @@ describe('clips', () => {
     const play = page.locator('.transport button.play');
     const preparing = page.locator('.clip-preview-message');
     await expect.poll(() => play.isEnabled(), { timeout: 30_000 }).toBe(true);
-    // The working file has 2 s on either side of the clip; 2.5 s later is past it.
-    const later = page.getByRole('button', { name: 'End later' });
-    for (let i = 0; i < 25; i++) await later.click();
+    // 25 clicks of a tenth of a second take the end 2.5 s on, past the working file (2 s around the clip).
+    // Clicked in one go inside the page, so however slow the machine, the preview sees only where they end.
+    const clickTimes = (name: string) =>
+      page.getByRole('button', { name, exact: true }).evaluate((button: { click(): void }) => {
+        for (let i = 0; i < 25; i++) button.click();
+      });
+    await clickTimes('End later');
     await preparing.waitFor();
-    for (let i = 0; i < 25; i++) await page.getByRole('button', { name: 'Undo', exact: true }).click();
+    // Undone straight away, well within the 400 ms a trim waits before the new file is asked for.
+    await clickTimes('Undo');
     // Back inside the file it has: nothing to prepare, and Play works straight away.
     await expect.poll(() => preparing.count(), { timeout: 3000 }).toBe(0);
     expect(await play.isEnabled()).toBe(true);

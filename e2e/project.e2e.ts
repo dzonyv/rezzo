@@ -9,7 +9,7 @@ import type { ElectronApplication, Page } from 'playwright-core';
 import { afterEach, beforeAll, beforeEach, describe, expect, it } from 'vitest';
 import type { RezzoApi } from '../src/shared/api.ts';
 import { PROJECT_FORMAT } from '../src/shared/project.ts';
-import { answerOpenDialog, answerSaveDialog, launchApp, makeTestVideo, stopApp, type Launched } from './helpers.ts';
+import { answerOpenDialog, answerSaveDialog, holdSaveDialog, launchApp, makeTestVideo, stopApp, type Launched } from './helpers.ts';
 
 type PageGlobal = typeof globalThis & { rezzo: RezzoApi };
 
@@ -116,19 +116,16 @@ describe('projects', () => {
     await nameField(page).fill('A');
     await nameField(page).press('Enter');
     const fileA = path.join(dir, 'a.rezzo');
-    await a.evaluate(({ dialog }, f) => {
-      const g = globalThis as typeof globalThis & { answerSave?: () => void };
-      dialog.showSaveDialog = (() => new Promise((resolve) => (g.answerSave = () => resolve({ canceled: false, filePath: f })))) as typeof dialog.showSaveDialog;
-    }, fileA);
+    const saveDialog = await holdSaveDialog(a, fileA);
     await page.keyboard.press('Control+Shift+S');
-    await expect.poll(() => a.evaluate(() => typeof (globalThis as typeof globalThis & { answerSave?: () => void }).answerSave)).toBe('function');
+    await saveDialog.opened();
 
     // While A is being saved, B is opened, dropping A's changes.
     await answerOpenDialog(a, fileB);
     await page.keyboard.press('Control+O');
     await page.locator('dialog[open]').getByRole('button', { name: "Don't save" }).click();
     await expect.poll(() => nameField(page).inputValue()).toBe('B');
-    await a.evaluate(() => (globalThis as typeof globalThis & { answerSave: () => void }).answerSave());
+    await saveDialog.answer();
     await expect.poll(async () => JSON.parse(await readFile(fileA, 'utf8').catch(() => '{}')).name).toBe('A');
 
     // B is still B, with its own file: saving it doesn't write over A.

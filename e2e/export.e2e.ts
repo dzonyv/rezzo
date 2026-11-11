@@ -296,13 +296,14 @@ describe('export', () => {
     const workingFiles = async () =>
       (await Promise.all((await readdir(cache).catch(() => [])).map((f) => readdir(path.join(cache, f, 'work')).catch(() => [])))).flat();
     const before = await workingFiles();
+    const added = async () => (await workingFiles()).filter((f) => !before.includes(f));
     await exportFromList('Dugi', path.join(dir, 'out', 'dugi.mp4'));
-    await page.locator('.export-dialog').getByText('Preparing the clip…').waitFor();
+    // Cancelled once FFmpeg is writing the working file: its half-made copy is there.
+    await expect.poll(async () => (await added()).some((f) => f.endsWith('.part.mp4')), { timeout: 30_000 }).toBe(true);
     await page.locator('.export-dialog').getByRole('button', { name: 'Cancel' }).click();
     await expect.poll(() => page.locator('.export-dialog[open]').count(), { timeout: 5_000 }).toBe(0);
-    // FFmpeg stopped: no working file came of it, whole or half-made, even a while later.
-    await new Promise((r) => setTimeout(r, 3000));
-    expect((await workingFiles()).filter((f) => !before.includes(f))).toEqual([]);
+    // FFmpeg stopped and its half-made copy went. Had it gone on, the copy would stay until it became the working file.
+    await expect.poll(added, { timeout: 10_000 }).toEqual([]);
     expect(await readdir(path.join(dir, 'out'))).not.toContain('dugi.mp4');
   });
 

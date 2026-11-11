@@ -264,3 +264,22 @@ export function answerSaveDialog(app: ElectronApplication, file: string): Promis
     dialog.showSaveDialog = (async () => ({ canceled: false, filePath: f })) as typeof dialog.showSaveDialog;
   }, file);
 }
+
+type HeldDialog = typeof globalThis & { answerHeldSave?: () => void };
+
+/**
+ * The next Save dialog stays open until the test says so: a save in
+ * progress for as long as the test needs. `opened` resolves once it has
+ * been asked for; `answer` answers it with `file`.
+ */
+export async function holdSaveDialog(app: ElectronApplication, file: string): Promise<{ opened(): Promise<void>; answer(): Promise<void> }> {
+  await app.evaluate(({ dialog }, f) => {
+    const g = globalThis as HeldDialog;
+    delete g.answerHeldSave;
+    dialog.showSaveDialog = (() => new Promise((resolve) => (g.answerHeldSave = () => resolve({ canceled: false, filePath: f })))) as typeof dialog.showSaveDialog;
+  }, file);
+  return {
+    opened: () => until(() => app.evaluate(() => typeof (globalThis as HeldDialog).answerHeldSave === 'function')),
+    answer: () => app.evaluate(() => (globalThis as HeldDialog).answerHeldSave!()),
+  };
+}
