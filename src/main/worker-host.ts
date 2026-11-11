@@ -8,6 +8,8 @@ import { WorkerError, type WorkerMethod, type WorkerMethods, type WorkerReply } 
 import { ffmpegBinDir } from './paths.ts';
 
 interface Pending {
+  /** Every string in the call's arguments: the files and folders the job works with (busyPaths). */
+  paths: string[];
   resolve(value: unknown): void;
   reject(error: Error): void;
   onProgress?: (progress: unknown) => void;
@@ -84,7 +86,7 @@ export function callWorker<M extends WorkerMethod>(
   const cancel = () => proc.postMessage({ type: 'cancel', id });
   let timer: ReturnType<typeof setTimeout> | undefined;
   return new Promise<ReturnType<WorkerMethods[M]>>((resolve, reject) => {
-    pending.set(id, { resolve: resolve as (v: unknown) => void, reject, onProgress: options.onProgress });
+    pending.set(id, { paths: stringsIn(args), resolve: resolve as (v: unknown) => void, reject, onProgress: options.onProgress });
     proc.postMessage({ type: 'call', id, method, args }, options.transfer);
     signal?.addEventListener('abort', cancel, { once: true });
     if (options.timeoutMs !== undefined) {
@@ -100,6 +102,23 @@ export function callWorker<M extends WorkerMethod>(
     clearTimeout(timer);
     signal?.removeEventListener('abort', cancel);
   });
+}
+
+/** Every string inside `value`, however deep. */
+function stringsIn(value: unknown, into: string[] = []): string[] {
+  if (typeof value === 'string') into.push(value);
+  else if (Array.isArray(value)) for (const v of value) stringsIn(v, into);
+  else if (value && typeof value === 'object') for (const v of Object.values(value)) stringsIn(v, into);
+  return into;
+}
+
+/**
+ * The files and folders the media worker's running jobs were handed (with
+ * other strings mixed in; callers look for paths under a folder of theirs).
+ * Clearing the cache leaves these alone.
+ */
+export function busyPaths(): string[] {
+  return [...pending.values()].flatMap((p) => p.paths);
 }
 
 export function stopWorker(): void {

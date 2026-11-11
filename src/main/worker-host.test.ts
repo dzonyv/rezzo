@@ -23,7 +23,7 @@ vi.mock('electron', () => ({
 vi.mock('../workers/media/index.ts?modulePath', () => ({ default: 'worker.js' }));
 vi.mock('./paths.ts', () => ({ ffmpegBinDir: () => 'bin' }));
 
-const { callWorker, stopWorker } = await import('./worker-host.ts');
+const { busyPaths, callWorker, stopWorker } = await import('./worker-host.ts');
 
 beforeEach(() => {
   stopWorker();
@@ -65,6 +65,15 @@ describe('callWorker', () => {
     } finally {
       vi.useRealTimers();
     }
+  });
+
+  it('knows which files its running jobs were handed, until they finish', async () => {
+    const call = callWorker('makeThumbnail', [{ sourcePath: 'D:/a.mp4', time: 1, height: 240, out: 'C:/cache/x/1.jpg' }]);
+    expect(busyPaths()).toEqual(expect.arrayContaining(['D:/a.mp4', 'C:/cache/x/1.jpg']));
+    const worker = forked[0]!;
+    worker.emit('message', { type: 'result', id: worker.sent[0]!.id, value: undefined });
+    await call;
+    expect(busyPaths()).toEqual([]);
   });
 
   it('stops listening to the signal once the call is over', async () => {

@@ -3,6 +3,7 @@ import path from 'node:path';
 import { pathToFileURL } from 'node:url';
 import { addAsset, assetFileUrl, checkAsset, locateAsset } from './assets.ts';
 import { cancelPrepare, prepareClip } from './clip.ts';
+import { clearStorage, revealStorage, storageUsage } from './storage.ts';
 import { cancelOverlay, prepareOverlay } from './overlay.ts';
 import { cancelExport, openExport, revealExport, startExport } from './export.ts';
 import { addFont, readCustomFont } from './fonts.ts';
@@ -105,6 +106,9 @@ function registerHandlers(): void {
   handle('export:open', () => openExport());
 
   handle('app:licenses', () => openLicenses());
+  handle('storage:usage', () => storageUsage());
+  handle('storage:clear', (_ctx, what) => clearStorage(what));
+  handle('storage:reveal', () => revealStorage());
 
   handle('fonts:add', ({ window }) => addFont(window));
   handle('fonts:read', (_ctx, file) => readCustomFont(file));

@@ -1,5 +1,15 @@
 import { describe, expect, it } from 'vitest';
-import { baseName, fileName, formatClipTime, formatDuration, formatFrameRate } from './format.ts';
+import { baseName, fileName, formatBytes, formatClipTime, formatDuration, formatFrameRate } from './format.ts';
+
+describe('formatBytes', () => {
+  it('uses the largest unit the size fills, written as the language writes numbers', () => {
+    expect(formatBytes(512, 'en')).toBe('512 B');
+    expect(formatBytes(7_400_000_000, 'en')).toBe('7.4 GB');
+    expect(formatBytes(7_400_000_000, 'sr-Latn')).toBe('7,4 GB');
+    expect(formatBytes(950_000_000, 'en')).toBe('950 MB');
+    expect(formatBytes(1_000_000, 'en')).toBe('1 MB');
+  });
+});
 
 describe('format', () => {
   it('durations', () => {

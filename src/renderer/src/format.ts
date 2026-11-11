@@ -18,6 +18,25 @@ export function formatClipTime(seconds: number): string {
   return `${m}:${String(s).padStart(2, '0')}.${tenths % 10}`;
 }
 
+/**
+ * A size on disk in the largest unit it fills, to one decimal past bytes,
+ * written as `locale` writes numbers: "7.4 GB", or "7,4 GB".
+ */
+export function formatBytes(bytes: number, locale: string): string {
+  const units = ['B', 'KB', 'MB', 'GB', 'TB'];
+  let value = Math.max(0, bytes);
+  let unit = 0;
+  while (value >= 1000 && unit < units.length - 1) {
+    value /= 1000;
+    unit++;
+  }
+  const number = new Intl.NumberFormat(locale, { maximumFractionDigits: unit === 0 ? 0 : 1 }).format(value);
+  return `${number} ${units[unit]}`;
+}
+
+/** The locale numbers and dates are written in for an interface language: BCS in Latin script. */
+export const localeOf = (language: string): string => (language === 'sh' ? 'sr-Latn' : 'en');
+
 /** [30000, 1001] -> "29.97", [25, 1] -> "25". */
 export function formatFrameRate([num, den]: [number, number]): string {
   return String(Math.round((num / den) * 100) / 100);

@@ -139,7 +139,8 @@
   },
   "common": {
     "dismiss": "Dismiss",
-    "close": "Close"
+    "close": "Close",
+    "cancel": "Cancel"
   },
   "settings": {
     "uiLanguage": "Interface language"
@@ -771,5 +772,29 @@
   "strip": {
     "title": "Whole episode",
     "openClip": "Open {{name}}"
+  },
+  "storage": {
+    "link": "Disk space",
+    "title": "Disk space",
+    "measuring": "Measuring…",
+    "intro": "Working files, thumbnails, clip analysis and voices, kept so they don't have to be made again. Projects and transcripts aren't here. Whatever you delete is made again when it's needed.",
+    "videos": "By video",
+    "episodeMeta": "Opened {{when}}",
+    "layerMeta": "Used as a layer",
+    "other": "Not in recent projects",
+    "otherMeta": "No project uses it",
+    "busy": "In use",
+    "delete": "Delete",
+    "tools": "Downloaded tools",
+    "toolMeta": "Downloaded again the next time it's needed",
+    "oldTool": "Not used by this version",
+    "empty": "Nothing is cached.",
+    "reveal": "Open folder",
+    "clearAll": "Delete all cached files · {{size}}",
+    "confirmTitle": "Delete all cached files?",
+    "confirmBody": "This frees {{size}}. Each episode's working files, clip analysis and voices are made again the next time you open it.",
+    "confirm": "Delete",
+    "skipped": "Some files are in use and weren't deleted.",
+    "failed": "Couldn't read the disk space: {{detail}}"
   }
 }

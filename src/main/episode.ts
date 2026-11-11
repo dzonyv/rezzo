@@ -152,10 +152,11 @@ export function episodeThumbnail(source: unknown, time: unknown, size: unknown):
       .then(() => allowMedia(out));
     thumbnailQueue = done.catch(() => undefined);
     makingThumbnails.set(out, (making = { done, signal }));
-    // A failure can be tried again; a success stays, the file is in the cache anyway.
-    done.catch(() => {
+    // Only while it's being made: the next ask finds the file in the cache, or makes it again if the cache was cleared.
+    const forget = () => {
       if (makingThumbnails.get(out)?.done === done) makingThumbnails.delete(out);
-    });
+    };
+    done.then(forget, forget);
   }
   return making.done;
 }

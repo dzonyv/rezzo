@@ -139,7 +139,8 @@
   },
   "common": {
     "dismiss": "Zatvori",
-    "close": "Zatvori"
+    "close": "Zatvori",
+    "cancel": "Otkaži"
   },
   "settings": {
     "uiLanguage": "Jezik interfejsa"
@@ -771,5 +772,29 @@
   "strip": {
     "title": "Cela epizoda",
     "openClip": "Otvori {{name}}"
+  },
+  "storage": {
+    "link": "Prostor na disku",
+    "title": "Prostor na disku",
+    "measuring": "Računam…",
+    "intro": "Radni fajlovi, sličice, analiza klipova i glasovi, sačuvani da ne bi morali ponovo da se prave. Projekti i transkripti nisu ovde. Šta god obrišeš, napraviće se ponovo kad zatreba.",
+    "videos": "Po videu",
+    "episodeMeta": "Otvoren {{when}}",
+    "layerMeta": "Koristi se kao sloj",
+    "other": "Nije u nedavnim projektima",
+    "otherMeta": "Nijedan projekat ga ne koristi",
+    "busy": "U upotrebi",
+    "delete": "Obriši",
+    "tools": "Preuzeti alati",
+    "toolMeta": "Preuzima se ponovo kad zatreba",
+    "oldTool": "Ova verzija ga ne koristi",
+    "empty": "Keš je prazan.",
+    "reveal": "Otvori folder",
+    "clearAll": "Obriši ceo keš · {{size}}",
+    "confirmTitle": "Obrisati ceo keš?",
+    "confirmBody": "Oslobađa se {{size}}. Radni fajlovi, analiza klipova i glasovi svake epizode napraviće se ponovo kad je sledeći put otvoriš.",
+    "confirm": "Obriši",
+    "skipped": "Neki fajlovi su u upotrebi i nisu obrisani.",
+    "failed": "Prostor na disku nije mogao da se izmeri: {{detail}}"
   }
 }
