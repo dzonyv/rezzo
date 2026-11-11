@@ -89,7 +89,7 @@ An outside review of `f6cf25e` found sixteen bugs. Each one was checked against 
 
 This group also settles one cancellation rule for main, the page, the media worker and FFmpeg, so the next long job doesn't need its own.
 
-### Main process hardening
+### Main process hardening ✓
 
 - The page can read any file on disk by saving a project that points to it and opening it again: `project:save` and `project:open` accept any path from the page, and opening a project trusts every path in it. Only matters if someone already runs code in the page, but the page is sandboxed so that this exact thing stays impossible. Main should only open and save where the user chose in a dialog (or through recent projects), and check that a project's files exist and are media before handing out URLs for them.
 - A small .lottie package can unpack to a thousand times its size (65 KB became 64 MB in the audit), synchronously in the main process (`main/lottie-file.ts`). Cap the unpacked size and do it off the main thread.
@@ -99,3 +99,6 @@ This group also settles one cancellation rule for main, the page, the media work
 
 - `npm audit` lists 16 moderate advisories, none high or critical, mostly in build tools. Go through them by whether the app actually uses the affected code; don't run `npm audit fix --force`.
 - One lint warning: `react-hooks/incompatible-library` for `useVirtualizer()` in `TranscriptView.tsx`.
+- End-to-end tests for the orderings the fixes above are about, which so far only have unit tests: a word being corrected when the window closes, undoing a trim before its working file is ready, opening another project while a save is running, and cancelling an export at each of its stages. The "stuck on preparing" fix has no test at all. The packaged build, and the software and GPU encoders, should each get a run.
+- Storage the user can see and clean: how much disk the cache takes, and a way to empty it. Tidying the cache must not fail a conversion that already finished, or delete a file that's in use.
+- Every long job checked against the one cancellation rule (`callWorker()` in `main/worker-host.ts`): transcription, telling voices apart, the episode preview and thumbnails haven't been gone through. Waits that could hang get a limit.

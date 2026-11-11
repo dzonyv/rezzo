@@ -11,6 +11,8 @@ export const toolSchema = z.object({
   size: z.number().int().positive(),
   sha256: z.string().regex(/^[0-9a-f]{64}$/),
   extract: z.boolean().optional(),
+  /** The name of a file an unpacked tool can't run without, wherever in its folder it is. */
+  entry: z.string().optional(),
   license: z.string(),
   source: z.url(),
 });
