@@ -15,11 +15,12 @@ import { chromaKeySchema } from './chroma-key.ts';
 import { EFFECT_NAMES, paramsValid } from './effects.ts';
 import { fps, frameAt, timeOfFrame, workingFrameRate } from './frames.ts';
 import { motionSchema, transformSchema } from './motion.ts';
+import { MAX_DUCK_DB, MIN_DUCK_DB } from './ducking.ts';
 import { followSchema, MAX_FADE_SECONDS, soundSourceSchema } from './sounds.ts';
 import { speakerCountSchema, speakerPickSchema, voiceEditSchema } from './voices.ts';
 
 /** Bumped when the file format changes in a way older files need migrating for. */
-export const PROJECT_FORMAT = 14;
+export const PROJECT_FORMAT = 15;
 export const PROJECT_EXTENSION = 'rezzo';
 
 export const TRANSCRIPT_LANGUAGES = ['sr', 'hr', 'bs'] as const;
@@ -286,7 +287,8 @@ const fade = z.number().min(0).max(MAX_FADE_SECONDS);
  * have its loudness evened out (shared/loudness.ts); the library's sounds
  * already are. A sound can go with another layer's entrance or exit
  * (`follows`): then its time comes from that layer (shared/follow-sounds.ts),
- * it doesn't loop, and it goes when that layer is deleted.
+ * it doesn't loop, and it goes when that layer is deleted. Music is
+ * usually turned down while someone talks (`duck`).
  */
 export const soundLayerSchema = z.object({
   id: z.uuid(),
@@ -304,6 +306,8 @@ export const soundLayerSchema = z.object({
   evenLoudness: z.boolean(),
   /** The layer whose entrance or exit it goes with, or null for a sound placed on its own. */
   follows: followSchema.nullable(),
+  /** Whether it's turned down while someone talks, and by how many dB (shared/ducking.ts). */
+  duck: z.object({ on: z.boolean(), db: z.number().min(MIN_DUCK_DB).max(MAX_DUCK_DB) }),
 });
 export type SoundLayer = z.infer<typeof soundLayerSchema>;
 
@@ -470,7 +474,10 @@ const MIGRATIONS: Record<number, (old: Record<string, unknown>) => Record<string
   12: (old) => ({ ...old, clips: Array.isArray(old.clips) ? old.clips.map(withoutEvenLoudness) : old.clips }),
   // Format 14 let a sound go with a layer's entrance or exit. Sounds made
   // before it stand on their own.
-  13: (old) => ({ ...old, clips: soundsOnTheirOwn(old.clips) }),
+  13: (old) => ({ ...old, clips: patchSounds(old.clips, { follows: null }) }),
+  // Format 15 let a sound be turned down while someone talks. Sounds made
+  // before it keep sounding as they did. 12 dB: DEFAULT_DUCK_DB when this was written.
+  14: (old) => ({ ...old, clips: patchSounds(old.clips, { duck: { on: false, db: 12 } }) }),
 };
 
 /**
@@ -504,11 +511,12 @@ function withoutEvenLoudness(clip: { layers?: unknown }): unknown {
   return { ...clip, evenLoudness: false, layers };
 }
 
-function soundsOnTheirOwn(clips: unknown): unknown {
+/** `clips` with `patch` over each of their sound layers. */
+function patchSounds(clips: unknown, patch: object): unknown {
   if (!Array.isArray(clips)) return clips;
   return clips.map((clip: { layers?: unknown }) =>
     Array.isArray(clip?.layers)
-      ? { ...clip, layers: clip.layers.map((l: { kind?: unknown }) => (l?.kind === 'sound' ? { ...l, follows: null } : l)) }
+      ? { ...clip, layers: clip.layers.map((l: { kind?: unknown }) => (l?.kind === 'sound' ? { ...l, ...patch } : l)) }
       : clip,
   );
 }

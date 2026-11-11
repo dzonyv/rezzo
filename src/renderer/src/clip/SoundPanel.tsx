@@ -1,7 +1,7 @@
 import { useTranslation } from 'react-i18next';
 import type { Asset } from '../../../shared/assets.ts';
 import { useAssetLoudness } from '../render/loudness.ts';
-import { EvenLoudness } from './Loudness.tsx';
+import { DuckSpeech, EvenLoudness } from './Loudness.tsx';
 import { isTimed, type SoundLayer } from '../../../shared/project.ts';
 import { soundAsset, soundDuration } from '../../../shared/sound-mix.ts';
 import { MAX_FADE_SECONDS, MAX_FOLLOW_SHIFT } from '../../../shared/sounds.ts';
@@ -18,7 +18,8 @@ const FOLLOW: EditLabel = 'history.followSound';
 /**
  * The selected sound's settings: its file, volume, fades, where in the
  * file it starts and, for a file of the user's own, whether its loudness
- * is evened out. A sound placed on its own can loop; one that goes with a
+ * is evened out; whether it's turned down while someone talks. A sound
+ * placed on its own can loop; one that goes with a
  * layer's animation says which, and can be moved a little or unlinked.
  */
 export function SoundPanel({ clipId, layer, assets }: { clipId: string; layer: SoundLayer; assets: readonly Asset[] }) {
@@ -127,6 +128,7 @@ export function SoundPanel({ clipId, layer, assets }: { clipId: string; layer: S
           help={t('sounds.loudness.fileHelp')}
         />
       )}
+      {clip && <DuckSpeech clip={clip} layer={layer} />}
       <p className="dim hint">{t('sounds.help')}</p>
     </section>
   );

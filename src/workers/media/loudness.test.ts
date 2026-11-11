@@ -1,5 +1,5 @@
 import { describe, expect, it } from 'vitest';
-import { loudnessArgs } from './loudness.ts';
+import { levelsArgs, loudnessArgs } from './loudness.ts';
 
 const arg = (args: string[], flag: string) => args[args.indexOf(flag) + 1];
 
@@ -16,5 +16,11 @@ describe('loudness measuring', () => {
     expect(graph).toContain('[0:a:0]atrim=start=0.000000:end=3.000000,asetpts=PTS-STARTPTS,');
     expect(graph).toContain('[0:a:0]atrim=start=4.500000:end=6.500000,asetpts=PTS-STARTPTS,');
     expect(graph).toContain('[p0][p1]concat=n=2:v=0:a=1,ebur128=peak=true:framelog=quiet[m]');
+  });
+
+  it("reads the level every 20 ms of what a clip plays, for finding speech", () => {
+    const graph = arg(levelsArgs({ file: 'w.mp4', pieces: [{ start: 0, duration: 3 }, { start: 4.5, duration: 2 }] }), '-filter_complex')!;
+    expect(graph).toContain('[p0][p1]concat=n=2:v=0:a=1,aformat=sample_fmts=flt:channel_layouts=mono,aresample=8000,asetnsamples=n=160:p=0,astats=');
+    expect(graph).toContain('ametadata=print:key=lavfi.astats.Overall.RMS_level[m]');
   });
 });

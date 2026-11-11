@@ -7,7 +7,7 @@ import type { MessagePortMain } from 'electron';
 import type { WorkerMethod, WorkerMethods, WorkerReply, WorkerRequest } from '../../shared/worker-api.ts';
 import { encodeExport, pickEncoder } from './export.ts';
 import { fingerprint } from './fingerprint.ts';
-import { measureLoudness } from './loudness.ts';
+import { measureLevels, measureLoudness } from './loudness.ts';
 import { readLottieInfo } from './lottie-file.ts';
 import { makePreview } from './preview.ts';
 import { probe, probeAudio, probeVideo } from './probe.ts';
@@ -43,6 +43,7 @@ const handlers: Handlers = {
   makeWorkingFile: (ctx, request) => makeWorkingFile(ctx, request),
   makeOverlayFile: (ctx, request) => makeOverlayFile(ctx, request),
   measureLoudness: (ctx, request) => measureLoudness(request, ctx.signal),
+  measureLevels: (ctx, request) => measureLevels(request, ctx.signal),
   pickEncoder: () => pickEncoder(),
   encodeExport: (ctx, request) => encodeExport(ctx, request),
 };

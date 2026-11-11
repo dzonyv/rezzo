@@ -15,7 +15,7 @@ const image = (start: number, end: number, motion: Motion = DEFAULT_MOTION): Ima
 });
 
 const follower = (part: 'in' | 'out', shift = 0, sound: SoundLayer['sound'] = { library: 'whoosh' }): SoundLayer => ({
-  id: crypto.randomUUID(), kind: 'sound', sound, start: 0, end: 0.04, offset: 0, volume: 1, fadeIn: 0, fadeOut: 0, loop: true, evenLoudness: false, follows: { layerId: IMAGE, part, shift },
+  id: crypto.randomUUID(), kind: 'sound', sound, start: 0, end: 0.04, offset: 0, volume: 1, fadeIn: 0, fadeOut: 0, loop: true, evenLoudness: false, follows: { layerId: IMAGE, part, shift }, duck: { on: false, db: 12 },
 });
 
 const clipOf = (...layers: Clip['layers']): Clip => ({ id: crypto.randomUUID(), name: 'x', start: 10, end: 20, skips: [], evenLoudness: false, layers: [defaultVideoLayer(10), ...layers] });

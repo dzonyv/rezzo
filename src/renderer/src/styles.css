@@ -3195,10 +3195,24 @@ button.icon {
   font-size: 14px;
 }
 
-.even-loudness {
+.even-loudness,
+.duck-speech {
   display: flex;
   flex-direction: column;
   gap: 8px;
+}
+
+/* The slider outside the panel's grid, laid out as the grid lays out its own. */
+.duck-speech label.layer-slider {
+  display: grid;
+  grid-template-columns: 1fr auto;
+  gap: 3px 8px;
+  font-size: 12px;
+  color: var(--text-dim);
+}
+
+.duck-speech p {
+  margin: 0;
 }
 
 .switch-row {

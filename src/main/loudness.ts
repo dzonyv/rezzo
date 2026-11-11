@@ -18,21 +18,25 @@ import { callWorker } from './worker-host.ts';
 
 /** Measurements kept; the oldest goes first. */
 const KEEP = 200;
-const measured = new Map<string, Promise<Loudness>>();
+const measured = new Map<string, Promise<Loudness | number[]>>();
 
-/** Measures `request` unless the same file, unchanged, was measured over the same stretches before. */
-async function measure(request: LoudnessRequest): Promise<Loudness> {
+/** Measures `request` with `method` unless the same file, unchanged, was measured that way over the same stretches before. */
+function remembered(method: 'measureLoudness', request: LoudnessRequest): Promise<Loudness>;
+function remembered(method: 'measureLevels', request: LoudnessRequest): Promise<number[]>;
+async function remembered(method: 'measureLoudness' | 'measureLevels', request: LoudnessRequest): Promise<Loudness | number[]> {
   const { size, mtimeMs } = await stat(request.file);
-  const key = JSON.stringify([request.file, size, mtimeMs, request.pieces]);
+  const key = JSON.stringify([method, request.file, size, mtimeMs, request.pieces]);
   let held = measured.get(key);
   if (!held) {
-    held = callWorker('measureLoudness', [request]);
+    held = method === 'measureLevels' ? callWorker('measureLevels', [request]) : callWorker('measureLoudness', [request]);
     measured.set(key, held);
     held.catch(() => measured.delete(key));
     if (measured.size > KEEP) measured.delete(measured.keys().next().value!);
   }
   return held;
 }
+
+const measure = (request: LoudnessRequest): Promise<Loudness> => remembered('measureLoudness', request);
 
 /**
  * The frames of a working file `span` that the clip plays, and the same as
@@ -62,6 +66,22 @@ export async function clipLoudness(sourceArg: unknown, clipArg: unknown): Promis
   if (!source.audio) return null;
   const working = await cachedWorkingFile(source, parseRange({ start: clip.start, end: clip.end }));
   return working ? clipLoudnessIn(working.file, working.span, clip) : null;
+}
+
+/** The level of the clip's own sound in `file` (its working file over `span`) every DUCK_STEP of what it plays: where speech is (shared/ducking.ts). */
+export const clipLevelsIn = (file: string, span: WorkingSpan, clip: Clip): Promise<number[]> => remembered('measureLevels', { file, pieces: clipPieces(clip, span).seconds });
+
+/**
+ * For the preview: the level of the clip's own sound, as clipLevelsIn, or
+ * null when the source has none or its working file isn't there yet.
+ */
+export async function clipLevels(sourceArg: unknown, clipArg: unknown): Promise<number[] | null> {
+  const source = sourceSchema.parse(sourceArg);
+  const clip = clipSchema.parse(clipArg);
+  sourceUrl(source.path); // only a source the app knows
+  if (!source.audio) return null;
+  const working = await cachedWorkingFile(source, parseRange({ start: clip.start, end: clip.end }));
+  return working ? clipLevelsIn(working.file, working.span, clip) : null;
 }
 
 /** For the preview: how loud a sound file of the user's is. */

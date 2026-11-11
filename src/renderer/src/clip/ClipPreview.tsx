@@ -14,9 +14,10 @@ import { analyse } from '../analysis/store.ts';
 import { Compositor, type LayerImage } from '../render/compositor.ts';
 import { forgetOverlayFile, overlayFilesStore, prepareOverlayFiles, readyFiles, retryFailedOverlayFiles, WorkingFileGoneError, type OverlayFile } from '../render/overlay-files.ts';
 import { layerSounds } from '../render/layer-sound.ts';
+import type { GainPoint } from '../../../shared/ducking.ts';
 import { evenGain } from '../../../shared/loudness.ts';
 import { evensLoudness, soundLayersOf } from '../../../shared/sound-mix.ts';
-import { assetLoudnessOf, loudnessStore, measuredLoudness, requestAssetLoudness, useClipLoudness } from '../render/loudness.ts';
+import { assetLoudnessOf, loudnessStore, measuredLoudness, requestAssetLoudness, useClipLoudness, useClipSpeech, duckCurve } from '../render/loudness.ts';
 import type { LottieData } from '../render/lottie.ts';
 import { assetsOf, loadImages, loadLotties, SceneRenderer } from '../render/scene-renderer.ts';
 import { useSettings } from '../settings.ts';
@@ -73,6 +74,9 @@ export function ClipPreview({ clip, source, children }: { clip: Clip; source: So
   const gains = Object.fromEntries(
     heardSounds.flatMap(({ layer, asset }) => (asset && evensLoudness(layer) ? [[layer.id, evenGain(measuredLoudness(assetLoudnessOf(measured, asset)), true)]] : [])),
   );
+  // Sounds turned down while someone talks, by layer id: the gain's corners once the speech is found.
+  const speech = useClipSpeech(source, clip, status === 'ready', heardSounds.some(({ layer }) => layer.duck.on));
+  const ducks = Object.fromEntries(heardSounds.flatMap(({ layer }) => (layer.duck.on && speech ? [[layer.id, duckCurve(speech, layer.duck.db)]] : [])));
   // What the layers' sound depends on, as a value that changes only when that does (not when a layer moves on screen).
   const soundJson = JSON.stringify({
     clip: {
@@ -90,9 +94,10 @@ export function ClipPreview({ clip, source, children }: { clip: Clip; source: So
     assets: [...videoLayersOf(clip, allAssets ?? []), ...heardSounds].flatMap(({ asset }) => (asset ? [asset] : [])),
     files: [...overlays].filter(([id]) => clip.layers.some((l) => l.id === id)),
     gains,
+    ducks,
   });
   const soundInput = useMemo(
-    () => JSON.parse(soundJson) as { clip: Clip; assets: Asset[]; files: [string, OverlayFile][]; gains: Record<string, number> },
+    () => JSON.parse(soundJson) as { clip: Clip; assets: Asset[]; files: [string, OverlayFile][]; gains: Record<string, number>; ducks: Record<string, GainPoint[]> },
     [soundJson],
   );
 
@@ -252,7 +257,7 @@ export function ClipPreview({ clip, source, children }: { clip: Clip; source: So
     let current = true;
     const onFile = (a: Asset, there: boolean) => current && markMissing(a.id, !there);
     for (const { layer, asset } of soundLayersOf(soundInput.clip, soundInput.assets)) if (asset && evensLoudness(layer)) requestAssetLoudness(asset);
-    void layerSounds(soundInput.clip, soundInput.assets, new Map(soundInput.files), soundInput.gains, onFile).then((s) => {
+    void layerSounds(soundInput.clip, soundInput.assets, new Map(soundInput.files), soundInput.gains, soundInput.ducks, onFile).then((s) => {
       if (!current) return;
       sounds.current = s;
       currentPlayer()?.setSounds(s);

@@ -90,6 +90,7 @@
     "soundStart": "sound start",
     "followSound": "sound with animation",
     "unlinkSound": "unlink sound",
+    "duck": "quieter while someone talks",
     "evenLoudness": "even out loudness"
   },
   "files": {
@@ -673,6 +674,15 @@
       "tagIn": "{{name}} · in",
       "tagOut": "{{name}} · out",
       "locked": "{{name}} moves with its layer"
+    },
+    "duck": {
+      "title": "Quieter while someone talks",
+      "amount": "How much quieter",
+      "help": "It goes down just before each sentence and comes back up after it, so music never covers the voice.",
+      "finding": "Finding where someone talks…",
+      "unclear": "Here the voice can't be told apart from the rest of the sound, so nothing is turned down.",
+      "noSpeech": "Nobody talks in this clip.",
+      "noSound": "This clip's video has no sound, so there's no voice to make room for."
     }
   },
   "voices": {

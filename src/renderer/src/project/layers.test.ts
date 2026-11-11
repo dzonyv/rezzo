@@ -5,7 +5,7 @@ import { defaultVideoLayer } from '../../../shared/framing.ts';
 import { newProject, projectSchema, type ImageLayer, type Project, type SoundLayer } from '../../../shared/project.ts';
 import {
   addImageLayer, addLibrarySound, addLottieLayer, addSoundFile, addVideoLayer, deleteLayer, replaceImage, replaceLottie, replaceSoundFile, replaceVideo, duplicateLayer, moveLayer, reorderLayer, setClipEvenLoudness, setFollowShift, setFollowSound,
-  setFollowSoundAsset, setFollowSoundFile, setMotion, setSoundSettings, setTransform, trimLayer, unlinkSound,
+  setFollowSoundAsset, setFollowSoundFile, setMotion, setSoundDuck, setSoundSettings, setTransform, trimLayer, unlinkSound,
 } from './layers.ts';
 import { projectStore } from './store.ts';
 
@@ -190,6 +190,21 @@ describe('layer edits', () => {
     setSoundSettings(CLIP, file, { evenLoudness: false });
     expect(layer(file)).toMatchObject({ evenLoudness: false });
     expect(state().undoLabel).toBe('history.soundSettings');
+  });
+
+  it('turns music of your own down while someone talks from the start, not a short sound or one from the library', () => {
+    const library = addLibrarySound(CLIP, 'applause', 12)!;
+    const short = addSoundFile(CLIP, { ...FILE, name: 'udarac.wav', fingerprint: 'e'.repeat(64) }, { codec: 'pcm_s16le', duration: 2 }, 11)!;
+    const music = addSoundFile(CLIP, { ...FILE, name: 'tema.mp3', fingerprint: 'd'.repeat(64) }, { codec: 'mp3', duration: 95 }, 10)!;
+    const layer = (id: string) => clip().layers.find((l) => l.id === id);
+    expect(layer(library)).toMatchObject({ duck: { on: false, db: 12 } });
+    expect(layer(short)).toMatchObject({ duck: { on: false } });
+    expect(layer(music)).toMatchObject({ duck: { on: true, db: 12 } });
+    setSoundDuck(CLIP, short, { on: true, db: 30 });
+    expect(layer(short)).toMatchObject({ duck: { on: true, db: 24 } });
+    setSoundDuck(CLIP, short, { db: 7.6 });
+    expect(layer(short)).toMatchObject({ duck: { db: 8 } });
+    expect(state().undoLabel).toBe('history.duck');
   });
 
   it("switches evening out the clip's own sound, one undo step", () => {

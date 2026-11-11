@@ -215,6 +215,11 @@ export interface InvokeApi {
   'loudness:clip': (source: Source, clip: Clip) => Loudness | null;
   /** How loud a sound file of the user's is. */
   'loudness:asset': (asset: AudioAsset) => Loudness;
+  /**
+   * The level of the clip's own sound every DUCK_STEP of what it plays, for
+   * finding speech (shared/ducking.ts); null as for 'loudness:clip'.
+   */
+  'loudness:levels': (source: Source, clip: Clip) => number[] | null;
 
   /** The renderer listens for close requests from now on. Until then a window closes without asking it. */
   'app:listening': () => void;
@@ -284,6 +289,7 @@ export const INVOKE_CHANNELS = {
   'sound:url': true,
   'loudness:clip': true,
   'loudness:asset': true,
+  'loudness:levels': true,
   'app:listening': true,
   'app:close': true,
 } as const satisfies Record<InvokeChannel, true>;

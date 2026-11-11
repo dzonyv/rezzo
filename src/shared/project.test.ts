@@ -322,7 +322,7 @@ describe('project files', () => {
   describe('sound layers', () => {
     const music = { id: '3e0b8c1a-55f2-4b7e-8a51-0c6b1f7d2e44', kind: 'audio' as const, path: 'D:/Muzika/tema.mp3', name: 'tema.mp3', size: 4_000_000, fingerprint: 'c'.repeat(64), codec: 'mp3', duration: 95.2 };
     const sound = (source: { library: 'whoosh' } | { assetId: string }) => ({
-      id: crypto.randomUUID(), kind: 'sound' as const, sound: source, start: 0.5, end: 1.2, offset: 0, volume: 0.8, fadeIn: 0.2, fadeOut: 1, loop: false, evenLoudness: false, follows: null,
+      id: crypto.randomUUID(), kind: 'sound' as const, sound: source, start: 0.5, end: 1.2, offset: 0, volume: 0.8, fadeIn: 0.2, fadeOut: 1, loop: false, evenLoudness: false, follows: null, duck: { on: false, db: 12 },
     });
     const withSounds = (...layers: ReturnType<typeof sound>[]): Project => ({
       ...sample,
@@ -363,6 +363,19 @@ describe('project files', () => {
       const old = JSON.parse(JSON.stringify({ ...p, format: 13 }), (k, v: unknown) => (k === 'follows' ? undefined : v)) as object;
       expect(JSON.stringify(old)).not.toContain('follows');
       expect(parseProject(JSON.stringify(old))).toEqual(p);
+    });
+
+    it('upgrades a format 14 file with no sound turned down while someone talks', () => {
+      const p = withSounds(sound({ library: 'whoosh' }), sound({ assetId: music.id }));
+      const old = JSON.parse(JSON.stringify({ ...p, format: 14 }), (k, v: unknown) => (k === 'duck' ? undefined : v)) as object;
+      expect(JSON.stringify(old)).not.toContain('duck');
+      expect(parseProject(JSON.stringify(old))).toEqual(p);
+    });
+
+    it('keeps a sound turned down while someone talks, and rejects turning it down too little or too far', () => {
+      const p = withSounds({ ...sound({ assetId: music.id }), duck: { on: true, db: 18 } });
+      expect(parseProject(serializeProject(p))).toEqual(p);
+      for (const db of [3, 30]) expect(code(() => parseProject(JSON.stringify(withSounds({ ...sound({ assetId: music.id }), duck: { on: true, db } }))))).toBe('invalid');
     });
 
     describe('a sound that goes with a layer', () => {

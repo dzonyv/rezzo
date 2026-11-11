@@ -20,6 +20,7 @@
  * Everything heard goes through a limiter like the export's
  * (shared/loudness.ts), and the clip's own sound through its gain first.
  */
+import { duckPointsFrom, type GainPoint } from '../../../shared/ducking.ts';
 import type { Size } from '../../../shared/framing.ts';
 import { fps, type FrameRate } from '../../../shared/frames.ts';
 import { LIMITER, PEAK_CEILING_DB } from '../../../shared/loudness.ts';
@@ -68,11 +69,20 @@ function limiterOf(context: AudioContext): AudioNode {
 /**
  * A layer's sound: a video layer's working file's audio or a sound layer's
  * file, and how it plays (`from` seconds into `buffer`, envelope times in
- * output time).
+ * output time). `duck` turns it down under speech (shared/ducking.ts).
  */
 export interface LayerSound {
   buffer: AudioBuffer;
   played: PlayedSound;
+  duck: GainPoint[] | null;
+}
+
+/** Ramps `param` through `points` (output time), placed on the context's clock by `toContext`. */
+function ramp(param: AudioParam, points: readonly GainPoint[], toContext: (t: number) => number): void {
+  points.forEach((p, i) => {
+    if (i === 0) param.setValueAtTime(p.gain, toContext(p.t));
+    else param.linearRampToValueAtTime(p.gain, toContext(p.t));
+  });
 }
 
 /** Loudness values per second of sound in Peaks. */
@@ -470,7 +480,7 @@ export class ClipPlayer {
     const toContext = (t: number) => origin.contextTime + (t - origin.time);
     // Sound already due starts now, that much further in.
     const now = origin.time + (this.context.currentTime - origin.contextTime);
-    for (const { buffer, played } of this.sounds) {
+    for (const { buffer, played, duck } of this.sounds) {
       const e = played.envelope;
       if (e.volume <= 0) continue;
       const start = Math.max(from, now, e.at);
@@ -488,11 +498,15 @@ export class ClipPlayer {
         offset %= period;
       }
       const gain = this.context.createGain();
-      gainPoints(e, start).forEach((p, i) => {
-        if (i === 0) gain.gain.setValueAtTime(p.gain, toContext(p.t));
-        else gain.gain.linearRampToValueAtTime(p.gain, toContext(p.t));
-      });
-      node.connect(gain).connect(this.output);
+      ramp(gain.gain, gainPoints(e, start), toContext);
+      // Turned down under speech by a gain of its own, multiplied in as the export does.
+      let last: AudioNode = node.connect(gain);
+      if (duck && duck.length > 0) {
+        const ducked = this.context.createGain();
+        ramp(ducked.gain, duckPointsFrom(duck, start), toContext);
+        last = last.connect(ducked);
+      }
+      last.connect(this.output);
       node.start(toContext(start), offset);
       node.stop(toContext(end));
       this.soundNodes.push(node);
