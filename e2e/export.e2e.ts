@@ -290,6 +290,23 @@ describe('export', () => {
     expect(Math.abs(Number(audio.duration) - COUNT / 30)).toBeLessThan(1 / 30 + 0.025);
   });
 
+  // First, while the long clip has no working file yet: making it is the export's first stage.
+  it('stops making the working file when cancelled while preparing', async () => {
+    const cache = path.join(dir, 'local', 'cache');
+    const workingFiles = async () =>
+      (await Promise.all((await readdir(cache).catch(() => [])).map((f) => readdir(path.join(cache, f, 'work')).catch(() => [])))).flat();
+    const before = await workingFiles();
+    const added = async () => (await workingFiles()).filter((f) => !before.includes(f));
+    await exportFromList('Dugi', path.join(dir, 'out', 'dugi.mp4'));
+    // Cancelled once FFmpeg is writing the working file: its half-made copy is there.
+    await expect.poll(async () => (await added()).some((f) => f.endsWith('.part.mp4')), { timeout: 30_000 }).toBe(true);
+    await page.locator('.export-dialog').getByRole('button', { name: 'Cancel' }).click();
+    await expect.poll(() => page.locator('.export-dialog[open]').count(), { timeout: 5_000 }).toBe(0);
+    // FFmpeg stopped and its half-made copy went. Had it gone on, the copy would stay until it became the working file.
+    await expect.poll(added, { timeout: 10_000 }).toEqual([]);
+    expect(await readdir(path.join(dir, 'out'))).not.toContain('dugi.mp4');
+  });
+
   it('asks before closing the window during an export, and leaves nothing behind when cancelled', async () => {
     const target = path.join(dir, 'out', 'dugi.mp4');
     await exportFromList('Dugi', target);
