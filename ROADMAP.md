@@ -68,13 +68,14 @@ A clip gets a cover picture: a frame from the clip with a big title, a few effec
 
 The cover lives on the clip (`cover`: the moment in source seconds, an optional framing change, its own list of layers). Its layers use the same schemas as the timeline's, each with a single key instead of an animation, so the layer panel and the on-picture handles work on it with small changes.
 
-Built in three parts:
+Built in four parts:
 
-- **Thumbnails a — the basics:** pick the moment, framing taken from the clip there and adjustable for the picture. A new text layer: big title with outline, shadow, a band behind it and a second colour for chosen words, painted the way captions are. Images from the project's assets. Saved as PNG 1080×1920 (and a JPG under 2 MB). Its own tab in the clip editor.
+- **Thumbnails a1 — text layer:** a new layer for text you type yourself: big title with outline, shadow, a band behind it and a second colour for chosen words, painted the way captions are. It works on the clip timeline like images do, with a start, an end, entrance and exit animations, and it's exported with the video. A hook title in the first seconds of a clip is the usual use.
+- **Thumbnails a2 — the cover:** pick the moment, framing taken from the clip there and adjustable for the picture. Text and image layers on it. Saved as PNG 1080×1920 (and a JPG under 2 MB). Its own tab in the clip editor.
 - **Thumbnails b — the look:** the speaker cut out with MediaPipe's image segmenter (WASM, no Python), with an outline or glow, so the title can sit behind them. The background darkened, blurred or graded with the existing effects, and a gradient so the text reads. Built-in templates and your own, the way caption styles work.
 - **Thumbnails c — help:** a handful of suggested frames, scored from what the analysis already knows (camera cuts, faces) plus sharpness. A title made by marking words in the transcript. The cover put on the first frames of the exported video, for platforms that only let you pick a frame. Safe zones shown in the editor (Instagram's 4:5 grid crop, TikTok's buttons).
 
-Still open: whether the text layer goes on the clip timeline as well from the start (a hook title in the first seconds), and which platforms matter most, since that decides how much the last two items of part c are worth.
+Still open: which platforms matter most, since that decides how much the last two items of part c are worth.
 
 ## Fixes from the audit of 2026-11-08
 
