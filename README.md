@@ -4,29 +4,37 @@ Rezzo is a desktop app for cutting vertical clips out of podcasts and talk shows
 
 I post podcast clips on social media, and the work is the same every time: find a good moment, crop a wide shot down to 9:16, keep whoever is talking in frame, add captions. The apps that handle this well either stamp a watermark on the video or put the useful parts behind a monthly subscription. Rezzo does the same job for free, and every feature is in the free version because there is no other version.
 
-It's built for Serbian (Balkan) content first, since that's what I work with. Other languages should work too.
+It's made for Serbian, Croatian and Bosnian shows first, since that's what I work with.
 
-## Where it stands
+![A clip in the editor: two people stacked in Split, captions on the line between them, and the timeline below](docs/screenshots/clip.png)
 
-There's no release to download yet, but you can build the installer yourself (see below). Phase 0 checked that the hard parts (transcription, face tracking, GPU export) work on an ordinary PC before I built the app around them. What we found is in [spikes/REPORT.md](spikes/REPORT.md).
+## Download
 
-Phase 1 is done, so the basic job works from start to finish. You import an episode, transcribe it, and search the transcript while the video plays. Select a few sentences and they become a clip. You frame it for 9:16 in any of the three layouts, switching between them partway through if you like, and export it as a 1080×1920 MP4. The full plan is in [ROADMAP.md](ROADMAP.md).
+Windows only for now. Get the installer from the [Releases page](https://github.com/dzonyv/rezzo/releases/latest) and run it. It installs for your user and doesn't need administrator rights.
 
-Captions work too. Before drawing them you fix the transcript where Whisper got it wrong, one word after another without touching the mouse, and nudge word timings against the waveform. Words it always gets wrong (it writes "futbal" every single time) go on a replacement list, and every new transcript gets fixed automatically. Every new clip then gets captions that highlight the word being spoken. There are a few built-in styles, and you can change the font, colours, outline, size and how many words fit on a line, then save the result as your own style. Poppins Bold is the default because it's what I always use; Montserrat and Anton are also included, and you can add any TTF or OTF font you have. If a sentence breaks in an awkward spot, you can start a new caption page from any word.
+The installer isn't signed yet, so Windows SmartScreen warns you the first time. Click "More info", then "Run anyway".
 
-Pauses can go too, if you want them gone. Find pauses marks them on the timeline from the sound, so you see what would go before anything is cut, and you can click the ones you'd rather keep. Select words in the transcript and Cut from clip takes those out the same way, which is handy for an "ovaj" or a false start. Nothing happens to the episode: click a cut on the timeline and it comes back. Captions, framing and layers stay where they were.
+An NVIDIA graphics card makes transcription and export a lot faster, but it isn't required. Without one, both run on the processor. The first time you transcribe, Rezzo downloads whisper.cpp and the speech model (about 1.3 GB with an NVIDIA card) into `%LOCALAPPDATA%\Rezzo`. Uninstalling leaves them there, so a reinstall doesn't download them again. "Disk space" on the home screen shows what Rezzo keeps there and lets you delete it.
 
-Then there are layers. You can put an image over the picture for part of a clip, drag it into place in the preview, resize and turn it by its corners, and move or trim it on the timeline, where every layer gets its own row. It can pop, slide, zoom or bounce in, fade or slide out, and shake, pulse or slowly zoom in (Ken Burns) while it's on screen. Images stay where they are on your disk, the same as the episode: if you move one, Rezzo asks you where it went.
+## How it works
 
-Videos go over the picture the same way. A WebM, ProRes or HEVC file with a transparent background stays transparent, and anything filmed on a green screen can have the green taken out: tick Green screen and click the colour to remove in the preview. A video layer can start partway into its file, loop, and has its own volume, mixed with the clip's sound in the preview and the export. Up to four videos can show at the same moment; that's what a GTX 1660 plays smoothly.
+You start with a whole episode. Pick the language (Serbian, Croatian or Bosnian) and Rezzo transcribes it with a time for every word, always in Latin script, even if the speech model hands back Cyrillic. While the video plays you can search the transcript, and fix the words Whisper got wrong one after another from the keyboard. Words it always gets wrong (it writes "futbal" every single time) go on a replacement list, and every new transcript gets them fixed.
 
-Lottie animations work like images too: add a .json or .lottie file, place it, and it plays from its first frame where the layer starts, faster or slower if you like, looping or stopping on its last frame. Animations that load their images from files next to them aren't supported; export them with the images inside.
+![The episode screen: the video and the voices found on the left, the transcript in the middle, the clips on the right, and the whole episode along the bottom](docs/screenshots/episode.png)
 
-Effects are layers as well. Each one changes everything under it on the timeline, so a new effect goes just below the captions and leaves them alone. There are camera moves (a zoom punch, shake, slow zoom), a white flash and fades to and from black, colour changes (brightness, contrast, saturation, temperature, black and white) and a few stylised ones (blur, vignette, glitch, film grain). Every effect has an intensity you can keyframe, so it can come in and go out as gradually as you want.
+Select a few sentences and they become a clip. Rezzo tells the voices in the episode apart, and when you open a clip it looks for camera cuts and people. Press Auto frame and you get one of three layouts for each shot: following the person talking, two people stacked on top of each other (Split), or the whole picture over a blurred copy of itself. What it does is ordinary keyframes, so you can change any of it by hand. On a wide shot it can't tell who is talking by itself, so turn on Show people and click whoever is. That one click teaches it where that voice sits for the rest of the episode. It goes by the sound and the camera cuts, because lips turned out to be no use for this on real footage.
 
-The app can also do the framing for you. After transcribing it tells the voices in the episode apart, and when you open a clip it looks for camera cuts and people. Press Auto frame and you get ordinary keyframes and layouts that you can change by hand. One person in a shot gets followed, a shot with nobody in it goes to full frame, and two people go to Split until the app knows who is who. On a wide shot it can't work that out alone, so turn on Show people and click whoever is talking. That click teaches it where the voice sits for the rest of the episode. If it gave a turn to the wrong voice, right-click the turn on the timeline and fix it. Lips turned out to be no use for this on real footage, so it goes by the audio and the camera cuts.
+Every clip gets captions that appear word by word and mark the word being spoken. There are a few built-in styles, and you can change the font, colours, outline, size and how many words fit on a line, then keep the result as your own style. Poppins Bold is the default because it's what I always use. Montserrat and Anton come with the app too, and you can add any TTF or OTF font you have.
 
-## Running it from source
+Pauses can go if you want them gone. Rezzo finds them in the sound and marks them on the timeline, so you see what would be cut before anything is, and you can keep the ones you like. Select words in the transcript and they come out the same way, which is handy for an "ovaj" or a false start. Nothing happens to the episode itself, and a cut comes back with a click.
+
+On top of the picture go layers, each on its own row of the timeline: images that pop, slide, zoom or bounce in; videos, with a transparent background or a green screen to take out; Lottie animations; and effects like a zoom punch, a flash, colour changes or film grain. Images and videos stay where they are on your disk, the same as the episode. If you move one, Rezzo asks where it went.
+
+Sounds are layers too, on rows of their own under the picture. There's a small library of free sound effects (a click, a camera shutter, a whoosh and so on), or use your own files and music. A sound can go with a layer coming in or going out, so it moves when the layer does. The loudness of the clip and of your own files is evened out to the same level. Music gets quieter by itself while someone talks and comes back up in the gaps.
+
+Export makes a 1080×1920 MP4, on the graphics card when there is one, with no watermark. The preview and the export use the same renderer, so the file looks like what you saw while editing.
+
+## Building it yourself
 
 You need Windows and Node 24.
 
@@ -36,35 +44,18 @@ npm run fetch-tools
 npm run dev
 ```
 
-`fetch-tools` puts FFmpeg, the voice tools and the pose and face models in `vendor/`. The first time you transcribe, the app downloads whisper.cpp and the speech model (about 1.3 GB with an NVIDIA card) into `%LOCALAPPDATA%\Rezzo`. `npm run check` runs the linter, the type checker and the unit tests; `npm run test:e2e` builds the app and drives it with Playwright.
-
-To build the installer, run this after `fetch-tools`:
-
-```
-npm run dist
-```
-
-That puts `Rezzo-Setup-0.1.0.exe` (about 225 MB) in `release/`. It installs for your user only and doesn't need administrator rights. The installer isn't signed, so Windows SmartScreen will warn you the first time. Click "More info", then "Run anyway". Uninstalling leaves the downloaded speech model in `%LOCALAPPDATA%\Rezzo`, so a reinstall doesn't download it again. Delete that folder if you want the space back.
-
-## What it does
-
-- Transcribe the whole episode with timing for every word, so you can search it and pick a clip by selecting text.
-- Frame the clip for 9:16 in one of three ways: follow the person talking, stack two people on top of each other, or show the full shot over a blurred copy of itself. You can switch between them in the middle of a clip.
-- Captions that appear word by word and highlight the word being spoken.
-- Images, animations, green screen and effects on a timeline.
-- Follow the speaker automatically, mostly from camera cuts and the audio, with a quick click to fix it when it guesses wrong.
-- Export at 1080×1920 using the graphics card when there is one. The preview and the export use the same renderer, so the file looks like what you saw while editing.
-
-Transcripts are always in Latin script. If Cyrillic comes out of the speech model, it gets converted.
+`fetch-tools` puts FFmpeg, the voice tools and the pose and face models in `vendor/`. `npm run check` runs the linter, the type checker and the unit tests, and `npm run test:e2e` builds the app and drives it with Playwright. `npm run dist` builds the installer into `release/`.
 
 ## Under the hood
 
-Electron, React and TypeScript. FFmpeg comes bundled with the app, whisper.cpp handles transcription, MediaPipe finds people and faces, and sherpa-onnx tells voices apart. Windows only for now; macOS and Linux will come later.
+Electron, React and TypeScript. FFmpeg comes with the app, whisper.cpp does the transcription, MediaPipe finds people and faces, and sherpa-onnx tells voices apart. A single WebGL renderer draws both the preview and the export. Before any of it was built I checked that the hard parts work on an ordinary PC; what I found is in [spikes/REPORT.md](spikes/REPORT.md). What comes next is in [ROADMAP.md](ROADMAP.md). macOS and Linux are on that list.
 
 ## Contributing
 
-Issues and ideas are welcome. Project rules are in [CLAUDE.md](CLAUDE.md). The most important one: never commit podcast or show footage. Anything used for testing has to be openly licensed.
+Issues and ideas are welcome. The project's rules are in [CLAUDE.md](CLAUDE.md). The most important one: never commit podcast or show footage. Anything used for testing has to be openly licensed.
 
 ## License
 
 [GPL-3.0](LICENSE)
+
+The screenshots show frames from *Tears of Steel*, (CC) Blender Foundation | mango.blender.org, under CC BY 3.0, with the film's Croatian subtitles standing in for a transcript. Details are in [docs/screenshots/CREDITS.md](docs/screenshots/CREDITS.md).
