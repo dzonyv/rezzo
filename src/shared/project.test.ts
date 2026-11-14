@@ -5,6 +5,7 @@ import { clipFromWords } from './clips.ts';
 import { DEFAULT_CHROMA_KEY } from './chroma-key.ts';
 import { defaultParams } from './effects.ts';
 import { DEFAULT_MOTION } from './motion.ts';
+import { DEFAULT_TEXT_STYLE, MAX_TEXT_CHARS } from './text-style.ts';
 import { DTW_START_SHIFT, MAX_CLIP_SECONDS, newProject, parseProject, PROJECT_FORMAT, ProjectFormatError, serializeProject, type Project } from './project.ts';
 
 const sample: Project = {
@@ -392,7 +393,7 @@ describe('project files', () => {
         expect(parseProject(serializeProject(p))).toEqual(p);
       });
 
-      it('rejects one whose layer is not in the clip, or shows no file', () => {
+      it('rejects one whose layer is not in the clip, or is not over the picture', () => {
         expect(code(() => parseProject(JSON.stringify(withFollowing(following('in', crypto.randomUUID())))))).toBe('invalid');
         const video = image.clips[0]!.layers[0]!.id;
         expect(code(() => parseProject(JSON.stringify(withFollowing(following('in', video)))))).toBe('invalid');
@@ -404,12 +405,47 @@ describe('project files', () => {
         far.follows.shift = 0.8;
         expect(code(() => parseProject(JSON.stringify(withFollowing(far))))).toBe('invalid');
       });
+
+      it('keeps one that goes with a text layer', () => {
+        const textId = crypto.randomUUID();
+        const p = withFollowing(following('in', textId));
+        const layers = p.clips[0]!.layers;
+        layers.splice(1, 0, {
+          id: textId, kind: 'text', text: 'Šta se *desilo*?', style: DEFAULT_TEXT_STYLE, start: 1, end: 3,
+          transform: [{ t: 1, value: { x: 0.5, y: 0.2, scale: 1, rotation: 0, opacity: 1 }, ease: 'cut' }], motion: DEFAULT_MOTION,
+        });
+        expect(parseProject(serializeProject(p))).toEqual(p);
+      });
     });
 
     it('keeps whether a clip and a sound file are evened out', () => {
       const p = withSounds({ ...sound({ assetId: music.id }), evenLoudness: true });
       p.clips[0]!.evenLoudness = true;
       expect(parseProject(serializeProject(p))).toEqual(p);
+    });
+  });
+
+  describe('text layers', () => {
+    const text = (words: string) => ({
+      id: crypto.randomUUID(), kind: 'text' as const, text: words, style: DEFAULT_TEXT_STYLE, start: 1, end: 3,
+      transform: [{ t: 1, value: { x: 0.5, y: 0.2, scale: 1.4, rotation: 0, opacity: 1 }, ease: 'cut' as const }], motion: DEFAULT_MOTION,
+    });
+    const withText = (layer: ReturnType<typeof text>): Project => ({ ...sample, clips: [{ ...sample.clips[0]!, layers: [...sample.clips[0]!.layers, layer] }] });
+
+    it('round-trips one, with no file of its own', () => {
+      const p = withText(text('Šta se *desilo*\nposle utakmice?'));
+      expect(parseProject(serializeProject(p))).toEqual(p);
+      expect(p.assets).toEqual([]);
+    });
+
+    it('rejects text too long, or a style out of range', () => {
+      expect(code(() => parseProject(JSON.stringify(withText(text('a'.repeat(MAX_TEXT_CHARS + 1))))))).toBe('invalid');
+      const big = { ...text('a'), style: { ...DEFAULT_TEXT_STYLE, size: 1000 } };
+      expect(code(() => parseProject(JSON.stringify(withText(big))))).toBe('invalid');
+    });
+
+    it('upgrades a format 15 file, which had no text layers, as it is', () => {
+      expect(parseProject(JSON.stringify({ ...sample, format: 15 }))).toEqual(sample);
     });
   });
 

@@ -20,6 +20,7 @@ import { evensLoudness, soundLayersOf } from '../../../shared/sound-mix.ts';
 import { assetLoudnessOf, loudnessStore, measuredLoudness, requestAssetLoudness, useClipLoudness, useClipSpeech, duckCurve } from '../render/loudness.ts';
 import type { LottieData } from '../render/lottie.ts';
 import { assetsOf, loadImages, loadLotties, SceneRenderer } from '../render/scene-renderer.ts';
+import { useTextImages } from '../render/text.ts';
 import { useSettings } from '../settings.ts';
 import { flatOf } from '../transcript/words.ts';
 import { notify } from '../ui/prompts.ts';
@@ -54,6 +55,7 @@ export function ClipPreview({ clip, source, children }: { clip: Clip; source: So
   const [scene, setScene] = useState<CaptionScene | null>(null);
   const [images, setImages] = useState<ReadonlyMap<string, LayerImage>>(new Map());
   const [lotties, setLotties] = useState<ReadonlyMap<string, LottieData>>(new Map());
+  const texts = useTextImages(clip);
   /** What a player loading in the background will start with. */
   const drawAt = useRef<DrawAt>(() => {});
   const prepareAt = useRef<PrepareAt>(() => Promise.resolve(false));
@@ -275,11 +277,11 @@ export function ClipPreview({ clip, source, children }: { clip: Clip; source: So
   // Anything in the clip changed: redraw the frame on screen.
   useEffect(() => {
     const assets = allAssets ?? [];
-    const s = { clip, assets, captions: scene, images, overlays, lotties };
+    const s = { clip, assets, captions: scene, images, overlays, lotties, texts };
     drawAt.current = (time) => renderer.current?.draw(s, time);
     prepareAt.current = (time, sequential) => renderer.current?.prepare(s, time, sequential) ?? Promise.resolve(false);
     currentPlayer()?.setScene(drawAt.current, prepareAt.current);
-  }, [clip, allAssets, scene, images, overlays, lotties, generation]);
+  }, [clip, allAssets, scene, images, overlays, lotties, texts, generation]);
 
   return (
     <div className="clip-preview">

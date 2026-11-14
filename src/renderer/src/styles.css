@@ -3160,9 +3160,27 @@ button.icon {
   background: repeating-linear-gradient(135deg, #3f86c9 0 6px, #2b5a87 6px 12px);
 }
 
-/* Lottie animations, and effects coloured by their group. */
+/* Lottie animations, text, and effects coloured by their group. */
 .layer-bar.lottie {
   background: #2f9e8f;
+}
+
+.layer-bar.text {
+  background: #c45a9c;
+}
+
+/* A text layer's text: the whole width, growing with what's typed. */
+.text-section .text-field {
+  display: flex;
+  flex-direction: column;
+  gap: 4px;
+}
+
+.text-section textarea {
+  width: 100%;
+  min-height: 64px;
+  resize: vertical;
+  font: inherit;
 }
 
 .layer-bar.effect {

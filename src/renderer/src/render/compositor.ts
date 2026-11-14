@@ -377,6 +377,10 @@ const keyText = (key: ChromaKey | null) => (key ? `${key.color}/${key.similarity
 
 const mipLevels = (w: number, h: number) => Math.floor(Math.log2(Math.max(w, h))) + 1;
 
+/** Text pictures are kept with the images, under their layer's id after this. */
+const TEXT_KEY = 'text:';
+const NO_TEXTS: ReadonlyMap<string, { image: LayerImage }> = new Map();
+
 export class Compositor {
   readonly gl: WebGL2RenderingContext;
   private src: { tex: WebGLTexture; w: number; h: number } | undefined;
@@ -542,14 +546,15 @@ export class Compositor {
 
   /**
    * Draws one output frame into comp: `ops` in order, the video from the
-   * uploaded source, images from `images` by asset id (one not there yet is
-   * skipped) and `captions` where the captions go.
+   * uploaded source, images from `images` by asset id and text from
+   * `texts` by layer id (one not there yet is skipped), and `captions`
+   * where the captions go.
    */
-  render(ops: readonly SceneOp[], images: ReadonlyMap<string, LayerImage>, captions: Overlay | null): void {
+  render(ops: readonly SceneOp[], images: ReadonlyMap<string, LayerImage>, captions: Overlay | null, texts: ReadonlyMap<string, { image: LayerImage }> = NO_TEXTS): void {
     if (!this.src) return;
-    // Textures of pictures the scene no longer has (a deleted or replaced image) go.
+    // Textures of pictures the scene no longer has (a deleted or replaced image, text that changed) go.
     for (const [id, held] of this.images) {
-      if (images.has(id)) continue;
+      if (id.startsWith(TEXT_KEY) ? texts.get(id.slice(TEXT_KEY.length))?.image === held.image : images.has(id)) continue;
       this.gl.deleteTexture(held.tex);
       this.images.delete(id);
     }
@@ -570,6 +575,9 @@ export class Compositor {
         if (!image || image.width === 0) continue;
         const tex = this.imageTexture(op.assetId, image);
         this.drawQuad(op.key ? this.prep(op.layerId, { image, tex }, op.key) : tex, op.quad, op.opacity);
+      } else if (op.type === 'text') {
+        const text = texts.get(op.layerId);
+        if (text) this.drawQuad(this.imageTexture(TEXT_KEY + op.layerId, text.image), op.quad, op.opacity);
       } else if (op.type === 'lottie') {
         // Not rendered yet (the animation is still loading, or it failed): left out.
         const pixels = this.pixels.get(op.layerId);

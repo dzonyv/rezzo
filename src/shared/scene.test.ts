@@ -4,8 +4,9 @@ import { newCaptionLayer } from './captions.ts';
 import { DEFAULT_CAPTION_STYLE } from './caption-style.ts';
 import { defaultVideoLayer } from './framing.ts';
 import { DEFAULT_MOTION } from './motion.ts';
-import type { Clip, EffectLayer, ImageLayer, LottieLayer, OverlayLayer } from './project.ts';
+import type { Clip, EffectLayer, ImageLayer, LottieLayer, OverlayLayer, TextLayer } from './project.ts';
 import { overlayTimeAt, quadContains, quadCorners, quadOf, sceneAt } from './scene.ts';
+import { DEFAULT_TEXT_STYLE } from './text-style.ts';
 
 const asset: ImageAsset = {
   id: '5d3c2b1a-0f9e-4d8c-8b7a-6f5e4d3c2b1a',
@@ -62,6 +63,11 @@ const animation: LottieAsset = {
 function lottie(start: number, end: number): LottieLayer {
   const { key: _key, ...placed } = image(start, end);
   return { ...placed, kind: 'lottie', assetId: animation.id, speed: 1.5, loop: false };
+}
+
+function text(start: number, end: number): TextLayer {
+  const { key: _key, assetId: _assetId, ...placed } = image(start, end);
+  return { ...placed, kind: 'text', text: 'Naslov', style: DEFAULT_TEXT_STYLE };
 }
 
 function blackWhite(start: number, end: number): EffectLayer {
@@ -123,6 +129,19 @@ describe('scene', () => {
     expect(op).toMatchObject({ type: 'lottie', assetId: animation.id, frame: 45, quad: { w: 540, h: 540 } });
     if (op.type !== 'lottie') throw new Error('not a Lottie op');
     expect(op.size.width).toBeGreaterThanOrEqual(540);
+  });
+
+  it('sizes text by its own picture, which its scale multiplies', () => {
+    const layer = text(2, 8);
+    const c: Clip = { ...clip, layers: [defaultVideoLayer(0), layer, newCaptionLayer(0, DEFAULT_CAPTION_STYLE)] };
+    const texts = new Map([[layer.id, { size: { width: 600, height: 150 } }]]);
+    expect(sceneAt(c, [], 3, SOURCE, texts).map((o) => o.type)).toEqual(['video', 'text', 'captions']);
+    expect(sceneAt(c, [], 3, SOURCE, texts)[1]).toMatchObject({ type: 'text', layerId: layer.id, quad: { cx: 540, cy: 480, w: 300, h: 75 }, opacity: 1 });
+  });
+
+  it('leaves out text whose picture it lacks (still being painted, or empty)', () => {
+    const c: Clip = { ...clip, layers: [defaultVideoLayer(0), text(2, 8)] };
+    expect(sceneAt(c, [], 3, SOURCE).map((o) => o.type)).toEqual(['video']);
   });
 
   it('puts an effect where it is in the order, so it changes only what is under it', () => {

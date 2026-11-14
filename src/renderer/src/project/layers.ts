@@ -1,6 +1,6 @@
 /**
  * Edits to the layers over a clip's picture: adding images, videos,
- * animations and effects, moving and trimming them in time, stacking them,
+ * animations, text and effects, moving and trimming them in time, stacking them,
  * placing them and animating them. Placement and an effect's intensity
  * work like framing (see project/framing.ts): while they have one keyframe
  * an edit changes them for the layer's whole time.
@@ -16,10 +16,11 @@ import { clampTransform, DEFAULT_MOTION, type Motion, type Transform } from '../
 import { videoLayersOverLimit } from '../../../shared/overlay-files.ts';
 import { DEFAULT_DUCK_DB, DUCK_BY_DEFAULT_SECONDS, MAX_DUCK_DB, MIN_DUCK_DB, type Duck } from '../../../shared/ducking.ts';
 import { followerOf, syncFollowers } from '../../../shared/follow-sounds.ts';
+import { DEFAULT_TEXT_STYLE, MAX_TEXT_CHARS, type TextStyle } from '../../../shared/text-style.ts';
 import { FOLLOW_PARTS, MAX_FADE_SECONDS, MAX_FOLLOW_SHIFT, SOUNDS, type FollowPart, type SoundName, type SoundSource } from '../../../shared/sounds.ts';
 import {
   isPlaced, isSound, isTimed, keyframesOf, layerAssetIds, MAX_LOTTIE_SPEED, MIN_LOTTIE_SPEED, type Animated, type Clip, type EffectLayer, type Layer, type LottieLayer,
-  type OverlayLayer, type PlacedLayer, type Project, type SoundLayer, type TimedLayer,
+  type OverlayLayer, type PlacedLayer, type Project, type SoundLayer, type TextLayer, type TimedLayer,
 } from '../../../shared/project.ts';
 import { sourceRate } from './framing.ts';
 import { projectStore, type EditLabel } from './store.ts';
@@ -341,6 +342,46 @@ export function setVideoStart(clipId: string, layerId: string, offset: number, d
     const rate = sourceRate();
     const last = Math.max(0, Math.ceil(duration * fps(rate)) - 1);
     layer.offset = timeOfFrame(Math.min(Math.max(Math.round(offset * fps(rate)), 0), last), rate);
+  });
+}
+
+/** A new text layer sits this far down the output: high up, where a hook title goes. */
+const NEW_TEXT_Y = 0.22;
+
+/**
+ * Adds text from `time` on, for NEW_LAYER_SECONDS or to the clip's end, over
+ * the other layers but under the captions, in the default style unless
+ * `style` is given. Returns the new layer's id.
+ */
+export function addTextLayer(clipId: string, text: string, time: number, style: TextStyle = DEFAULT_TEXT_STYLE): string | null {
+  const clip = store().project?.clips.find((c) => c.id === clipId);
+  if (!clip) return null;
+  const { start, end } = newLayerTime(clip, time, NEW_LAYER_SECONDS);
+  const layer: TextLayer = {
+    id: crypto.randomUUID(),
+    kind: 'text',
+    text: text.slice(0, MAX_TEXT_CHARS),
+    style,
+    start,
+    end,
+    transform: [{ t: start, value: { x: 0.5, y: NEW_TEXT_Y, scale: 1, rotation: 0, opacity: 1 }, ease: 'cut' }],
+    motion: DEFAULT_MOTION,
+  };
+  editClip(clipId, 'history.addText', (c) => insertLayer(c, layer));
+  return layer.id;
+}
+
+/** Changes what a text layer says; typing calls it inside a gesture. */
+export function setText(clipId: string, layerId: string, text: string): void {
+  editPlaced(clipId, layerId, 'history.editText', (layer) => {
+    if (layer.kind === 'text') layer.text = text.slice(0, MAX_TEXT_CHARS);
+  });
+}
+
+/** Changes some of a text layer's look; sliders and colour pickers call it inside a gesture. */
+export function setTextStyle(clipId: string, layerId: string, patch: Partial<TextStyle>, label: EditLabel = 'history.textStyle'): void {
+  editPlaced(clipId, layerId, label, (layer) => {
+    if (layer.kind === 'text') Object.assign(layer.style, patch);
   });
 }
 

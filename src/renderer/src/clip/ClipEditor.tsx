@@ -332,7 +332,7 @@ export function ClipEditor({ clip, source, side, voices }: { clip: Clip; source:
               <LayerPanel
                 clip={clip}
                 layer={selectedLayer}
-                asset={assets.find((a) => a.id === selectedLayer.assetId)}
+                asset={selectedLayer.kind === 'text' ? undefined : assets.find((a) => a.id === selectedLayer.assetId)}
                 assets={assets}
                 time={time}
                 rate={rate}

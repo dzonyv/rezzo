@@ -17,10 +17,11 @@ import { fps, frameAt, timeOfFrame, workingFrameRate } from './frames.ts';
 import { motionSchema, transformSchema } from './motion.ts';
 import { MAX_DUCK_DB, MIN_DUCK_DB } from './ducking.ts';
 import { followSchema, MAX_FADE_SECONDS, soundSourceSchema } from './sounds.ts';
+import { MAX_TEXT_CHARS, textStyleSchema } from './text-style.ts';
 import { speakerCountSchema, speakerPickSchema, voiceEditSchema } from './voices.ts';
 
 /** Bumped when the file format changes in a way older files need migrating for. */
-export const PROJECT_FORMAT = 15;
+export const PROJECT_FORMAT = 16;
 export const PROJECT_EXTENSION = 'rezzo';
 
 export const TRANSCRIPT_LANGUAGES = ['sr', 'hr', 'bs'] as const;
@@ -274,6 +275,24 @@ export const effectLayerSchema = z.object({
 });
 export type EffectLayer = z.infer<typeof effectLayerSchema>;
 
+/**
+ * Text typed by the user over the picture from `start` to `end`, placed
+ * and animated like an image. Its size 1 draws the font at `style.size`
+ * output pixels; the picture is as big as the text it holds
+ * (render/text.ts).
+ */
+export const textLayerSchema = z.object({
+  id: z.uuid(),
+  kind: z.literal('text'),
+  text: z.string().max(MAX_TEXT_CHARS),
+  style: textStyleSchema,
+  start: seconds,
+  end: seconds,
+  transform: animated(transformSchema),
+  motion: motionSchema,
+});
+export type TextLayer = z.infer<typeof textLayerSchema>;
+
 const fade = z.number().min(0).max(MAX_FADE_SECONDS);
 
 /**
@@ -316,15 +335,18 @@ export type SoundLayer = z.infer<typeof soundLayerSchema>;
  * source video first, then the rest over it. Sound layers draw nothing.
  */
 export const layerSchema = z.discriminatedUnion('kind', [
-  videoLayerSchema, captionLayerSchema, imageLayerSchema, overlayLayerSchema, lottieLayerSchema, effectLayerSchema, soundLayerSchema,
+  videoLayerSchema, captionLayerSchema, imageLayerSchema, overlayLayerSchema, lottieLayerSchema, textLayerSchema, effectLayerSchema, soundLayerSchema,
 ]);
 export type Layer = z.infer<typeof layerSchema>;
-/** Layers that show a file, placed and animated over the picture. */
-export type PlacedLayer = ImageLayer | OverlayLayer | LottieLayer;
+/** Layers that show a file over the picture. */
+export type FileLayer = ImageLayer | OverlayLayer | LottieLayer;
+/** Layers placed and animated over the picture: those that show a file, and text. */
+export type PlacedLayer = FileLayer | TextLayer;
 /** Layers that play for part of the clip and can be moved around in it. */
 export type TimedLayer = PlacedLayer | EffectLayer | SoundLayer;
 
-export const isPlaced = (layer: Layer): layer is PlacedLayer => layer.kind === 'image' || layer.kind === 'overlay' || layer.kind === 'lottie';
+export const isFileLayer = (layer: Layer): layer is FileLayer => layer.kind === 'image' || layer.kind === 'overlay' || layer.kind === 'lottie';
+export const isPlaced = (layer: Layer): layer is PlacedLayer => isFileLayer(layer) || layer.kind === 'text';
 export const isTimed = (layer: Layer): layer is TimedLayer => isPlaced(layer) || layer.kind === 'effect' || layer.kind === 'sound';
 export const isSound = (layer: Layer): layer is SoundLayer => layer.kind === 'sound';
 
@@ -337,8 +359,8 @@ export const keyframesOf = (layer: TimedLayer): Animated<unknown> =>
 /** The project's sound file a sound layer plays, or null for a sound from the library. */
 export const soundAssetId = (layer: SoundLayer): string | null => ('assetId' in layer.sound ? layer.sound.assetId : null);
 
-/** The kind of asset each placed layer shows. */
-export const ASSET_KIND_OF = { image: 'image', overlay: 'video', lottie: 'lottie' } as const satisfies Record<PlacedLayer['kind'], Asset['kind']>;
+/** The kind of asset each file layer shows. */
+export const ASSET_KIND_OF = { image: 'image', overlay: 'video', lottie: 'lottie' } as const satisfies Record<FileLayer['kind'], Asset['kind']>;
 
 export const clipSchema = z
   .object({
@@ -358,11 +380,11 @@ export const clipSchema = z
   .refine((c) => c.layers.filter((l) => l.kind === 'caption').length <= 1, 'a clip has at most one caption layer')
   .refine((c) => c.layers.every((l) => !isTimed(l) || l.end > l.start), 'a layer ends after it starts')
   .refine((c) => c.layers.every((l) => l.kind !== 'effect' || paramsValid(l.effect, l.params)), "an effect has its own settings, each in range")
-  .refine(followsValid, 'a sound goes with the entrance or exit of a layer in its clip that shows a file, and only one sound with each')
+  .refine(followsValid, 'a sound goes with the entrance or exit of a layer in its clip placed over the picture, and only one sound with each')
   .refine((c) => c.end - c.start <= MAX_CLIP_SECONDS + 1e-6, `a clip is at most ${MAX_CLIP_SECONDS} s long`);
 export type Clip = z.infer<typeof clipSchema>;
 
-/** Every sound that goes with a layer goes with one that shows a file, and no two with the same part of it. */
+/** Every sound that goes with a layer goes with one placed over the picture, and no two with the same part of it. */
 function followsValid(clip: { layers: readonly Layer[] }): boolean {
   const placed = new Set(clip.layers.filter(isPlaced).map((l) => l.id));
   const taken = new Set<string>();
@@ -393,7 +415,7 @@ export const timedLayers = (clip: Clip): TimedLayer[] => clip.layers.filter(isTi
 /** The ids of the project's files a clip's layers show or play. */
 export const layerAssetIds = (clip: Pick<Clip, 'layers'>): string[] =>
   clip.layers.flatMap((l) => {
-    if (isPlaced(l)) return [l.assetId];
+    if (isFileLayer(l)) return [l.assetId];
     const sound = isSound(l) ? soundAssetId(l) : null;
     return sound === null ? [] : [sound];
   });
@@ -401,8 +423,11 @@ export const layerAssetIds = (clip: Pick<Clip, 'layers'>): string[] =>
 /** The clip's sound layers, in the order they were added. */
 export const soundLayers = (clip: Pick<Clip, 'layers'>): SoundLayer[] => clip.layers.filter(isSound);
 
-/** The clip's layers that show a file, bottom first. */
+/** The clip's layers placed over the picture, bottom first. */
 export const placedLayers = (clip: Pick<Clip, 'layers'>): PlacedLayer[] => clip.layers.filter(isPlaced);
+
+/** The clip's layers that show a file, bottom first. */
+export const fileLayers = (clip: Pick<Clip, 'layers'>): FileLayer[] => clip.layers.filter(isFileLayer);
 
 export const projectSchema = z
   .object({
@@ -429,7 +454,7 @@ export const projectSchema = z
     const kinds = new Map(p.assets.map((a) => [a.id, a.kind]));
     return p.clips.every((c) =>
       c.layers.every((l) => {
-        if (isPlaced(l)) return kinds.get(l.assetId) === ASSET_KIND_OF[l.kind];
+        if (isFileLayer(l)) return kinds.get(l.assetId) === ASSET_KIND_OF[l.kind];
         const sound = isSound(l) ? soundAssetId(l) : null;
         return sound === null || kinds.get(sound) === 'audio';
       }),
@@ -478,6 +503,9 @@ const MIGRATIONS: Record<number, (old: Record<string, unknown>) => Record<string
   // Format 15 let a sound be turned down while someone talks. Sounds made
   // before it keep sounding as they did. 12 dB: DEFAULT_DUCK_DB when this was written.
   14: (old) => ({ ...old, clips: patchSounds(old.clips, { duck: { on: false, db: 12 } }) }),
+  // Format 16 added text layers. Nothing to change; the new number keeps
+  // older versions of the app from opening a file they can't read.
+  15: (old) => old,
 };
 
 /**

@@ -1,23 +1,23 @@
-import { useEffect, useRef, useState } from 'react';
+import { useState } from 'react';
 import { useTranslation } from 'react-i18next';
 import {
   BUILT_IN_STYLES, CAPTION_MODES, ENTRANCES, HIGHLIGHTS, MAX_ACTIVE_SCALE, MAX_CAPTION_SIZE, MAX_LINE_CHARS, MIN_CAPTION_SIZE, MIN_LINE_CHARS,
   type CaptionStyle,
 } from '../../../shared/caption-style.ts';
-import { cssFamily, FALLBACK_FONT, fontChoices, type FontRef } from '../../../shared/fonts.ts';
+import { cssFamily, FALLBACK_FONT } from '../../../shared/fonts.ts';
 import { keyAt } from '../../../shared/framing.ts';
 import type { CaptionTrack } from '../../../shared/captions.ts';
 import type { FrameRate } from '../../../shared/frames.ts';
 import type { CaptionLayer } from '../../../shared/project.ts';
-import { isAvailable, preloadFont } from '../fonts/registry.ts';
 import {
   addCaptionKey, addCaptions, deleteCaptionKey, removeCaptions, setCaptionKeySmooth, setCaptionStyle,
 } from '../project/captions.ts';
 import { projectStore, type EditLabel } from '../project/store.ts';
 import { setSettings, useSettings } from '../settings.ts';
 import { notify } from '../ui/prompts.ts';
+import { ColorInput, FontPicker } from './style-inputs.tsx';
 
-const WEIGHT_NAMES = [100, 200, 300, 400, 500, 600, 700, 800, 900] as const;
+const STYLE: EditLabel = 'history.captionStyle';
 
 interface Props {
   clipId: string;
@@ -63,57 +63,11 @@ function StyleSample({ style }: { style: CaptionStyle }) {
   );
 }
 
-/**
- * A colour input whose visit to the picker is one undo step. The step opens
- * with the first colour picked and closes when the picker does (the native
- * "change" event). Focus isn't used: it outlasts the picker, and a blur
- * would end whatever gesture comes next, such as a drag in the preview.
- */
-function ColorInput({ value, onPick }: { value: string; onPick: (value: string) => void }) {
-  const input = useRef<HTMLInputElement>(null);
-  const open = useRef(false);
-  useEffect(() => {
-    const el = input.current!;
-    const close = () => {
-      if (!open.current) return;
-      open.current = false;
-      projectStore.getState().endGesture();
-    };
-    el.addEventListener('change', close);
-    return () => {
-      el.removeEventListener('change', close);
-      close();
-    };
-  }, []);
-  return (
-    <input
-      ref={input}
-      type="color"
-      value={value}
-      onChange={(e) => {
-        if (!open.current) {
-          open.current = true;
-          projectStore.getState().beginGesture('history.captionStyle');
-        }
-        onPick(e.target.value);
-      }}
-    />
-  );
-}
-
 /** The clip's caption settings: add or remove them, pick and tune a style, save it for later. */
 export function CaptionPanel({ clipId, layer, track, time, rate }: Props) {
   const { t } = useTranslation();
   const saved = useSettings((s) => s.captionStyles) ?? [];
-  const custom = useSettings((s) => s.fonts) ?? [];
   const [name, setName] = useState('');
-  const choices = fontChoices(custom);
-
-  // The style buttons and font list show fonts that may not have been used yet.
-  const families = JSON.stringify(choices);
-  useEffect(() => {
-    for (const c of JSON.parse(families) as typeof choices) for (const weight of c.weights) preloadFont({ family: c.family, weight });
-  }, [families]);
 
   if (!layer) {
     return (
@@ -136,32 +90,6 @@ export function CaptionPanel({ clipId, layer, track, time, rate }: Props) {
     onPointerUp: () => store.endGesture(),
   };
 
-  const family = choices.find((c) => c.family === style.font.family);
-  const fontHere = isAvailable(style.font);
-
-  const pickFont = (font: FontRef) => {
-    preloadFont(font);
-    set({ font });
-  };
-  const pickFamily = (name: string) => {
-    const weights = choices.find((c) => c.family === name)?.weights ?? [];
-    // The weight nearest the one in use.
-    const weight = weights.reduce((best, w) => (Math.abs(w - style.font.weight) < Math.abs(best - style.font.weight) ? w : best), weights[0] ?? 400);
-    pickFont({ family: name, weight });
-  };
-
-  const addFont = async () => {
-    const result = await window.rezzo.invoke('fonts:add');
-    if (!result) return;
-    if (!result.ok) {
-      notify('error', result.error === 'built-in' ? t('captions.fontBuiltIn', { family: result.family }) : t('captions.fontUnreadable'));
-      return;
-    }
-    const { family: f, weight } = result.font;
-    notify('info', t('captions.fontAdded', { family: f }));
-    if (result.missing.length > 0) notify('error', t('captions.fontLacks', { family: f, letters: result.missing.join(' ') }));
-    pickFont({ family: f, weight });
-  };
 
   const saveStyle = async () => {
     const n = name.trim();
@@ -188,7 +116,7 @@ export function CaptionPanel({ clipId, layer, track, time, rate }: Props) {
   const color = (label: string, value: string, patch: (v: string) => Partial<CaptionStyle>) => (
     <label className="caption-color">
       <span>{label}</span>
-      <ColorInput value={value} onPick={(v) => set(patch(v))} />
+      <ColorInput value={value} label={STYLE} onPick={(v) => set(patch(v))} />
     </label>
   );
   const slider = (label: string, value: number, min: number, max: number, step: number, patch: (v: number) => Partial<CaptionStyle>) => (
@@ -236,33 +164,7 @@ export function CaptionPanel({ clipId, layer, track, time, rate }: Props) {
         ))}
       </div>
 
-      <div className="caption-row">
-        <label>
-          <span>{t('captions.font')}</span>
-          <select value={style.font.family} onChange={(e) => pickFamily(e.target.value)}>
-            {choices.map((c) => (
-              <option key={c.family} value={c.family}>
-                {c.family}
-              </option>
-            ))}
-            {!family && <option value={style.font.family}>{t('captions.notHere', { family: style.font.family })}</option>}
-          </select>
-        </label>
-        <label>
-          <span>{t('captions.weight')}</span>
-          <select value={style.font.weight} onChange={(e) => pickFont({ family: style.font.family, weight: Number(e.target.value) })}>
-            {(family?.weights.includes(style.font.weight) ? family.weights : [...(family?.weights ?? []), style.font.weight].sort((a, b) => a - b)).map((w) => (
-              <option key={w} value={w}>
-                {WEIGHT_NAMES.includes(w as (typeof WEIGHT_NAMES)[number]) ? t(`captions.weights.${w as (typeof WEIGHT_NAMES)[number]}`) : w}
-              </option>
-            ))}
-          </select>
-        </label>
-        <button type="button" title={t('captions.addFontHelp')} onClick={() => void addFont()}>
-          {t('captions.addFont')}
-        </button>
-      </div>
-      {!fontHere && <p className="caption-warning">{t('captions.fontMissing', { family: `${style.font.family} ${style.font.weight}` })}</p>}
+      <FontPicker font={style.font} onPick={(font) => set({ font })} />
 
       <div className="caption-grid">
         {slider(t('captions.size'), style.size, MIN_CAPTION_SIZE, MAX_CAPTION_SIZE, 1, (size) => ({ size }))}
