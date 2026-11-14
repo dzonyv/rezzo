@@ -58,8 +58,24 @@ Built in three parts: 4a (clip analysis: voices, camera cuts, people), 4b (who t
 - Silence removal, and cutting words out of a clip ✓
 - Sound, before the first release: sound effects (a click, a camera shutter, a whoosh…) and music as audio layers on the clip timeline, with volume and fades. A small library of freely licensed effects comes with the app, and your own files work too. Loudness evened out, sounds that go with a layer's entrance or exit, and music that gets quieter while someone talks. ✓
 - Fixes from the audit of 2026-11-08, before the first release (details below). ✓ Some smaller items are still open, listed below under "Also from the audit".
+- Thumbnails: a cover picture for each clip, with a title, effects and the speaker cut out in front (details below).
 - AI suggestions for interesting moments.
 - macOS and Linux.
+
+## Thumbnails
+
+A clip gets a cover picture: a frame from the clip with a big title, a few effects, maybe a sticker, and the speaker cut out in front of the text. It isn't a separate tool. A cover is a scene of its own, 1080×1920, held at one moment and drawn by the same WebGL compositor as the preview and the export, so the PNG looks exactly like the editor.
+
+The cover lives on the clip (`cover`: the moment in source seconds, an optional framing change, its own list of layers). Its layers use the same schemas as the timeline's, each with a single key instead of an animation, so the layer panel and the on-picture handles work on it with small changes.
+
+Built in four parts:
+
+- **Thumbnails a1 — text layer:** a new layer for text you type yourself: big title with outline, shadow, a band behind it and a second colour for chosen words, painted the way captions are. It works on the clip timeline like images do, with a start, an end, entrance and exit animations, and it's exported with the video. A hook title in the first seconds of a clip is the usual use. ✓ Words between asterisks get the second colour.
+- **Thumbnails a2 — the cover:** pick the moment, framing taken from the clip there and adjustable for the picture. Text and image layers on it. Saved as PNG 1080×1920 (and a JPG under 2 MB). Its own tab in the clip editor.
+- **Thumbnails b — the look:** the speaker cut out with MediaPipe's image segmenter (WASM, no Python), with an outline or glow, so the title can sit behind them. The background darkened, blurred or graded with the existing effects, and a gradient so the text reads. Built-in templates and your own, the way caption styles work.
+- **Thumbnails c — help:** a handful of suggested frames, scored from what the analysis already knows (camera cuts, faces) plus sharpness. A title made by marking words in the transcript. The cover put on the first frames of the exported video, for platforms that only let you pick a frame. Safe zones shown in the editor (Instagram's 4:5 grid crop, TikTok's buttons).
+
+Still open: which platforms matter most, since that decides how much the last two items of part c are worth.
 
 ## Fixes from the audit of 2026-11-08
 

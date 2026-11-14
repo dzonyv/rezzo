@@ -8,7 +8,7 @@
 import type { Asset, ImageAsset, LottieAsset } from '../../../shared/assets.ts';
 import { OUTPUT } from '../../../shared/framing.ts';
 import type { FrameRate } from '../../../shared/frames.ts';
-import { captionLayerOf, placedLayers, videoLayerOf, type Clip, type Word } from '../../../shared/project.ts';
+import { captionLayerOf, fileLayers, videoLayerOf, type Clip, type Word } from '../../../shared/project.ts';
 import { videoLayersOf } from '../../../shared/overlay-files.ts';
 import { sceneAt } from '../../../shared/scene.ts';
 import { CaptionPainter, loadCaptionScene, type CaptionScene } from './captions.ts';
@@ -17,6 +17,7 @@ import { loadImage } from './images.ts';
 import { LayerFrames } from './layer-frames.ts';
 import { loadLottie, LottieLayers, type LottieData } from './lottie.ts';
 import { requestOverlayFile, type OverlayFile } from './overlay-files.ts';
+import { loadTexts, type TextImage } from './text.ts';
 
 /** Everything a clip needs drawn, with its fonts and images already loaded. */
 export interface Scene {
@@ -29,6 +30,8 @@ export interface Scene {
   overlays: ReadonlyMap<string, OverlayFile>;
   /** Animations by asset id; a layer whose animation is missing isn't drawn. */
   lotties: ReadonlyMap<string, LottieData>;
+  /** Text layers' pictures by layer id (render/text.ts); one that isn't there isn't drawn. */
+  texts: ReadonlyMap<string, TextImage>;
 }
 
 /** Files a clip's layers show that couldn't be read. */
@@ -43,7 +46,7 @@ export class MissingFilesError extends Error {
 
 /** The assets the clip's layers use. */
 export function assetsOf(clip: Clip, assets: readonly Asset[]): Asset[] {
-  const ids = new Set(placedLayers(clip).map((l) => l.assetId));
+  const ids = new Set(fileLayers(clip).map((l) => l.assetId));
   return assets.filter((a) => ids.has(a.id));
 }
 
@@ -118,15 +121,16 @@ export async function checkMediaFiles(assets: readonly Asset[]): Promise<void> {
   if (missing.length > 0) throw new MissingFilesError(missing.sort());
 }
 
-/** A Scene for the export: every font, picture, animation and video layer's file loaded, or an error. `signal` stops the wait for the video layers' files. */
+/** A Scene for the export: every font, picture, animation, text and video layer's file loaded, or an error. `signal` stops the wait for the video layers' files. */
 export async function loadScene(clip: Clip, assets: readonly Asset[], words: readonly Word[], rate: FrameRate, signal?: AbortSignal): Promise<Scene> {
-  const [captions, images, lotties, overlays] = await Promise.all([
+  const [captions, images, lotties, overlays, texts] = await Promise.all([
     loadCaptionScene(captionLayerOf(clip), words, clip),
     loadImages(assetsOf(clip, assets), { strict: true }),
     loadLotties(assetsOf(clip, assets), { strict: true }),
     loadOverlayFiles(clip, assets, rate, signal),
+    loadTexts(clip),
   ]);
-  return { clip, assets, captions, images, overlays, lotties };
+  return { clip, assets, captions, images, overlays, lotties, texts };
 }
 
 export class SceneRenderer {
@@ -150,7 +154,7 @@ export class SceneRenderer {
    * preview knows to draw again.
    */
   async prepare(scene: Scene, t: number, sequential: boolean): Promise<boolean> {
-    const ops = sceneAt(scene.clip, scene.assets, t, this.compositor.sourceSize ?? OUTPUT);
+    const ops = sceneAt(scene.clip, scene.assets, t, this.compositor.sourceSize ?? OUTPUT, scene.texts);
     const keep = new Set(scene.clip.layers.map((l) => l.id));
     const changed = await Promise.all([this.layers.prepare(ops, scene.overlays, sequential), this.lotties.prepare(ops, scene.lotties, keep)]);
     return changed.some(Boolean);
@@ -165,8 +169,8 @@ export class SceneRenderer {
   draw(scene: Scene, t: number): void {
     const size = this.compositor.sourceSize;
     if (!size) return;
-    const ops = sceneAt(scene.clip, scene.assets, t, size);
+    const ops = sceneAt(scene.clip, scene.assets, t, size, scene.texts);
     this.lotties.draw(ops);
-    this.compositor.render(ops, scene.images, scene.captions && this.painter.paint(scene.captions, videoLayerOf(scene.clip).layout, t));
+    this.compositor.render(ops, scene.images, scene.captions && this.painter.paint(scene.captions, videoLayerOf(scene.clip).layout, t), scene.texts);
   }
 }

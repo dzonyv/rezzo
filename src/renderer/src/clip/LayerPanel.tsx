@@ -18,6 +18,8 @@ import {
 import { projectStore, type EditLabel } from '../project/store.ts';
 import { startPicking, stopPicking, usePicking } from './eyedropper.ts';
 import { FollowSound } from './FollowSound.tsx';
+import { layerName } from './layer-names.ts';
+import { TextSection } from './TextSection.tsx';
 import { selectLayer } from './state.ts';
 
 interface Props {
@@ -40,11 +42,12 @@ const SOUND: EditLabel = 'history.layerSound';
 const VIDEO_START: EditLabel = 'history.videoStart';
 const PLAYBACK: EditLabel = 'history.lottiePlayback';
 
-/** Per kind of file: the panel's title and the button that picks another file. */
+/** Per kind of layer: the panel's title and the button that picks another file (text has no file). */
 const TEXTS = {
   image: { title: 'layers.title', change: 'layers.change' },
   video: { title: 'layers.titleVideo', change: 'layers.changeVideo' },
   lottie: { title: 'layers.titleLottie', change: 'layers.changeLottie' },
+  text: { title: 'layers.titleText', change: null },
 } as const;
 
 /**
@@ -67,7 +70,7 @@ const PARTS = [
   { part: 'loop', kinds: LOOPS, names: 'loops', directed: 'kenBurns' },
 ] as const;
 
-/** The selected layer's settings: its file, placement, keyframes, animations, a video's sound, an animation's playback and the green screen. */
+/** The selected layer's settings: its file or text, placement, keyframes, animations, a video's sound, an animation's playback and the green screen. */
 export function LayerPanel({ clip, layer, asset, assets, time, rate, overLimit }: Props) {
   const { t } = useTranslation();
   const clipId = clip.id;
@@ -76,8 +79,9 @@ export function LayerPanel({ clip, layer, asset, assets, time, rate, overLimit }
   const picking = usePicking() === layer.id;
   useEffect(() => stopPicking, []);
   const store = projectStore.getState();
-  const kind = ASSET_KIND_OF[layer.kind];
-  const name = asset?.name ?? t(`layers.kinds.${kind}`);
+  const kind = layer.kind === 'text' ? 'text' : ASSET_KIND_OF[layer.kind];
+  const name = layerName(t, layer, assets);
+  const change = TEXTS[kind].change;
   // Edits land inside the layer's time even with the playhead outside it (see insideLayer).
   const at = insideLayer(layer, time);
   const value = valueAt(layer.transform, at);
@@ -195,7 +199,7 @@ export function LayerPanel({ clip, layer, asset, assets, time, rate, overLimit }
 
   /** The green screen: on or off, its colour (typed, chosen or picked from the picture) and how it keys. */
   const greenScreen = () => {
-    if (layer.kind === 'lottie') return null;
+    if (layer.kind === 'lottie' || layer.kind === 'text') return null;
     const key = layer.key;
     return (
       <div className="layer-grid layer-section">
@@ -255,9 +259,11 @@ export function LayerPanel({ clip, layer, asset, assets, time, rate, overLimit }
       )}
 
       <div className="layer-row">
-        <button type="button" onClick={() => void changeLayerFile(clipId, layer.id, kind)}>
-          {t(TEXTS[kind].change)}
-        </button>
+        {kind !== 'text' && change && (
+          <button type="button" onClick={() => void changeLayerFile(clipId, layer.id, kind)}>
+            {t(change)}
+          </button>
+        )}
         <button type="button" onClick={() => selectLayer(duplicateLayer(clipId, layer.id))}>
           {t('layers.duplicate')}
         </button>
@@ -265,6 +271,8 @@ export function LayerPanel({ clip, layer, asset, assets, time, rate, overLimit }
           {t('layers.delete')}
         </button>
       </div>
+
+      {layer.kind === 'text' && <TextSection clipId={clipId} layer={layer} />}
 
       <div className="layer-grid">
         {PLACEMENT.map((p) => (

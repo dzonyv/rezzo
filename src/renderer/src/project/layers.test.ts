@@ -2,9 +2,10 @@ import { beforeEach, describe, expect, it } from 'vitest';
 import type { AssetFile, VideoInfo } from '../../../shared/assets.ts';
 import { lottieInfoSchema } from '../../../shared/lottie.ts';
 import { defaultVideoLayer } from '../../../shared/framing.ts';
-import { newProject, projectSchema, type ImageLayer, type Project, type SoundLayer } from '../../../shared/project.ts';
+import { newProject, projectSchema, type ImageLayer, type Project, type SoundLayer, type TextLayer } from '../../../shared/project.ts';
+import { DEFAULT_TEXT_STYLE } from '../../../shared/text-style.ts';
 import {
-  addImageLayer, addLibrarySound, addLottieLayer, addSoundFile, addVideoLayer, deleteLayer, replaceImage, replaceLottie, replaceSoundFile, replaceVideo, duplicateLayer, moveLayer, reorderLayer, setClipEvenLoudness, setFollowShift, setFollowSound,
+  addImageLayer, addLibrarySound, addTextLayer, setText, setTextStyle, addLottieLayer, addSoundFile, addVideoLayer, deleteLayer, replaceImage, replaceLottie, replaceSoundFile, replaceVideo, duplicateLayer, moveLayer, reorderLayer, setClipEvenLoudness, setFollowShift, setFollowSound,
   setFollowSoundAsset, setFollowSoundFile, setMotion, setSoundDuck, setSoundSettings, setTransform, trimLayer, unlinkSound,
 } from './layers.ts';
 import { projectStore } from './store.ts';
@@ -320,5 +321,47 @@ describe('layer edits', () => {
     state().undo();
     expect(images()).toHaveLength(1);
     expect(state().project!.assets).toHaveLength(1);
+  });
+});
+
+describe('text layers', () => {
+  const texts = () => clip().layers.filter((l): l is TextLayer => l.kind === 'text');
+
+  it('adds text at the playhead, high up, under the captions, with no file', () => {
+    const id = addTextLayer(CLIP, 'Šta se *desilo*?', 12)!;
+    expect(texts()).toEqual([expect.objectContaining({ id, text: 'Šta se *desilo*?', style: DEFAULT_TEXT_STYLE, start: 12, end: 15 })]);
+    expect(texts()[0]!.transform[0]!.value).toMatchObject({ x: 0.5, scale: 1 });
+    expect(state().project!.assets).toEqual([]);
+    expect(projectSchema.safeParse(state().project).success).toBe(true);
+  });
+
+  it('changes the text and the look, each an undo step', () => {
+    const id = addTextLayer(CLIP, 'prvo', 12)!;
+    setText(CLIP, id, 'drugo');
+    setTextStyle(CLIP, id, { color: '#ff0000', band: { color: '#000000' } });
+    expect(texts()[0]).toMatchObject({ text: 'drugo', style: { color: '#ff0000', band: { color: '#000000' }, accent: DEFAULT_TEXT_STYLE.accent } });
+    state().undo();
+    expect(texts()[0]).toMatchObject({ text: 'drugo', style: DEFAULT_TEXT_STYLE });
+    state().undo();
+    expect(texts()[0]!.text).toBe('prvo');
+  });
+
+  it('moves, places, duplicates and deletes like an image', () => {
+    const id = addTextLayer(CLIP, 'naslov', 12)!;
+    moveLayer(CLIP, id, 14);
+    setTransform(CLIP, id, 15, { y: 0.8 });
+    const copy = duplicateLayer(CLIP, id);
+    expect(texts().map((l) => l.id)).toEqual([id, copy]);
+    expect(texts()[1]).toMatchObject({ text: 'naslov', start: 14, end: 17 });
+    expect(texts()[1]!.transform[0]!.value.y).toBe(0.8);
+    deleteLayer(CLIP, id);
+    expect(texts().map((l) => l.id)).toEqual([copy]);
+  });
+
+  it('can have a sound with its entrance', () => {
+    const id = addTextLayer(CLIP, 'naslov', 12)!;
+    const sound = setFollowSound(CLIP, id, 'in', 'whoosh');
+    expect(clip().layers.find((l) => l.id === sound)).toMatchObject({ kind: 'sound', follows: { layerId: id, part: 'in' } });
+    expect(projectSchema.safeParse(state().project).success).toBe(true);
   });
 });

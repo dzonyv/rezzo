@@ -4,9 +4,11 @@ import type { Asset } from '../../../shared/assets.ts';
 import { OUTPUT, valueAt } from '../../../shared/framing.ts';
 import { layerTransformAt, MAX_LAYER_SCALE, MIN_LAYER_SCALE, type Transform } from '../../../shared/motion.ts';
 import { isPlaced, placedLayers, type Clip, type PlacedLayer } from '../../../shared/project.ts';
-import { quadOf, showsAt } from '../../../shared/scene.ts';
+import { quadOf, showsAt, textQuadOf, type Quad } from '../../../shared/scene.ts';
 import { setChromaKey, setTransform } from '../project/layers.ts';
 import { projectStore } from '../project/store.ts';
+import type { TextImage } from '../render/text.ts';
+import { layerName } from './layer-names.ts';
 import { sampleColor, stopPicking, usePicking } from './eyedropper.ts';
 import { outputPoint } from './output-point.ts';
 import { pauseClip } from './playback.ts';
@@ -41,6 +43,8 @@ interface Props {
   selectedId: string | null;
   /** Source seconds of the frame on screen; edits land there. */
   time: number;
+  /** The text layers' pictures, for their size. */
+  texts: ReadonlyMap<string, TextImage>;
 }
 
 const snapTo = (value: number, target: number, reach: number, off: boolean) => (!off && Math.abs(value - target) <= reach ? target : value);
@@ -57,7 +61,7 @@ function ownTransform(clipId: string, layerId: string, time: number): Transform 
  * it. The wheel resizes it too. Where no layer is, the framing overlay
  * underneath gets the pointer as before.
  */
-export function LayerOverlay({ clip, assets, selectedId, time }: Props) {
+export function LayerOverlay({ clip, assets, selectedId, time, texts }: Props) {
   const { t } = useTranslation();
   const el = useRef<HTMLDivElement>(null);
   const drag = useRef<Drag | null>(null);
@@ -65,8 +69,18 @@ export function LayerOverlay({ clip, assets, selectedId, time }: Props) {
 
   const shown = placedLayers(clip).filter((l) => showsAt(l, time));
   const picking = usePicking();
-  // A placed layer's asset is a picture (projectSchema checks its kind).
-  const assetOf = (layer: PlacedLayer) => assets.find((a): a is Exclude<Asset, { kind: 'audio' }> => a.id === layer.assetId && a.kind !== 'audio');
+  // A file layer's asset is a picture (projectSchema checks its kind).
+  const assetOf = (layer: PlacedLayer) =>
+    layer.kind === 'text' ? undefined : assets.find((a): a is Exclude<Asset, { kind: 'audio' }> => a.id === layer.assetId && a.kind !== 'audio');
+  /** Where the layer is drawn now, or null when it isn't (its file is gone, its text is empty or still being painted). */
+  const quadAt = (layer: PlacedLayer): Quad | null => {
+    if (layer.kind === 'text') {
+      const size = texts.get(layer.id)?.size;
+      return size ? textQuadOf(layerTransformAt(layer, time), size) : null;
+    }
+    const asset = assetOf(layer);
+    return asset ? quadOf(layerTransformAt(layer, time), asset) : null;
+  };
 
   const toOutput = (clientX: number, clientY: number) => outputPoint(el.current!, clientX, clientY);
 
@@ -76,9 +90,8 @@ export function LayerOverlay({ clip, assets, selectedId, time }: Props) {
     pauseClip();
     selectLayer(layer.id);
     const from = ownTransform(clip.id, layer.id, time);
-    const asset = assetOf(layer);
-    if (!from || !asset) return;
-    const drawn = quadOf(layerTransformAt(layer, time), asset);
+    const drawn = quadAt(layer);
+    if (!from || !drawn) return;
     // Moves then come to the box or handle, and bubble up to the overlay.
     e.currentTarget.setPointerCapture(e.pointerId);
     drag.current ={ grab, layerId: layer.id, ...toOutput(e.clientX, e.clientY), from, cx: drawn.cx, cy: drawn.cy };
@@ -182,9 +195,9 @@ export function LayerOverlay({ clip, assets, selectedId, time }: Props) {
   return (
     <div ref={el} className={`layer-overlay${picking ? ' picking' : ''}`} onPointerDownCapture={pick} onPointerMove={onMove} onPointerUp={end} onLostPointerCapture={end}>
       {shown.map((layer) => {
-        const asset = assetOf(layer);
-        if (!asset) return null;
-        const q = quadOf(layerTransformAt(layer, time), asset);
+        const q = quadAt(layer);
+        if (!q) return null;
+        const name = layerName(t, layer, assets);
         const selected = layer.id === selectedId;
         return (
           <div
@@ -192,8 +205,8 @@ export function LayerOverlay({ clip, assets, selectedId, time }: Props) {
             data-layer={layer.id}
             className={`layer-box${selected ? ' selected' : ''}`}
             role="button"
-            aria-label={t('layers.select', { name: asset.name })}
-            title={asset.name}
+            aria-label={t('layers.select', { name })}
+            title={name}
             style={{ left: pctX(q.cx), top: pctY(q.cy), width: pctX(q.w), height: pctY(q.h), transform: `translate(-50%, -50%) rotate(${q.rotation}rad)` }}
             onPointerDown={(e) => begin(e, layer, 'move')}
           >

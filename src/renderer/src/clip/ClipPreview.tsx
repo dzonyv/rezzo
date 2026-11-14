@@ -20,6 +20,7 @@ import { evensLoudness, soundLayersOf } from '../../../shared/sound-mix.ts';
 import { assetLoudnessOf, loudnessStore, measuredLoudness, requestAssetLoudness, useClipLoudness, useClipSpeech, duckCurve } from '../render/loudness.ts';
 import type { LottieData } from '../render/lottie.ts';
 import { assetsOf, loadImages, loadLotties, SceneRenderer } from '../render/scene-renderer.ts';
+import type { TextImage } from '../render/text.ts';
 import { useSettings } from '../settings.ts';
 import { flatOf } from '../transcript/words.ts';
 import { notify } from '../ui/prompts.ts';
@@ -32,10 +33,11 @@ const TRIM_SETTLE_MS = 400;
 /**
  * The 9:16 preview of the open clip. Makes sure there's a working file for
  * the clip's range, plays it through the compositor, and redraws when
- * anything in the clip changes. Children are drawn over the picture (the
- * framing, caption and layer handles).
+ * anything in the clip changes. `texts` are the text layers' pictures
+ * (render/text.ts). Children are drawn over the picture (the framing,
+ * caption and layer handles).
  */
-export function ClipPreview({ clip, source, children }: { clip: Clip; source: Source; children?: React.ReactNode }) {
+export function ClipPreview({ clip, source, texts, children }: { clip: Clip; source: Source; texts: ReadonlyMap<string, TextImage>; children?: React.ReactNode }) {
   const { t } = useTranslation();
   const canvas = useRef<HTMLCanvasElement>(null);
   const compositor = useRef<Compositor | null>(null);
@@ -275,11 +277,11 @@ export function ClipPreview({ clip, source, children }: { clip: Clip; source: So
   // Anything in the clip changed: redraw the frame on screen.
   useEffect(() => {
     const assets = allAssets ?? [];
-    const s = { clip, assets, captions: scene, images, overlays, lotties };
+    const s = { clip, assets, captions: scene, images, overlays, lotties, texts };
     drawAt.current = (time) => renderer.current?.draw(s, time);
     prepareAt.current = (time, sequential) => renderer.current?.prepare(s, time, sequential) ?? Promise.resolve(false);
     currentPlayer()?.setScene(drawAt.current, prepareAt.current);
-  }, [clip, allAssets, scene, images, overlays, lotties, generation]);
+  }, [clip, allAssets, scene, images, overlays, lotties, texts, generation]);
 
   return (
     <div className="clip-preview">
