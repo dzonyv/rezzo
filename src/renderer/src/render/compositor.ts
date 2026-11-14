@@ -377,8 +377,9 @@ const keyText = (key: ChromaKey | null) => (key ? `${key.color}/${key.similarity
 
 const mipLevels = (w: number, h: number) => Math.floor(Math.log2(Math.max(w, h))) + 1;
 
-/** Text pictures are kept with the images, under their layer's id after this. */
-const TEXT_KEY = 'text:';
+/** A picture's texture, with the picture it holds. */
+type HeldImage = { tex: WebGLTexture; image: LayerImage };
+
 const NO_TEXTS: ReadonlyMap<string, { image: LayerImage }> = new Map();
 
 export class Compositor {
@@ -394,7 +395,9 @@ export class Compositor {
   private overlayTex: { tex: WebGLTexture; version: number } | undefined;
   private quadProgram: WebGLProgram;
   /** Image textures by asset id, with the picture each holds. */
-  private images = new Map<string, { tex: WebGLTexture; image: LayerImage }>();
+  private images = new Map<string, HeldImage>();
+  /** Text layers' textures by layer id, with the picture each holds. */
+  private texts = new Map<string, HeldImage>();
   /** Video layers' latest frames, by layer id. */
   private frames = new Map<string, LayerFrame>();
   /** Lottie layers' latest frames, by layer id. */
@@ -552,12 +555,9 @@ export class Compositor {
    */
   render(ops: readonly SceneOp[], images: ReadonlyMap<string, LayerImage>, captions: Overlay | null, texts: ReadonlyMap<string, { image: LayerImage }> = NO_TEXTS): void {
     if (!this.src) return;
-    // Textures of pictures the scene no longer has (a deleted or replaced image, text that changed) go.
-    for (const [id, held] of this.images) {
-      if (id.startsWith(TEXT_KEY) ? texts.get(id.slice(TEXT_KEY.length))?.image === held.image : images.has(id)) continue;
-      this.gl.deleteTexture(held.tex);
-      this.images.delete(id);
-    }
+    // Textures of pictures the scene no longer has (a deleted or replaced image, a deleted text layer) go.
+    this.dropUnused(this.images, images);
+    this.dropUnused(this.texts, texts);
     const drawn = new Set(ops.flatMap((op) => (op.type === 'image' || op.type === 'overlay' || op.type === 'lottie' ? [op.layerId] : [])));
     for (const [id, p] of this.prepped) {
       if (drawn.has(id)) continue;
@@ -573,11 +573,11 @@ export class Compositor {
         const image = images.get(op.assetId);
         // A closed ImageBitmap (let go of after its layer went) is 0×0 and can't be uploaded.
         if (!image || image.width === 0) continue;
-        const tex = this.imageTexture(op.assetId, image);
+        const tex = this.imageTexture(this.images, op.assetId, image);
         this.drawQuad(op.key ? this.prep(op.layerId, { image, tex }, op.key) : tex, op.quad, op.opacity);
       } else if (op.type === 'text') {
         const text = texts.get(op.layerId);
-        if (text) this.drawQuad(this.imageTexture(TEXT_KEY + op.layerId, text.image), op.quad, op.opacity);
+        if (text) this.drawQuad(this.imageTexture(this.texts, op.layerId, text.image), op.quad, op.opacity);
       } else if (op.type === 'lottie') {
         // Not rendered yet (the animation is still loading, or it failed): left out.
         const pixels = this.pixels.get(op.layerId);
@@ -618,9 +618,19 @@ export class Compositor {
     gl.disable(gl.SCISSOR_TEST);
   }
 
-  private imageTexture(assetId: string, image: LayerImage): WebGLTexture {
+  /** Deletes the textures in `held` whose id `wanted` no longer has. */
+  private dropUnused(held: Map<string, HeldImage>, wanted: ReadonlyMap<string, unknown>): void {
+    for (const [id, h] of held) {
+      if (wanted.has(id)) continue;
+      this.gl.deleteTexture(h.tex);
+      held.delete(id);
+    }
+  }
+
+  /** The texture in `textures` under `id`, made from `image` (again, when the picture changed). */
+  private imageTexture(textures: Map<string, HeldImage>, id: string, image: LayerImage): WebGLTexture {
     const gl = this.gl;
-    const held = this.images.get(assetId);
+    const held = textures.get(id);
     if (held?.image === image) return held.tex;
     if (held) gl.deleteTexture(held.tex);
     const tex = this.texture(image.width, image.height, mipLevels(image.width, image.height));
@@ -631,7 +641,7 @@ export class Compositor {
     gl.pixelStorei(gl.UNPACK_PREMULTIPLY_ALPHA_WEBGL, false);
     // Images are usually drawn smaller than they are; mipmaps keep that clean.
     gl.generateMipmap(gl.TEXTURE_2D);
-    this.images.set(assetId, { tex, image });
+    textures.set(id, { tex, image });
     return tex;
   }
 
@@ -839,6 +849,7 @@ export class Compositor {
     if (this.src) gl.deleteTexture(this.src.tex);
     if (this.overlayTex) gl.deleteTexture(this.overlayTex.tex);
     for (const { tex } of this.images.values()) gl.deleteTexture(tex);
+    for (const { tex } of this.texts.values()) gl.deleteTexture(tex);
     for (const { tex } of this.frames.values()) gl.deleteTexture(tex);
     for (const { tex } of this.pixels.values()) gl.deleteTexture(tex);
     for (const p of this.effectPrograms.values()) gl.deleteProgram(p);
@@ -857,6 +868,7 @@ export class Compositor {
     this.src = undefined;
     this.overlayTex = undefined;
     this.images.clear();
+    this.texts.clear();
     this.frames.clear();
     this.pixels.clear();
     this.effectPrograms.clear();

@@ -7,7 +7,7 @@ import { isPlaced, placedLayers, type Clip, type PlacedLayer } from '../../../sh
 import { quadOf, showsAt, textQuadOf, type Quad } from '../../../shared/scene.ts';
 import { setChromaKey, setTransform } from '../project/layers.ts';
 import { projectStore } from '../project/store.ts';
-import { useTextImages } from '../render/text.ts';
+import type { TextImage } from '../render/text.ts';
 import { layerName } from './layer-names.ts';
 import { sampleColor, stopPicking, usePicking } from './eyedropper.ts';
 import { outputPoint } from './output-point.ts';
@@ -43,6 +43,8 @@ interface Props {
   selectedId: string | null;
   /** Source seconds of the frame on screen; edits land there. */
   time: number;
+  /** The text layers' pictures, for their size. */
+  texts: ReadonlyMap<string, TextImage>;
 }
 
 const snapTo = (value: number, target: number, reach: number, off: boolean) => (!off && Math.abs(value - target) <= reach ? target : value);
@@ -59,7 +61,7 @@ function ownTransform(clipId: string, layerId: string, time: number): Transform 
  * it. The wheel resizes it too. Where no layer is, the framing overlay
  * underneath gets the pointer as before.
  */
-export function LayerOverlay({ clip, assets, selectedId, time }: Props) {
+export function LayerOverlay({ clip, assets, selectedId, time, texts }: Props) {
   const { t } = useTranslation();
   const el = useRef<HTMLDivElement>(null);
   const drag = useRef<Drag | null>(null);
@@ -67,7 +69,6 @@ export function LayerOverlay({ clip, assets, selectedId, time }: Props) {
 
   const shown = placedLayers(clip).filter((l) => showsAt(l, time));
   const picking = usePicking();
-  const texts = useTextImages(clip);
   // A file layer's asset is a picture (projectSchema checks its kind).
   const assetOf = (layer: PlacedLayer) =>
     layer.kind === 'text' ? undefined : assets.find((a): a is Exclude<Asset, { kind: 'audio' }> => a.id === layer.assetId && a.kind !== 'audio');

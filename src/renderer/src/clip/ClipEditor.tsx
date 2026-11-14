@@ -32,6 +32,7 @@ import { ClipTimeline } from './ClipTimeline.tsx';
 import { FramingOverlay, propertyFor, regionFor, zoomed } from './FramingOverlay.tsx';
 import { layerName, rowsOf } from './layer-names.ts';
 import { LayerOverlay } from './LayerOverlay.tsx';
+import { useTextImages } from '../render/text.ts';
 import { PeopleOverlay } from './PeopleOverlay.tsx';
 import { WhoTalks } from './WhoTalks.tsx';
 import { EffectPanel } from './EffectPanel.tsx';
@@ -63,6 +64,8 @@ export function ClipEditor({ clip, source, side, voices }: { clip: Clip; source:
   const exporting = useExport(isExporting);
   const transcript = useProject((s) => s.project?.transcript ?? null);
   const assets = useProject((s) => s.project?.assets) ?? [];
+  // The text layers' pictures, painted once for the preview and the handles over it.
+  const texts = useTextImages(clip);
   const selectedId = useSelectedLayerId();
   const selected = clip.layers.find((l) => l.id === selectedId);
   const selectedLayer = selected && isTimed(selected) ? selected : null;
@@ -175,9 +178,9 @@ export function ClipEditor({ clip, source, side, voices }: { clip: Clip; source:
         </header>
 
         <div className="clip-frame">
-          <ClipPreview clip={clip} source={source}>
+          <ClipPreview clip={clip} source={source} texts={texts}>
             <FramingOverlay clipId={clip.id} layout={layout} half={half} onHalf={setHalf} time={time} sourceSize={sourceSize} />
-            <LayerOverlay clip={clip} assets={assets} selectedId={selectedLayer?.id ?? null} time={time} />
+            <LayerOverlay clip={clip} assets={assets} selectedId={selectedLayer?.id ?? null} time={time} texts={texts} />
             {showPeople && <PeopleOverlay layer={layer} time={time} sourceSize={sourceSize} />}
             {captions && <CaptionOverlay clipId={clip.id} layer={captions} track={captionTrackFor(layout)} time={time} />}
           </ClipPreview>

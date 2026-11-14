@@ -17,6 +17,14 @@ describe('text layer lines', () => {
     expect(textLines('a\n\n5**2', false)).toEqual([[{ text: 'a', accent: false }], [], [{ text: '5*2', accent: false }]]);
   });
 
+  it('leaves out spaces at either end of a line, also next to an asterisk', () => {
+    expect(textLines('  ON JE *LAGAO*  \n * \nkraj ', false)).toEqual([
+      [{ text: 'ON JE ', accent: false }, { text: 'LAGAO', accent: true }],
+      [],
+      [{ text: 'kraj', accent: true }],
+    ]);
+  });
+
   it('puts every letter in capitals, ours included', () => {
     expect(textLines('čćžšđ dž lj nj', true)[0]![0]!.text).toBe('ČĆŽŠĐ DŽ LJ NJ');
   });

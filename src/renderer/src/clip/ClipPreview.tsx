@@ -20,7 +20,7 @@ import { evensLoudness, soundLayersOf } from '../../../shared/sound-mix.ts';
 import { assetLoudnessOf, loudnessStore, measuredLoudness, requestAssetLoudness, useClipLoudness, useClipSpeech, duckCurve } from '../render/loudness.ts';
 import type { LottieData } from '../render/lottie.ts';
 import { assetsOf, loadImages, loadLotties, SceneRenderer } from '../render/scene-renderer.ts';
-import { useTextImages } from '../render/text.ts';
+import type { TextImage } from '../render/text.ts';
 import { useSettings } from '../settings.ts';
 import { flatOf } from '../transcript/words.ts';
 import { notify } from '../ui/prompts.ts';
@@ -33,10 +33,11 @@ const TRIM_SETTLE_MS = 400;
 /**
  * The 9:16 preview of the open clip. Makes sure there's a working file for
  * the clip's range, plays it through the compositor, and redraws when
- * anything in the clip changes. Children are drawn over the picture (the
- * framing, caption and layer handles).
+ * anything in the clip changes. `texts` are the text layers' pictures
+ * (render/text.ts). Children are drawn over the picture (the framing,
+ * caption and layer handles).
  */
-export function ClipPreview({ clip, source, children }: { clip: Clip; source: Source; children?: React.ReactNode }) {
+export function ClipPreview({ clip, source, texts, children }: { clip: Clip; source: Source; texts: ReadonlyMap<string, TextImage>; children?: React.ReactNode }) {
   const { t } = useTranslation();
   const canvas = useRef<HTMLCanvasElement>(null);
   const compositor = useRef<Compositor | null>(null);
@@ -55,7 +56,6 @@ export function ClipPreview({ clip, source, children }: { clip: Clip; source: So
   const [scene, setScene] = useState<CaptionScene | null>(null);
   const [images, setImages] = useState<ReadonlyMap<string, LayerImage>>(new Map());
   const [lotties, setLotties] = useState<ReadonlyMap<string, LottieData>>(new Map());
-  const texts = useTextImages(clip);
   /** What a player loading in the background will start with. */
   const drawAt = useRef<DrawAt>(() => {});
   const prepareAt = useRef<PrepareAt>(() => Promise.resolve(false));

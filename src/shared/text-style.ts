@@ -58,8 +58,9 @@ export interface TextRun {
 /**
  * The text as lines of runs. An asterisk switches the accent on or off,
  * and the accent carries over to the next line, so a marked stretch can
- * span lines; "**" is a literal asterisk. Empty runs are left out; an empty
- * line stays, as an empty list.
+ * span lines; "**" is a literal asterisk. Spaces at either end of a line
+ * are left out, so they don't push a line off centre. Empty runs are left
+ * out; an empty line stays, as an empty list.
  */
 export function textLines(text: string, uppercase: boolean): TextRun[][] {
   const shown = uppercase ? text.toLocaleUpperCase('sr-Latn') : text;
@@ -83,8 +84,25 @@ export function textLines(text: string, uppercase: boolean): TextRun[][] {
       }
     }
     flush();
-    return runs;
+    return trimLine(runs);
   });
+}
+
+/** The runs without the spaces at the line's start and end. */
+function trimLine(runs: TextRun[]): TextRun[] {
+  const out = runs.map((r) => ({ ...r }));
+  while (out[0]) {
+    out[0].text = out[0].text.trimStart();
+    if (out[0].text) break;
+    out.shift();
+  }
+  while (out.at(-1)) {
+    const last = out.at(-1)!;
+    last.text = last.text.trimEnd();
+    if (last.text) break;
+    out.pop();
+  }
+  return out;
 }
 
 /** The text without its asterisks, on one line: what a text layer is called on the timeline. */

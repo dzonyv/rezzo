@@ -6,13 +6,15 @@
  * handles over it and the export all get theirs from here, so they agree
  * on every pixel and on the picture's size.
  */
-import { useEffect, useState } from 'react';
+import i18n from 'i18next';
+import { useEffect, useMemo, useState } from 'react';
 import { cssFont, type FontRef } from '../../../shared/fonts.ts';
 import type { Size } from '../../../shared/framing.ts';
 import type { Clip, TextLayer } from '../../../shared/project.ts';
 import { TEXT_LINE_HEIGHT, textLines, type TextStyle } from '../../../shared/text-style.ts';
 import { ensureFont } from '../fonts/registry.ts';
 import { useSettings } from '../settings.ts';
+import { notify } from '../ui/prompts.ts';
 
 /** A painted text layer: `size` is in output pixels at the layer's size 1; the canvas may hold more pixels than that. */
 export interface TextImage {
@@ -25,10 +27,17 @@ const OVERSHOOT = 1.3;
 /** Most pixels per output pixel, and the longest side of a picture. */
 const MAX_RATIO = 4;
 const MAX_SIDE = 4096;
-/** Pictures kept for layers as they were a moment ago (typing makes a new one per key). */
-const KEEP = 48;
+/**
+ * Most canvas pixels kept painted, across layers (about 200 MB). Each
+ * layer keeps only its latest picture; layers not drawn lately go first
+ * when the pictures add up to more than this.
+ */
+const MAX_KEPT_PIXELS = 48_000_000;
 
-const painted = new Map<string, TextImage>();
+/** The latest picture of each layer, by layer id, least recently used first, with what it was painted from. */
+const painted = new Map<string, { key: string; image: TextImage }>();
+
+const pixelsOf = (image: TextImage) => image.image.width * image.image.height;
 
 /** Band around a line: how far past the letters it reaches, across and up and down, and its corners. */
 const bandPad = (size: number) => ({ x: size * 0.28, y: size * 0.1, radius: size * 0.2 });
@@ -135,17 +144,23 @@ async function textImage(spec: TextSpec): Promise<TextImage | null> {
   const font: FontRef = await ensureFont(spec.style.font);
   const style = { ...spec.style, font };
   const key = JSON.stringify([spec.text, style, spec.ratio]);
-  const held = painted.get(key);
-  if (held) {
-    // Most recently used goes last, so the oldest goes first.
-    painted.delete(key);
-    painted.set(key, held);
-    return held;
+  const held = painted.get(spec.id);
+  // Most recently used goes last, so the one not drawn the longest goes first.
+  painted.delete(spec.id);
+  if (held?.key === key) {
+    painted.set(spec.id, held);
+    return held.image;
   }
   const image = paintText(spec.text, style, spec.ratio);
   if (!image) return null;
-  painted.set(key, image);
-  while (painted.size > KEEP) painted.delete(painted.keys().next().value!);
+  painted.set(spec.id, { key, image });
+  let total = 0;
+  for (const p of painted.values()) total += pixelsOf(p.image);
+  for (const [id, p] of painted) {
+    if (total <= MAX_KEPT_PIXELS || id === spec.id) break;
+    painted.delete(id);
+    total -= pixelsOf(p.image);
+  }
   return image;
 }
 
@@ -170,12 +185,13 @@ export function useTextImages(clip: Pick<Clip, 'layers'>): ReadonlyMap<string, T
   // Adding a font the text was missing changes how it's drawn.
   const fonts = useSettings((s) => s.fonts);
   // What the pictures depend on, as a value that changes only when they do (not when a layer moves a little).
-  const json = JSON.stringify(textLayers(clip).map(specOf));
+  const json = useMemo(() => JSON.stringify(textLayers({ layers: clip.layers }).map(specOf)), [clip.layers]);
   useEffect(() => {
     let current = true;
     loadSpecs(JSON.parse(json) as TextSpec[]).then(
       (loaded) => current && setImages(loaded),
-      () => {},
+      // Not even the fallback font loads: the text can't be drawn, here or in the export.
+      (e: unknown) => current && notify('error', i18n.t('errors.unexpected', { detail: e instanceof Error ? e.message : String(e) })),
     );
     return () => {
       current = false;
