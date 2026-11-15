@@ -33,6 +33,8 @@ interface Props {
   rate: FrameRate;
   /** A video layer that's left out somewhere because too many others show then. */
   overLimit: boolean;
+  /** A layer on the cover: it's one moment, so it has no keyframes, animations or sounds. */
+  onCover?: boolean;
 }
 
 const PLACE: EditLabel = 'history.placeLayer';
@@ -71,7 +73,7 @@ const PARTS = [
 ] as const;
 
 /** The selected layer's settings: its file or text, placement, keyframes, animations, a video's sound, an animation's playback and the green screen. */
-export function LayerPanel({ clip, layer, asset, assets, time, rate, overLimit }: Props) {
+export function LayerPanel({ clip, layer, asset, assets, time, rate, overLimit, onCover = false }: Props) {
   const { t } = useTranslation();
   const clipId = clip.id;
   const soundFiles = assets.filter((a): a is AudioAsset => a.kind === 'audio');
@@ -289,28 +291,33 @@ export function LayerPanel({ clip, layer, asset, assets, time, rate, overLimit }
         ))}
       </div>
 
-      <div className="keyframes">
-        <button type="button" disabled={keyIndex >= 0} onClick={() => addLayerKey(clipId, layer.id, time)}>
-          <span className="diamond" aria-hidden="true" />
-          {t('clipEditor.addKeyframe')}
-        </button>
-        <label className={keyIndex < 0 || keyIndex === keys.length - 1 ? 'disabled' : undefined}>
-          <input
-            type="checkbox"
-            disabled={keyIndex < 0 || keyIndex === keys.length - 1}
-            checked={keyIndex >= 0 && keys[keyIndex]!.ease === 'smooth'}
-            onChange={(e) => setLayerKeySmooth(clipId, layer.id, keyIndex, e.target.checked)}
-          />
-          {t('clipEditor.smooth')}
-        </label>
-        <button type="button" disabled={keyIndex < 0 || keys.length === 1} onClick={() => deleteLayerKey(clipId, layer.id, keyIndex)}>
-          {t('clipEditor.deleteKeyframe')}
-        </button>
-      </div>
-      <p className="dim hint">{t('layers.placeHelp')}</p>
-      <p className="dim hint">{t('layers.keyframeHelp')}</p>
-
-      <div className="layer-grid">{PARTS.map(animation)}</div>
+      {!onCover && (
+        <div className="keyframes">
+          <button type="button" disabled={keyIndex >= 0} onClick={() => addLayerKey(clipId, layer.id, time)}>
+            <span className="diamond" aria-hidden="true" />
+            {t('clipEditor.addKeyframe')}
+          </button>
+          <label className={keyIndex < 0 || keyIndex === keys.length - 1 ? 'disabled' : undefined}>
+            <input
+              type="checkbox"
+              disabled={keyIndex < 0 || keyIndex === keys.length - 1}
+              checked={keyIndex >= 0 && keys[keyIndex]!.ease === 'smooth'}
+              onChange={(e) => setLayerKeySmooth(clipId, layer.id, keyIndex, e.target.checked)}
+            />
+            {t('clipEditor.smooth')}
+          </label>
+          <button type="button" disabled={keyIndex < 0 || keys.length === 1} onClick={() => deleteLayerKey(clipId, layer.id, keyIndex)}>
+            {t('clipEditor.deleteKeyframe')}
+          </button>
+        </div>
+      )}
+      <p className="dim hint">{t(onCover ? 'cover.placeHelp' : 'layers.placeHelp')}</p>
+      {!onCover && (
+        <>
+          <p className="dim hint">{t('layers.keyframeHelp')}</p>
+          <div className="layer-grid">{PARTS.map(animation)}</div>
+        </>
+      )}
 
       {video()}
       {lottie()}

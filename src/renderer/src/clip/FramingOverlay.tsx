@@ -1,7 +1,9 @@
 import { useEffect, useEffectEvent, useRef } from 'react';
+import { useTranslation } from 'react-i18next';
 import { MAX_ZOOM, videoLayerOf, type Crop, type FullFrame, type Layout } from '../../../shared/project.ts';
 import { OUTPUT, panCrop, panFull, regions, valueAt, zoomCrop, type Rect, type Size } from '../../../shared/framing.ts';
-import { setFraming, type FramingProperty } from '../project/framing.ts';
+import { coverClip } from '../../../shared/cover.ts';
+import { setFraming, type FramingProperty, type FramingTarget } from '../project/framing.ts';
 import { projectStore } from '../project/store.ts';
 import { outputPoint } from './output-point.ts';
 import { pauseClip } from './playback.ts';
@@ -19,6 +21,8 @@ interface Props {
   /** Source seconds of the frame on screen; edits land there. */
   time: number;
   sourceSize: Size | null;
+  /** Whose framing moves: the clip's, or its cover's. */
+  target?: FramingTarget;
 }
 
 export const propertyFor = (layout: Layout, half: 'top' | 'bottom'): FramingProperty =>
@@ -29,9 +33,9 @@ export const regionFor = (layout: Layout, half: 'top' | 'bottom'): Rect =>
   regions(layout)[layout === 'split' && half === 'bottom' ? 1 : 0]!;
 
 /** The value as it is in the document right now, mid-gesture included. */
-function currentValue(clipId: string, property: FramingProperty, time: number): Crop | FullFrame | null {
+function currentValue(clipId: string, property: FramingProperty, time: number, target: FramingTarget): Crop | FullFrame | null {
   const clip = projectStore.getState().project?.clips.find((c) => c.id === clipId);
-  return clip ? valueAt(videoLayerOf(clip)[property], time) : null;
+  return clip ? valueAt(videoLayerOf(target === 'cover' ? coverClip(clip) : clip)[property], time) : null;
 }
 
 /** Zooms the value for `property` to `zoom`, around (px, py) in output pixels. */
@@ -41,12 +45,48 @@ export function zoomed(value: Crop | FullFrame, property: FramingProperty, regio
   return zoomCrop(value as Crop, region, size, z, px, py);
 }
 
+/** The zoom of the framing at `time` (the clip's or the cover's), zooming around the middle of the part it fills. One undo step per drag. */
+export function ZoomSlider({ clipId, layout, half, value, time, sourceSize, target = 'clip' }: {
+  clipId: string;
+  layout: Layout;
+  half: 'top' | 'bottom';
+  value: Crop | FullFrame;
+  time: number;
+  sourceSize: Size | null;
+  target?: FramingTarget;
+}) {
+  const { t } = useTranslation();
+  const store = projectStore.getState();
+  const property = propertyFor(layout, half);
+  return (
+    <label className="zoom">
+      <span>{t('clipEditor.zoom')}</span>
+      <input
+        type="range"
+        min={1}
+        max={MAX_ZOOM}
+        step={0.01}
+        value={value.zoom}
+        disabled={!sourceSize}
+        onPointerDown={() => store.beginGesture('history.zoomFrame')}
+        onPointerUp={() => store.endGesture()}
+        onChange={(e) => {
+          if (!sourceSize) return;
+          const region = regionFor(layout, half);
+          const next = zoomed(value, property, region, sourceSize, Number(e.target.value), region.x + region.w / 2, region.y + region.h / 2);
+          setFraming(clipId, 'history.zoomFrame', property, time, next, target);
+        }}
+      />
+    </label>
+  );
+}
+
 /**
  * Sits over the preview and turns pointer drags into framing: drag to move
  * the picture, scroll to zoom. In Split the half under the pointer is the
  * one that moves.
  */
-export function FramingOverlay({ clipId, layout, half, onHalf, time, sourceSize }: Props) {
+export function FramingOverlay({ clipId, layout, half, onHalf, time, sourceSize, target = 'clip' }: Props) {
   const el = useRef<HTMLDivElement>(null);
   const drag = useRef<{ property: FramingProperty; region: Rect; x: number; y: number } | null>(null);
 
@@ -61,7 +101,7 @@ export function FramingOverlay({ clipId, layout, half, onHalf, time, sourceSize 
     const h = layout === 'split' ? halfAt(p.y) : half;
     if (h !== half) onHalf(h);
     const property = propertyFor(layout, h);
-    const value = currentValue(clipId, property, time);
+    const value = currentValue(clipId, property, time, target);
     if (!value) return;
     const store = projectStore.getState();
     if (!wheelTimer.current) store.beginGesture('history.zoomFrame');
@@ -71,7 +111,7 @@ export function FramingOverlay({ clipId, layout, half, onHalf, time, sourceSize 
       projectStore.getState().endGesture();
     }, WHEEL_GESTURE_MS);
     const next = zoomed(value, property, regionFor(layout, h), sourceSize, value.zoom * Math.exp(-e.deltaY * 0.0015), p.x, p.y);
-    setFraming(clipId, 'history.zoomFrame', property, time, next);
+    setFraming(clipId, 'history.zoomFrame', property, time, next, target);
   });
   // React's wheel listener is passive; this one needs to stop the page from scrolling.
   useEffect(() => {
@@ -101,13 +141,13 @@ export function FramingOverlay({ clipId, layout, half, onHalf, time, sourceSize 
         const d = drag.current;
         if (!d || !sourceSize) return;
         const p = toOutput(e.clientX, e.clientY);
-        const value = currentValue(clipId, d.property, time);
+        const value = currentValue(clipId, d.property, time, target);
         if (!value) return;
         const next =
           d.property === 'full'
             ? panFull(value as FullFrame, sourceSize, p.y - d.y)
             : panCrop(value as Crop, d.region, sourceSize, p.x - d.x, p.y - d.y);
-        setFraming(clipId, 'history.moveFrame', d.property, time, next);
+        setFraming(clipId, 'history.moveFrame', d.property, time, next, target);
         drag.current = { ...d, ...p };
       }}
       onPointerUp={() => {

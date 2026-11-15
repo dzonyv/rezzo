@@ -32,6 +32,8 @@ export interface Scene {
   lotties: ReadonlyMap<string, LottieData>;
   /** Text layers' pictures by layer id (render/text.ts); one that isn't there isn't drawn. */
   texts: ReadonlyMap<string, TextImage>;
+  /** Layers not in `clip` whose players are kept anyway (the clip's, while its cover is drawn). */
+  keep?: readonly string[];
 }
 
 /** Files a clip's layers show that couldn't be read. */
@@ -155,7 +157,7 @@ export class SceneRenderer {
    */
   async prepare(scene: Scene, t: number, sequential: boolean): Promise<boolean> {
     const ops = sceneAt(scene.clip, scene.assets, t, this.compositor.sourceSize ?? OUTPUT, scene.texts);
-    const keep = new Set(scene.clip.layers.map((l) => l.id));
+    const keep = new Set([...scene.clip.layers.map((l) => l.id), ...(scene.keep ?? [])]);
     const changed = await Promise.all([this.layers.prepare(ops, scene.overlays, sequential), this.lotties.prepare(ops, scene.lotties, keep)]);
     return changed.some(Boolean);
   }

@@ -10,8 +10,12 @@ import type { Clip } from '../../../shared/project.ts';
 import { DEFAULT_PAUSE_OPTIONS, type PauseOptions, type Span } from '../../../shared/skips.ts';
 import { projectStore, useProject } from '../project/store.ts';
 
-/** The clip editor's tools, in the order the rail shows them; each opens a drawer beside the picture. */
-export const CLIP_TOOLS = ['framing', 'captions', 'layers', 'effects', 'sound', 'pauses', 'voices', 'text'] as const;
+/**
+ * The clip editor's tools, in the order the rail shows them; each opens a
+ * drawer beside the picture. The cover's turns the editor to the clip's
+ * cover picture (shared/cover.ts) while it's open.
+ */
+export const CLIP_TOOLS = ['framing', 'captions', 'layers', 'effects', 'sound', 'pauses', 'voices', 'cover', 'text'] as const;
 export type ClipTool = (typeof CLIP_TOOLS)[number];
 
 /** A pause found in a clip, not cut yet; `on` until the user switches it off on the timeline. */
@@ -49,9 +53,14 @@ export function selectLayer(id: string | null): void {
   clipUiStore.setState({ selectedLayerId: id });
 }
 
-/** Opens a tool's drawer; null closes it. */
+/** Opens a tool's drawer; null closes it. Going to the cover or back leaves the selected layer, which is on the other one. */
 export function setTool(tool: ClipTool | null): void {
-  clipUiStore.setState({ tool });
+  clipUiStore.setState((s) => ((s.tool === 'cover') === (tool === 'cover') ? { tool } : { tool, selectedLayerId: null }));
+}
+
+/** Whether the editor shows the clip's cover rather than the clip. */
+export function useOnCover(): boolean {
+  return useStore(clipUiStore, (s) => s.tool === 'cover');
 }
 
 export function useTool(): ClipTool | null {

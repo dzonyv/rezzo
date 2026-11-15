@@ -3,8 +3,9 @@
  * has one keyframe the edit changes it for the whole clip, after that it
  * lands on a keyframe at that time (see editAt in shared/framing.ts).
  */
-import type { Draft } from 'immer';
+import { current, isDraft, type Draft } from 'immer';
 import type { ClipAnalysis } from '../../../shared/analysis.ts';
+import { coverFraming, coverOf, keptTime } from '../../../shared/cover.ts';
 import { autoFrame, withAutoFrame, type AutoFrameOptions } from '../../../shared/autoframe.ts';
 import { editAt, removeKey, setKey, setLayoutAt, valueAt } from '../../../shared/framing.ts';
 import { fps, workingFrameRate } from '../../../shared/frames.ts';
@@ -16,10 +17,21 @@ import { projectStore, type EditLabel } from './store.ts';
 /** The framing values a user edits; `layout` is edited only through setLayout. */
 export type FramingProperty = 'follow' | 'splitTop' | 'splitBottom' | 'full';
 
-function editLayer(clipId: string, label: EditLabel, recipe: (layer: Draft<VideoLayer>) => void): void {
+/** Whose framing an edit changes: the clip's, or its cover's (which then has framing of its own). */
+export type FramingTarget = 'clip' | 'cover';
+
+function editLayer(clipId: string, label: EditLabel, recipe: (layer: Draft<VideoLayer>, time: number) => void, target: FramingTarget = 'clip', time = 0): void {
   projectStore.getState().edit(label, (d) => {
-    const layer = d.clips.find((c) => c.id === clipId)?.layers.find((l) => l.kind === 'video');
-    if (layer) recipe(layer);
+    const clip = d.clips.find((c) => c.id === clipId);
+    const video = clip?.layers.find((l) => l.kind === 'video');
+    if (!clip || !video) return;
+    if (target === 'clip') return recipe(video, time);
+    const cover = (clip.cover ??= coverOf(clip));
+    cover.time = keptTime(clip, cover.time);
+    cover.video ??= coverFraming(current(video), cover.time);
+    recipe(cover.video, cover.time);
+    // The cover is one moment: whatever the edit added stays one key per track.
+    Object.assign(cover.video, coverFraming(isDraft(cover.video) ? current(cover.video) : cover.video, cover.time, cover.video.id));
   });
 }
 
@@ -30,16 +42,23 @@ export function sourceRate() {
   return workingFrameRate(source);
 }
 
-export function setLayout(clipId: string, time: number, layout: Layout): void {
-  editLayer(clipId, 'history.changeLayout', (l) => void (l.layout = setLayoutAt(l.layout, time, layout, sourceRate())));
+/** Changes the layout at `time`; on the cover, `time` is the cover's moment whatever is passed. */
+export function setLayout(clipId: string, time: number, layout: Layout, target: FramingTarget = 'clip'): void {
+  editLayer(clipId, 'history.changeLayout', (l, at) => void (l.layout = setLayoutAt(l.layout, at, layout, sourceRate())), target, time);
 }
 
 /** Sets a crop or full-frame value at `time`; used while dragging or zooming, inside a gesture. */
-export function setFraming(clipId: string, label: EditLabel, property: FramingProperty, time: number, value: Crop | FullFrame): void {
-  editLayer(clipId, label, (l) => {
-    const keys = l[property] as Animated<Crop | FullFrame>;
-    (l[property] as Animated<Crop | FullFrame>) = editAt(keys, time, value, sourceRate());
-  });
+export function setFraming(clipId: string, label: EditLabel, property: FramingProperty, time: number, value: Crop | FullFrame, target: FramingTarget = 'clip'): void {
+  editLayer(
+    clipId,
+    label,
+    (l, at) => {
+      const keys = l[property] as Animated<Crop | FullFrame>;
+      (l[property] as Animated<Crop | FullFrame>) = editAt(keys, at, value, sourceRate());
+    },
+    target,
+    time,
+  );
 }
 
 /** Adds a keyframe at `time` holding the value there, so later edits can differ from it. */

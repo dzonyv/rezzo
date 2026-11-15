@@ -94,7 +94,9 @@
     "followSound": "zvuk uz animaciju",
     "unlinkSound": "odvezivanje zvuka",
     "duck": "utišavanje dok se priča",
-    "evenLoudness": "ujednačavanje glasnoće"
+    "evenLoudness": "ujednačavanje glasnoće",
+    "coverMoment": "trenutak naslovne",
+    "coverFraming": "kadar naslovne"
   },
   "files": {
     "project": "Rezzo projekat",
@@ -104,7 +106,9 @@
     "font": "Fajl fonta",
     "image": "Slika",
     "lottie": "Lottie animacija",
-    "audio": "Zvučni fajl"
+    "audio": "Zvučni fajl",
+    "png": "PNG slika",
+    "jpg": "JPG slika"
   },
   "unsaved": {
     "title": "Sačuvati izmene u „{{name}}”?",
@@ -290,6 +294,7 @@
       "effects": "Efekti",
       "pauses": "Pauze",
       "voices": "Glasovi",
+      "cover": "Naslovna",
       "text": "Tekst",
       "sound": "Zvuk"
     },
@@ -300,6 +305,7 @@
       "effects": "Efekti preko slike",
       "pauses": "Nađi i iseci pauze",
       "voices": "Ko govori, i glasovi epizode",
+      "cover": "Slika koja se vidi pre nego što klip krene",
       "text": "Transkript epizode",
       "sound": "Zvučni efekti i muzika"
     },
@@ -818,5 +824,28 @@
     "failed": "Prostor na disku nije mogao da se izmeri: {{detail}}",
     "confirmOne": "Obrisati „{{name}}“?",
     "confirmOneBody": "Oslobađa se {{size}}. Napraviće se ili preuzeti ponovo kad zatreba, što može da potraje nekoliko minuta."
+  },
+  "cover": {
+    "placeholder": "Tvoj *naslov* ovde",
+    "hint": "Slika koju platforme prikazuju pre nego što klip krene: kadar iz klipa sa tvojim tekstom i slikama preko njega. Prevuci sliku da je uokviriš.",
+    "framing": "Kadar",
+    "clipFraming": "Kadar klipa u ovom trenutku. Prevuci ili zumiraj sliku, ili izaberi raspored, da naslovna dobije svoj kadar.",
+    "ownFraming": "Naslovna ima svoj kadar.",
+    "useClipFraming": "Uzmi kadar klipa",
+    "addHelp": "Dodaj na naslovnu",
+    "save": "Sačuvaj naslovnu",
+    "saveAs": {
+      "png": "Sačuvaj PNG",
+      "jpg": "Sačuvaj JPG"
+    },
+    "saveHelp": "1080×1920. JPG ostaje ispod 2 MB, za platforme koje ograničavaju veličinu.",
+    "moment": "Trenutak",
+    "earlier": "Frejm ranije",
+    "later": "Frejm kasnije",
+    "momentHelp": "Izaberi kadar za naslovnu. Strelice ga pomeraju za frejm, sa Shiftom za sekundu.",
+    "at": "Naslovna na {{time}}",
+    "placeHelp": "Prevuci sloj na naslovnoj da ga pomeriš, uglove da mu promeniš veličinu, a okruglu ručku da ga okreneš. Shift isključuje lepljenje.",
+    "saved": "Naslovna je sačuvana kao {{file}}.",
+    "missing": "Naslovna ne može da se sačuva: ovi fajlovi nisu tamo gde su bili: {{names}}"
   }
 }

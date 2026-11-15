@@ -1899,6 +1899,50 @@ button.icon {
   font-variant-numeric: tabular-nums;
 }
 
+/* The cover's moment, where the timeline is for the clip. */
+.cover-moment {
+  display: flex;
+  align-items: center;
+  gap: 6px;
+  padding: 10px 12px;
+}
+
+.cover-moment > .dim {
+  margin-right: 4px;
+}
+
+.cover-moment .value {
+  font-family: var(--font-mono);
+  font-variant-numeric: tabular-nums;
+  min-width: 5ch;
+  text-align: center;
+}
+
+.cover-moment input[type='range'] {
+  flex: 1;
+  min-width: 0;
+  margin-left: 8px;
+}
+
+.cover-framing,
+.cover-save {
+  display: flex;
+  flex-direction: column;
+  align-items: flex-start;
+  gap: 8px;
+  margin: 12px 0;
+}
+
+.cover-framing h3,
+.cover-save h3 {
+  margin: 0;
+  font-size: 13px;
+}
+
+.cover-framing .zoom {
+  align-self: stretch;
+}
+
 .clip-preview {
   position: relative;
   height: min(100cqh, calc(100cqw * 16 / 9));

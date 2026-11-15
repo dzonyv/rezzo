@@ -28,7 +28,7 @@ import { JOIN_FADE_SECONDS, keptLength, keptPieces, nextKept, outputTime, type C
 import { gainPoints, type PlayedSound } from '../../../shared/sound-mix.ts';
 import { workingFrameIndex, workingFrameTime } from '../../../shared/working.ts';
 import type { Compositor } from './compositor.ts';
-import { demux } from './demux.ts';
+import { demux, type Demuxed } from './demux.ts';
 import { FrameSource } from './frame-source.ts';
 
 /** Where the working file sits in the source: frame 0 is at `start`, and it holds frames up to `end`. */
@@ -136,6 +136,11 @@ export class ClipPlayer {
   readonly size: Size;
   private readonly compositor: Compositor;
   private readonly frames: FrameSource;
+
+  /** The working file, read in, for decoding a frame apart from playback (a cover). */
+  get media(): Demuxed {
+    return this.frames.media;
+  }
   private readonly audio: AudioBuffer | null;
   private readonly context = new AudioContext({ latencyHint: 'interactive' });
   /** Where all sound goes: the limiter. */

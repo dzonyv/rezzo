@@ -1,16 +1,18 @@
 import { useEffect, useMemo, useState, type ReactNode } from 'react';
 import { useTranslation } from 'react-i18next';
+import { coverClip, coverOf } from '../../../shared/cover.ts';
 import { keyAt, valueAt } from '../../../shared/framing.ts';
 import { fps, workingFrameRate } from '../../../shared/frames.ts';
 import { videoLayersOverLimit } from '../../../shared/overlay-files.ts';
 import { DEFAULT_CLIP_DOCK } from '../../../shared/settings.ts';
 import { captionPages, captionTrackFor } from '../../../shared/captions.ts';
 import { keptLength, outputTime } from '../../../shared/skips.ts';
-import { captionLayerOf, isPlaced, isTimed, LAYOUTS, MAX_ZOOM, videoLayerOf, type Clip, type Source } from '../../../shared/project.ts';
+import { captionLayerOf, isPlaced, isTimed, LAYOUTS, videoLayerOf, type Clip, type Source, type TimedLayer } from '../../../shared/project.ts';
 import { exportClip, isExporting, useExport } from '../export/state.ts';
+import { stepCoverTime } from '../project/cover.ts';
 import { formatClipTime } from '../format.ts';
 import { nudgeClip, renameClip } from '../project/clips.ts';
-import { addKeyframe, deleteKeyframe, setFraming, setLayout, setSmooth } from '../project/framing.ts';
+import { addKeyframe, deleteKeyframe, setLayout, setSmooth, type FramingTarget } from '../project/framing.ts';
 import { deleteLayer, reorderLayer } from '../project/layers.ts';
 import { projectStore, useProject } from '../project/store.ts';
 import { retimeWord } from '../project/transcript.ts';
@@ -27,9 +29,10 @@ import { SoundPanel } from './SoundPanel.tsx';
 import { ClipLoudness } from './Loudness.tsx';
 import { CaptionOverlay } from './CaptionOverlay.tsx';
 import { CaptionPanel } from './CaptionPanel.tsx';
+import { CoverMoment, CoverPanel } from './CoverPanel.tsx';
 import { ClipPreview } from './ClipPreview.tsx';
 import { ClipTimeline } from './ClipTimeline.tsx';
-import { FramingOverlay, propertyFor, regionFor, zoomed } from './FramingOverlay.tsx';
+import { FramingOverlay, propertyFor, ZoomSlider } from './FramingOverlay.tsx';
 import { layerName, rowsOf } from './layer-names.ts';
 import { LayerOverlay } from './LayerOverlay.tsx';
 import { useTextImages } from '../render/text.ts';
@@ -37,7 +40,7 @@ import { PeopleOverlay } from './PeopleOverlay.tsx';
 import { WhoTalks } from './WhoTalks.tsx';
 import { EffectPanel } from './EffectPanel.tsx';
 import { LayerPanel } from './LayerPanel.tsx';
-import { currentPlayer, seekClip, toggleClip, useClipPlayback } from './playback.ts';
+import { currentPlayer, pauseClip, seekClip, toggleClip, useClipPlayback } from './playback.ts';
 import { clipUiStore, openClip, selectLayer, setTool, useSelectedLayerId, useTool, type ClipTool } from './state.ts';
 import { ToolRail } from './ToolRail.tsx';
 import { WordStrip } from './WordStrip.tsx';
@@ -64,29 +67,40 @@ export function ClipEditor({ clip, source, side, voices }: { clip: Clip; source:
   const exporting = useExport(isExporting);
   const transcript = useProject((s) => s.project?.transcript ?? null);
   const assets = useProject((s) => s.project?.assets) ?? [];
+  const tool = useTool();
+  // With the Cover tool open the editor works on the cover, drawn as a clip of its own (shared/cover.ts).
+  const onCover = tool === 'cover';
+  const shown = useMemo(() => (onCover ? coverClip(clip) : clip), [onCover, clip]);
+  const coverTime = coverOf(clip).time;
+  const target: FramingTarget = onCover ? 'cover' : 'clip';
   // The text layers' pictures, painted once for the preview and the handles over it.
-  const texts = useTextImages(clip);
+  const texts = useTextImages(shown);
   const selectedId = useSelectedLayerId();
-  const selected = clip.layers.find((l) => l.id === selectedId);
+  const selected = shown.layers.find((l) => l.id === selectedId);
   const selectedLayer = selected && isTimed(selected) ? selected : null;
   const dock = useSettings((s) => s.clipDock) ?? DEFAULT_CLIP_DOCK;
-  const tool = useTool();
-  const selectedDrawer = selectedLayer ? (selectedLayer.kind === 'effect' ? 'effects' : selectedLayer.kind === 'sound' ? 'sound' : 'layers') : null;
+  const selectedDrawer = selectedLayer && !onCover ? (selectedLayer.kind === 'effect' ? 'effects' : selectedLayer.kind === 'sound' ? 'sound' : 'layers') : null;
   useEffect(() => {
     if (selectedDrawer) setTool(selectedDrawer);
   }, [selectedId, selectedDrawer]);
 
   const rate = workingFrameRate(source);
   const frame = 1 / fps(rate);
-  // Until the player is ready, the clip's first frame is "now".
-  const time = status === 'ready' ? Math.min(Math.max(playerTime, clip.start), clip.end - frame) : clip.start;
-  const layer = videoLayerOf(clip);
+  // The cover holds one moment: the player waits there.
+  useEffect(() => {
+    if (!onCover || status !== 'ready') return;
+    pauseClip();
+    seekClip(coverTime);
+  }, [onCover, coverTime, status]);
+  // Until the player is ready, the clip's first frame is "now"; on the cover, its moment.
+  const time = onCover ? coverTime : status === 'ready' ? Math.min(Math.max(playerTime, clip.start), clip.end - frame) : clip.start;
+  const layer = videoLayerOf(shown);
   const layout = valueAt(layer.layout, time);
   const property = propertyFor(layout, half);
   const keys = layer[property];
   const keyIndex = keyAt(keys, time, rate);
   const value = valueAt(keys, time);
-  const captions = captionLayerOf(clip);
+  const captions = onCover ? null : captionLayerOf(clip);
   // Not on every frame of playback: only when the words, the range or the style change.
   const pages = useMemo(
     () => (captions && transcript ? captionPages(flatOf(transcript.segments).words, { start: clip.start, end: clip.end }, captions.style) : []),
@@ -98,6 +112,10 @@ export function ClipEditor({ clip, source, side, voices }: { clip: Clip; source:
   useEffect(() => {
     const onKey = (e: KeyboardEvent) => {
       if (isTypingTarget(e.target) || e.ctrlKey) return;
+      if (onCover) {
+        onCoverKey(e);
+        return;
+      }
       const player = currentPlayer();
       if (e.altKey) {
         // Alt+arrows: the word starting nearest the playhead starts a frame earlier or later.
@@ -146,9 +164,23 @@ export function ClipEditor({ clip, source, side, voices }: { clip: Clip; source:
         seekClip(player.currentTime + by);
       }
     };
+    /** On the cover: Delete and Escape for the selected layer, the arrows for the moment. Nothing plays. */
+    const onCoverKey = (e: KeyboardEvent) => {
+      const layerId = clipUiStore.getState().selectedLayerId;
+      if (layerId && (e.key === 'Delete' || e.key === 'Escape')) {
+        e.preventDefault();
+        if (e.key === 'Delete') deleteLayer(clip.id, layerId);
+        selectLayer(null);
+      } else if ((e.key === 'ArrowLeft' || e.key === 'ArrowRight') && !e.altKey) {
+        e.preventDefault();
+        stepCoverTime(clip.id, (e.shiftKey ? Math.round(fps(rate)) : 1) * (e.key === 'ArrowLeft' ? -1 : 1));
+      } else if (e.code === 'Space') {
+        e.preventDefault();
+      }
+    };
     window.addEventListener('keydown', onKey);
     return () => window.removeEventListener('keydown', onKey);
-  }, [frame, rate, half, clip.id]);
+  }, [frame, rate, half, clip.id, onCover]);
 
   // A caption font that isn't on this computer is said in the Captions drawer; the rail points there.
   const alerts = captions && !isAvailable(captions.style.font) ? { captions: t('captions.fontMissing', { family: `${captions.style.font.family} ${captions.style.font.weight}` }) } : undefined;
@@ -178,21 +210,27 @@ export function ClipEditor({ clip, source, side, voices }: { clip: Clip; source:
         </header>
 
         <div className="clip-frame">
-          <ClipPreview clip={clip} source={source} texts={texts}>
-            <FramingOverlay clipId={clip.id} layout={layout} half={half} onHalf={setHalf} time={time} sourceSize={sourceSize} />
-            <LayerOverlay clip={clip} assets={assets} selectedId={selectedLayer?.id ?? null} time={time} texts={texts} />
+          <ClipPreview clip={clip} drawn={shown} source={source} texts={texts}>
+            <FramingOverlay clipId={clip.id} layout={layout} half={half} onHalf={setHalf} time={time} sourceSize={sourceSize} target={target} />
+            <LayerOverlay clip={shown} assets={assets} selectedId={selectedLayer?.id ?? null} time={time} texts={texts} />
             {showPeople && <PeopleOverlay layer={layer} time={time} sourceSize={sourceSize} />}
             {captions && <CaptionOverlay clipId={clip.id} layer={captions} track={captionTrackFor(layout)} time={time} />}
           </ClipPreview>
         </div>
 
         <div className="transport">
-          <button type="button" className="play" disabled={status !== 'ready'} onClick={toggleClip}>
-            {playing ? t('clipEditor.pause') : t('clipEditor.play')}
-          </button>
-          <span className="time">
-            {t('clipEditor.time', { current: formatClipTime(outputTime(clip, time)), total: formatClipTime(keptLength(clip)) })}
-          </span>
+          {onCover ? (
+            <span className="time">{t('cover.at', { time: formatClipTime(outputTime(clip, time)) })}</span>
+          ) : (
+            <>
+              <button type="button" className="play" disabled={status !== 'ready'} onClick={toggleClip}>
+                {playing ? t('clipEditor.pause') : t('clipEditor.play')}
+              </button>
+              <span className="time">
+                {t('clipEditor.time', { current: formatClipTime(outputTime(clip, time)), total: formatClipTime(keptLength(clip)) })}
+              </span>
+            </>
+          )}
           <div className="layouts" role="group" aria-label={t('clipEditor.layout')}>
             {LAYOUTS.map((l) => (
               <button
@@ -201,7 +239,7 @@ export function ClipEditor({ clip, source, side, voices }: { clip: Clip; source:
                 aria-pressed={layout === l}
                 className={layout === l ? 'selected' : undefined}
                 title={t(`clipEditor.layoutHelp.${l}`)}
-                onClick={() => setLayout(clip.id, time, l)}
+                onClick={() => setLayout(clip.id, time, l, target)}
               >
                 {t(`clipEditor.layouts.${l}`)}
               </button>
@@ -239,10 +277,16 @@ export function ClipEditor({ clip, source, side, voices }: { clip: Clip; source:
 
       <aside className="clip-side">{side}</aside>
 
-      <ClipDock dock={dock} tools={dockTools()}>
-        <ClipTimeline clip={clip} assets={assets} keys={keys} pages={pages} selectedId={selectedLayer?.id ?? null} time={time} />
-        {transcript && dock.size !== 'compact' && <WordStrip clip={clip} transcript={transcript} time={time} rate={rate} captions={captions !== null} />}
-      </ClipDock>
+      {onCover ? (
+        <ClipDock dock={dock} tools={coverDockTools()}>
+          <CoverMoment clip={clip} rate={rate} />
+        </ClipDock>
+      ) : (
+        <ClipDock dock={dock} tools={dockTools()}>
+          <ClipTimeline clip={clip} assets={assets} keys={keys} pages={pages} selectedId={selectedLayer?.id ?? null} time={time} />
+          {transcript && dock.size !== 'compact' && <WordStrip clip={clip} transcript={transcript} time={time} rate={rate} captions={captions !== null} />}
+        </ClipDock>
+      )}
     </section>
   );
 
@@ -252,8 +296,6 @@ export function ClipEditor({ clip, source, side, voices }: { clip: Clip; source:
    * with a layer, its name and its place in the stack.
    */
   function dockTools() {
-    const rows = rowsOf(clip);
-    const row = selectedLayer ? rows.findIndex((l) => l.id === selectedLayer.id) : -1;
     return (
       <>
         <div className="clip-range">
@@ -272,20 +314,7 @@ export function ClipEditor({ clip, source, side, voices }: { clip: Clip; source:
         </div>
         <div className="dock-context">
           {selectedLayer ? (
-            <>
-              <span className="selected-name">{layerName(t, selectedLayer, assets)}</span>
-              {/* A sound draws nothing, so it has no place in the order. */}
-              {selectedLayer.kind !== 'sound' && (
-                <>
-                  <button type="button" disabled={row <= 0} onClick={() => reorderLayer(clip.id, selectedLayer.id, 'up')}>
-                    {t('layers.up')}
-                  </button>
-                  <button type="button" disabled={row < 0 || row === rows.length - 1} onClick={() => reorderLayer(clip.id, selectedLayer.id, 'down')}>
-                    {t('layers.down')}
-                  </button>
-                </>
-              )}
-            </>
+            selectedLayerTools(selectedLayer)
           ) : (
             <>
               <AutoFramePanel clip={clip} time={time} />
@@ -293,6 +322,33 @@ export function ClipEditor({ clip, source, side, voices }: { clip: Clip; source:
             </>
           )}
         </div>
+      </>
+    );
+  }
+
+  /** Above the cover's moment: the selected layer on the cover and its place in the stack. */
+  function coverDockTools() {
+    return <div className="dock-context">{selectedLayer ? selectedLayerTools(selectedLayer) : <span className="dim">{t('cover.momentHelp')}</span>}</div>;
+  }
+
+  /** The selected layer's name and its place in the stack of what's shown (the clip's layers, or the cover's). */
+  function selectedLayerTools(selected: TimedLayer) {
+    const rows = rowsOf(shown);
+    const row = rows.findIndex((l) => l.id === selected.id);
+    return (
+      <>
+        <span className="selected-name">{layerName(t, selected, assets)}</span>
+        {/* A sound draws nothing, so it has no place in the order. */}
+        {selected.kind !== 'sound' && (
+          <>
+            <button type="button" disabled={row <= 0} onClick={() => reorderLayer(clip.id, selected.id, 'up')}>
+              {t('layers.up')}
+            </button>
+            <button type="button" disabled={row < 0 || row === rows.length - 1} onClick={() => reorderLayer(clip.id, selected.id, 'down')}>
+              {t('layers.down')}
+            </button>
+          </>
+        )}
       </>
     );
   }
@@ -324,6 +380,8 @@ export function ClipEditor({ clip, source, side, voices }: { clip: Clip; source:
   /** What a tool's drawer holds. A selected layer shows in Layers or Effects. */
   function drawer(open: Exclude<ClipTool, 'text'>) {
     switch (open) {
+      case 'cover':
+        return <CoverPanel clip={clip} shown={shown} selectedId={selectedLayer?.id ?? null} assets={assets} rate={rate} half={half} sourceSize={sourceSize} ready={status === 'ready'} />;
       case 'framing':
         return framing();
       case 'captions':
@@ -389,25 +447,7 @@ export function ClipEditor({ clip, source, side, voices }: { clip: Clip; source:
           {layout === 'split' && ` ${t('clipEditor.editing', { what: t(`clipEditor.${half}`) })}`}
         </p>
 
-        <label className="zoom">
-          <span>{t('clipEditor.zoom')}</span>
-          <input
-            type="range"
-            min={1}
-            max={MAX_ZOOM}
-            step={0.01}
-            value={value.zoom}
-            disabled={!sourceSize}
-            onPointerDown={() => store.beginGesture('history.zoomFrame')}
-            onPointerUp={() => store.endGesture()}
-            onChange={(e) => {
-              if (!sourceSize) return;
-              const region = regionFor(layout, half);
-              const next = zoomed(value, property, region, sourceSize, Number(e.target.value), region.x + region.w / 2, region.y + region.h / 2);
-              setFraming(clip.id, 'history.zoomFrame', property, time, next);
-            }}
-          />
-        </label>
+        <ZoomSlider clipId={clip.id} layout={layout} half={half} value={value} time={time} sourceSize={sourceSize} />
       </>
     );
   }

@@ -44,9 +44,17 @@ function editClip(clipId: string, label: EditLabel, recipe: (clip: Draft<Clip>, 
   });
 }
 
+/** The list that holds the layer: the clip's, or its cover's. */
+function listOf(clip: Draft<Clip>, layerId: string): Draft<Layer>[] | null {
+  if (clip.layers.some((l) => l.id === layerId)) return clip.layers;
+  if (clip.cover?.layers.some((l) => l.id === layerId)) return clip.cover.layers;
+  return null;
+}
+
+/** Edits a layer on the clip or on its cover. */
 function editLayer(clipId: string, layerId: string, label: EditLabel, recipe: (layer: Draft<TimedLayer>, clip: Draft<Clip>) => void): void {
   editClip(clipId, label, (clip) => {
-    const layer = clip.layers.find((l) => l.id === layerId);
+    const layer = listOf(clip, layerId)?.find((l) => l.id === layerId);
     if (layer && isTimed(layer)) recipe(layer, clip);
   });
 }
@@ -58,7 +66,7 @@ function editPlaced(clipId: string, layerId: string, label: EditLabel, recipe: (
 }
 
 /** Drops assets no layer uses any more, in the same edit that stopped using them. */
-function pruneAssets(d: Draft<Project>): void {
+export function pruneAssets(d: Draft<Project>): void {
   const used = new Set(d.clips.flatMap(layerAssetIds));
   d.assets = d.assets.filter((a) => used.has(a.id));
 }
@@ -70,7 +78,7 @@ function pruneAssets(d: Draft<Project>): void {
  * finding a moved file that's not an edit (see locateAsset): undo would
  * point the project back where the file isn't.
  */
-function adoptFile(kind: Asset['kind'], file: AssetFile): Asset | undefined {
+export function adoptFile(kind: Asset['kind'], file: AssetFile): Asset | undefined {
   const existing = store().project?.assets.find((a) => a.kind === kind && a.fingerprint === file.fingerprint);
   if (existing && (existing.path !== file.path || existing.name !== file.name || existing.size !== file.size)) {
     store().replace((d) => void Object.assign(d.assets.find((a) => a.id === existing.id)!, { path: file.path, name: file.name, size: file.size }));
@@ -99,7 +107,7 @@ function newLayerTime(clip: Pick<Clip, 'start' | 'end'>, time: number, seconds: 
 }
 
 /** The scale that makes a picture of `size` NEW_LAYER_WIDTH wide, or NEW_LAYER_MAX_HEIGHT tall if it's tall. */
-function startingScale(size: Size): number {
+export function startingScale(size: Size): number {
   const tallest = (NEW_LAYER_MAX_HEIGHT * OUTPUT.height * size.width) / (OUTPUT.width * size.height);
   return Math.min(NEW_LAYER_WIDTH, tallest);
 }
@@ -141,7 +149,7 @@ export function replaceImage(clipId: string, layerId: string, file: AssetFile, s
   const existing = adoptFile('image', file);
   const assetId = existing?.id ?? crypto.randomUUID();
   editClip(clipId, 'history.replaceImage', (c, d) => {
-    const layer = c.layers.find((l) => l.id === layerId);
+    const layer = listOf(c, layerId)?.find((l) => l.id === layerId);
     if (layer?.kind !== 'image') return;
     if (!existing) d.assets.push({ id: assetId, kind: 'image', ...file, ...size });
     layer.assetId = assetId;
@@ -198,21 +206,27 @@ export function trimLayer(clipId: string, layerId: string, edge: 'start' | 'end'
  */
 export function reorderLayer(clipId: string, layerId: string, direction: 'up' | 'down'): void {
   editClip(clipId, 'history.reorderLayer', (clip) => {
-    const i = clip.layers.findIndex((l) => l.id === layerId);
-    if (i < 1 || isSound(clip.layers[i]!)) return;
+    const layers = listOf(clip, layerId);
+    if (!layers) return;
+    // The clip's source video is at the bottom; the cover's isn't in its list.
+    const bottom = layers === clip.layers ? 1 : 0;
+    const i = layers.findIndex((l) => l.id === layerId);
+    if (i < bottom || isSound(layers[i]!)) return;
     const step = direction === 'up' ? 1 : -1;
     let j = i + step;
-    while (j >= 1 && j < clip.layers.length && isSound(clip.layers[j]!)) j += step;
-    if (j < 1 || j >= clip.layers.length) return;
-    [clip.layers[i], clip.layers[j]] = [clip.layers[j]!, clip.layers[i]!];
+    while (j >= bottom && j < layers.length && isSound(layers[j]!)) j += step;
+    if (j < bottom || j >= layers.length) return;
+    [layers[i], layers[j]] = [layers[j]!, layers[i]!];
   });
 }
 
+/** Deletes a layer from the clip or from its cover. */
 export function deleteLayer(clipId: string, layerId: string): void {
   editClip(clipId, 'history.deleteLayer', (clip, d) => {
-    const i = clip.layers.findIndex((l) => l.id === layerId);
-    if (i < 1 || !isTimed(clip.layers[i]!)) return;
-    clip.layers.splice(i, 1);
+    const layers = listOf(clip, layerId);
+    const i = layers?.findIndex((l) => l.id === layerId) ?? -1;
+    if (!layers || i < 0 || !isTimed(layers[i]!)) return;
+    layers.splice(i, 1);
     pruneAssets(d);
   });
 }
@@ -225,13 +239,14 @@ export function deleteLayer(clipId: string, layerId: string): void {
 export function duplicateLayer(clipId: string, layerId: string): string {
   const id = crypto.randomUUID();
   editClip(clipId, 'history.duplicateLayer', (clip) => {
-    const i = clip.layers.findIndex((l) => l.id === layerId);
-    const layer = clip.layers[i];
-    if (!layer || !isTimed(layer)) return;
+    const layers = listOf(clip, layerId);
+    const i = layers?.findIndex((l) => l.id === layerId) ?? -1;
+    const layer = layers?.[i];
+    if (!layers || !layer || !isTimed(layer)) return;
     // A plain copy of the draft: structuredClone can't copy Immer's proxy.
     const copy: Layer = { ...structuredClone(current(layer)), id };
     if (copy.kind === 'sound') copy.follows = null;
-    clip.layers.splice(i + 1, 0, copy);
+    layers.splice(i + 1, 0, copy);
     for (const part of FOLLOW_PARTS) {
       const sound = followerOf(clip, layerId, part);
       if (sound?.follows) clip.layers.push({ ...structuredClone(current(sound)), id: crypto.randomUUID(), follows: { ...sound.follows, layerId: id } });
