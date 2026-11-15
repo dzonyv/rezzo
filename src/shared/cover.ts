@@ -16,6 +16,9 @@ export type CoverFormat = (typeof COVER_FORMATS)[number];
 /** A JPG cover is at most this big: the usual limit for an uploaded thumbnail (YouTube's). */
 export const MAX_JPG_BYTES = 2 * 1024 * 1024;
 
+/** Most words a title taken from the transcript has: more don't fit on a cover. */
+export const MAX_TITLE_WORDS = 20;
+
 /**
  * A cover title from words of the transcript: their text on one line,
  * without the comma or full stop the last one ends in (a question or an

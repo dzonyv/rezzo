@@ -6,13 +6,15 @@
  * few and keeps the sharpest (render/cover-suggest.ts).
  */
 import { shotIndexAt, type ClipAnalysis } from './analysis.ts';
+import type { Box } from './heads.ts';
 import type { Clip } from './project.ts';
 import { keptPieces } from './skips.ts';
 
-/** A moment and how good a cover it would make, 0..1. */
+/** A moment and how good a cover it would make, 0..1, with the biggest head then (source pixels), if anyone was found. */
 export interface CoverCandidate {
   t: number;
   score: number;
+  head?: Box;
 }
 
 /** Frames this close to a camera cut are left out. */
@@ -43,13 +45,13 @@ function usable(clip: Pick<Clip, 'start' | 'end' | 'skips'>, analysis: ClipAnaly
  * found, the moments are spread evenly over the clip.
  */
 export function coverCandidates(clip: Pick<Clip, 'start' | 'end' | 'skips'>, analysis: ClipAnalysis, count: number): CoverCandidate[] {
-  const byTime = new Map<number, number>();
+  const byTime = new Map<number, CoverCandidate>();
   for (const seat of analysis.seats) {
     for (const s of seat.samples) {
       if (!usable(clip, analysis, s.t)) continue;
       const size = Math.min(1, s.box.h / analysis.height / CLOSE_UP);
       const score = (1 - FACE_SHARE) * size + (s.mouth !== null ? FACE_SHARE : 0);
-      byTime.set(s.t, Math.max(byTime.get(s.t) ?? 0, score));
+      if (score > (byTime.get(s.t)?.score ?? -1)) byTime.set(s.t, { t: s.t, score, head: s.box });
     }
   }
   if (byTime.size === 0) {
@@ -70,13 +72,29 @@ export function coverCandidates(clip: Pick<Clip, 'start' | 'end' | 'skips'>, ana
     }
     return spread;
   }
-  const ranked = [...byTime].map(([t, score]) => ({ t, score })).sort((a, b) => b.score - a.score || a.t - b.t);
+  const ranked = [...byTime.values()].sort((a, b) => b.score - a.score || a.t - b.t);
   const picked: CoverCandidate[] = [];
   for (const c of ranked) {
     if (picked.length === count) break;
     if (picked.every((p) => Math.abs(p.t - c.t) >= MIN_APART)) picked.push(c);
   }
   return picked;
+}
+
+/**
+ * Where sharpness is measured in a `width` × `height` frame: around the
+ * candidate's biggest head (blur there is what spoils a cover, and a still
+ * background stays sharp whatever the speaker does), or the whole frame
+ * when nobody was found. Source pixels, inside the frame.
+ */
+export function sharpnessRegion(candidate: CoverCandidate, width: number, height: number): Box {
+  if (!candidate.head) return { x: 0, y: 0, w: width, h: height };
+  const { x, y, w, h } = candidate.head;
+  const x0 = Math.max(0, x - w * 0.25);
+  const y0 = Math.max(0, y - h * 0.25);
+  const x1 = Math.min(width, x + w * 1.25);
+  const y1 = Math.min(height, y + h * 1.25);
+  return x1 - x0 < 8 || y1 - y0 < 8 ? { x: 0, y: 0, w: width, h: height } : { x: x0, y: y0, w: x1 - x0, h: y1 - y0 };
 }
 
 /**
@@ -110,7 +128,7 @@ export function sharpness(grey: ArrayLike<number>, width: number, height: number
 export function rankWithSharpness(candidates: readonly CoverCandidate[], sharp: readonly number[], count: number): CoverCandidate[] {
   const most = Math.max(0, ...sharp);
   return candidates
-    .map((c, i) => ({ t: c.t, score: c.score * (most > 0 ? 0.5 + 0.5 * (sharp[i]! / most) : 1) }))
+    .map((c, i) => ({ ...c, score: c.score * (most > 0 ? 0.5 + 0.5 * (sharp[i]! / most) : 1) }))
     .sort((a, b) => b.score - a.score || a.t - b.t)
     .slice(0, count);
 }

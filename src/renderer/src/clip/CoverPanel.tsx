@@ -144,8 +144,15 @@ function SuggestedFrames({ clip, rate, ready }: { clip: Clip; rate: FrameRate; r
             const at = formatClipTime(outputTime(clip, s.t));
             const chosen = Math.abs(s.t - time) < frame;
             return (
-              <button key={s.t} type="button" aria-pressed={chosen} title={t('cover.useFrame', { time: at })} onClick={() => setCoverTime(clip.id, s.t)}>
-                <img src={s.picture} alt={t('cover.frameAt', { time: at })} />
+              <button
+                key={s.t}
+                type="button"
+                aria-pressed={chosen}
+                aria-label={t('cover.useFrame', { time: at })}
+                title={t('cover.useFrame', { time: at })}
+                onClick={() => setCoverTime(clip.id, s.t)}
+              >
+                <img src={s.picture} alt="" />
                 <span>{at}</span>
               </button>
             );

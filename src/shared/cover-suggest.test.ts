@@ -1,7 +1,7 @@
 import { describe, expect, it } from 'vitest';
-import { ANALYSIS_VERSION, type ClipAnalysis, type HeadSample } from './analysis.ts';
+import { ANALYSIS_VERSION, greyOf, type ClipAnalysis, type HeadSample } from './analysis.ts';
 import { coverTitleOf } from './cover.ts';
-import { coverCandidates, rankWithSharpness, sharpness } from './cover-suggest.ts';
+import { coverCandidates, rankWithSharpness, sharpness, sharpnessRegion } from './cover-suggest.ts';
 
 const clip = { start: 10, end: 20, skips: [{ start: 14, end: 15 }] };
 
@@ -48,6 +48,15 @@ describe('suggested cover frames', () => {
     const soft = Array.from({ length: w * w }, (_, i) => 100 + ((i % w) / w) * 50);
     expect(sharpness(stripes, w, w)).toBeGreaterThan(sharpness(soft, w, w));
     expect(sharpness(new Array(w * w).fill(128), w, w)).toBe(0);
+  });
+
+  it('measures sharpness around the biggest head, inside the frame', () => {
+    const [best] = coverCandidates(clip, analysis([samples([16], 200, true)]), 1);
+    expect(best!.head).toEqual({ x: 500, y: 200, w: 200, h: 200 });
+    expect(sharpnessRegion(best!, 1280, 720)).toEqual({ x: 450, y: 150, w: 300, h: 300 });
+    expect(sharpnessRegion({ t: 1, score: 1, head: { x: 1200, y: 650, w: 200, h: 200 } }, 1280, 720)).toEqual({ x: 1150, y: 600, w: 130, h: 120 });
+    expect(sharpnessRegion({ t: 1, score: 1 }, 1280, 720)).toEqual({ x: 0, y: 0, w: 1280, h: 720 });
+    expect(Array.from(greyOf([30, 60, 90, 255, 255, 255, 255, 255]))).toEqual([60, 255]);
   });
 
   it('lets a sharp frame pass a slightly better blurred one', () => {

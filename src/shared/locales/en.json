@@ -851,9 +851,10 @@
     "suggesting": "Looking for good frames once the clip is analysed…",
     "noSuggestions": "No suggestions for this clip. Pick the frame under the cover.",
     "useFrame": "Use the frame at {{time}}",
-    "frameAt": "The frame at {{time}}",
     "titleFromWords": "Cover title",
     "titleFromWordsHelp": "Put these words on the open clip's cover as a title",
-    "titleHint": "Or select words in the transcript and press Cover title."
+    "titleHint": "Or select words in the transcript and press Cover title.",
+    "suggestFailed": "Couldn't suggest frames for the cover: {{detail}}",
+    "tooManyWords": "Select at most {{count}} words for a cover title"
   }
 }

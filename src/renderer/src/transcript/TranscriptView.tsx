@@ -2,7 +2,7 @@ import { useVirtualizer } from '@tanstack/react-virtual';
 import { memo, useDeferredValue, useEffect, useMemo, useRef, useState } from 'react';
 import { useTranslation } from 'react-i18next';
 import { fitsInClip, rangeForWords } from '../../../shared/clips.ts';
-import { coverTitleOf } from '../../../shared/cover.ts';
+import { coverTitleOf, MAX_TITLE_WORDS } from '../../../shared/cover.ts';
 import { MAX_CLIP_SECONDS, type Clip, type Segment, type Source, type Transcript } from '../../../shared/project.ts';
 import { clipUiStore, selectLayer, setTool, useOpenClip, useOpenClipId } from '../clip/state.ts';
 import { formatDuration } from '../format.ts';
@@ -411,7 +411,12 @@ function SelectionBar({ words, source }: { words: FlatWord[]; source: Source }) 
         </button>
       )}
       {open && (
-        <button type="button" title={t('cover.titleFromWordsHelp')} onClick={done(() => titleCover(open.id, words))}>
+        <button
+          type="button"
+          disabled={words.length > MAX_TITLE_WORDS}
+          title={words.length > MAX_TITLE_WORDS ? t('cover.tooManyWords', { count: MAX_TITLE_WORDS }) : t('cover.titleFromWordsHelp')}
+          onClick={done(() => titleCover(open.id, words))}
+        >
           {t('cover.titleFromWords')}
         </button>
       )}

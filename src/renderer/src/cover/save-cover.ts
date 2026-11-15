@@ -18,6 +18,7 @@ import { loadScene, MissingFilesError, SceneRenderer } from '../render/scene-ren
 import { currentPlayer } from '../clip/playback.ts';
 import { projectStore } from '../project/store.ts';
 import { notify } from '../ui/prompts.ts';
+import { withSpareDecoder } from './spare-decoder.ts';
 
 /** JPG qualities tried in turn, best first, until the picture fits. */
 const JPG_QUALITIES = [0.92, 0.85, 0.78, 0.7, 0.6, 0.5];
@@ -91,7 +92,7 @@ export async function saveCover(clip: Clip, format: CoverFormat): Promise<void> 
   if (!player) return;
   try {
     const assets = coverAssets(clip, projectStore.getState().project?.assets ?? []);
-    const bytes = await encodeCover(await drawCover(clip, assets, player.file, player.media), format);
+    const bytes = await encodeCover(await withSpareDecoder(() => drawCover(clip, assets, player.file, player.media)), format);
     const saved = await window.rezzo.invoke('cover:save', clip.name || i18n.t('clips.untitled'), format, bytes);
     if (saved) notify('info', i18n.t('cover.saved', { file: saved.split(/[\\/]/).pop() }));
   } catch (e) {
