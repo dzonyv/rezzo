@@ -93,7 +93,16 @@ beforeAll(async () => {
     model: 'test',
     createdAt: new Date().toISOString(),
     startShift: -0.1,
-    segments: [{ start: 2.1, end: 2.5, words: [{ text: 'Naslov.', start: 2.1, end: 2.5, p: 0.9 }] }],
+    segments: [
+      {
+        start: 2.1,
+        end: 2.9,
+        words: [
+          { text: 'Ona', start: 2.1, end: 2.4, p: 0.9 },
+          { text: 'laže.', start: 2.5, end: 2.9, p: 0.9 },
+        ],
+      },
+    ],
   };
   project.clips = [{ id: crypto.randomUUID(), name: 'Naslovna', start: START, end: END, skips: [], evenLoudness: false, layers: [defaultVideoLayer(START)] }];
   await writeFile(file, JSON.stringify(project));
@@ -166,5 +175,33 @@ describe('covers', () => {
     await page.getByText('Saved the cover as naslovna.jpg.').waitFor({ timeout: 20_000 });
     expect((await stat(jpg)).size).toBeLessThanOrEqual(MAX_JPG_BYTES);
     expect((await luma(jpg)).length).toBe(W * H);
+  });
+
+  it('suggests frames to choose from', async () => {
+    await page.keyboard.press('Escape');
+    const frames = page.locator('.cover-frames button');
+    await expect.poll(() => frames.count(), { timeout: 20_000 }).toBe(4);
+    // Nobody in the test video: they're spread over the clip, none of them the frame the cover has.
+    const name = (await frames.and(page.locator('[aria-pressed="false"]')).first().getAttribute('title'))!;
+    const other = page.locator(`.cover-frames button[title="${name}"]`);
+    await other.click();
+    await expect.poll(() => other.getAttribute('aria-pressed')).toBe('true');
+    await expect.poll(frameOnScreen, { timeout: 10_000 }).not.toBe(93);
+  });
+
+  it('titles the cover with words picked in the transcript', async () => {
+    await openTool(page, 'Text');
+    const from = (await page.locator('.w', { hasText: 'Ona' }).boundingBox())!;
+    const to = (await page.locator('.w', { hasText: 'laže.' }).boundingBox())!;
+    await page.mouse.move(from.x + 2, from.y + from.height / 2);
+    await page.mouse.down();
+    await page.mouse.move(to.x + 5, to.y + to.height / 2, { steps: 6 });
+    await page.mouse.up();
+    expect(await page.locator('.w.selected').count()).toBe(2);
+    await page.getByRole('button', { name: 'Cover title' }).click();
+    await page.getByRole('heading', { name: 'Text: Ona laže' }).waitFor();
+    expect(await page.locator('.tool-rail').getByRole('button', { name: 'Cover', exact: true }).getAttribute('aria-pressed')).toBe('true');
+    const project = await saved();
+    expect(project.clips[0]!.cover!.layers.map((l) => (l.kind === 'text' ? l.text : l.kind))).toEqual(['Your *title* here', 'Ona laže']);
   });
 });

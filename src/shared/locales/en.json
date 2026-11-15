@@ -846,6 +846,14 @@
     "at": "Cover at {{time}}",
     "placeHelp": "Drag the layer on the cover to move it, its corners to resize it and the round handle to turn it. Shift turns off snapping.",
     "saved": "Saved the cover as {{file}}.",
-    "missing": "The cover can't be saved: these files aren't where they were: {{names}}"
+    "missing": "The cover can't be saved: these files aren't where they were: {{names}}",
+    "suggested": "Suggested frames",
+    "suggesting": "Looking for good frames once the clip is analysed…",
+    "noSuggestions": "No suggestions for this clip. Pick the frame under the cover.",
+    "useFrame": "Use the frame at {{time}}",
+    "frameAt": "The frame at {{time}}",
+    "titleFromWords": "Cover title",
+    "titleFromWordsHelp": "Put these words on the open clip's cover as a title",
+    "titleHint": "Or select words in the transcript and press Cover title."
   }
 }
