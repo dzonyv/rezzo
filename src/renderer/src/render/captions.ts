@@ -14,13 +14,12 @@ import { OUTPUT } from '../../../shared/framing.ts';
 import { captionPages, captionStateAt, captionYAt, LINE_HEIGHT, pageLines, type CaptionPage, type CaptionState } from '../../../shared/captions.ts';
 import type { Animated, CaptionLayer, Layout, Word } from '../../../shared/project.ts';
 import { ensureFont } from '../fonts/registry.ts';
+import { BOX_PAD_X, BOX_PAD_Y, layoutLine, POP_FROM } from './caption-layout.ts';
 
 /** Captions keep this far from the left and right edges; a page too wide is drawn smaller. */
 const SIDE_MARGIN = 60;
 /** How long a page (or, in reveal, a word) takes to come in. */
 const ENTRANCE_SECONDS = 0.18;
-/** A pop starts at this size. */
-const POP_FROM = 0.7;
 
 export interface CaptionScene {
   pages: CaptionPage[];
@@ -100,12 +99,12 @@ export class CaptionPainter {
     const space = ctx.measureText(' ').width;
     const lines = pageLines(page).map((words) => {
       const widths = words.map((w) => ctx.measureText(w.text).width);
-      return { words, widths, width: widths.reduce((a, b) => a + b, 0) + space * (words.length - 1) };
+      return { words, widths, ...layoutLine(widths, space, style) };
     });
     const lineHeight = style.size * LINE_HEIGHT;
     const middle = y * OUTPUT.height;
     // A page too wide for the output shrinks around its middle.
-    const widest = Math.max(...lines.map((l) => l.width));
+    const widest = Math.max(...lines.map((l) => l.reach));
     const fit = Math.min(1, (OUTPUT.width - 2 * SIDE_MARGIN) / widest);
     const reveal = style.mode === 'reveal';
     const whole = entrance(style, settle(state.sincePage));
@@ -120,12 +119,10 @@ export class CaptionPainter {
     let index = 0;
     lines.forEach((line, row) => {
       const cy = (row - (lines.length - 1) / 2) * lineHeight;
-      let x = -line.width / 2;
       line.words.forEach((word, i) => {
         const w = line.widths[i]!;
+        const cx = line.centers[i]!;
         const at = index++;
-        const cx = x + w / 2;
-        x += w + space;
         if (reveal && at > state.active) return;
         const active = at === state.active && style.highlight.kind !== 'none';
         const own = reveal ? entrance(style, settle(t - word.start)) : { scale: 1, alpha: 1 };
@@ -135,8 +132,8 @@ export class CaptionPainter {
         ctx.scale(scale, scale);
         if (reveal) ctx.globalAlpha = own.alpha;
         if (active && style.highlight.kind === 'box') {
-          const padX = style.size * 0.2;
-          const padY = style.size * 0.06;
+          const padX = style.size * BOX_PAD_X;
+          const padY = style.size * BOX_PAD_Y;
           const h = style.size * 1.05;
           ctx.fillStyle = style.highlight.box;
           ctx.beginPath();
