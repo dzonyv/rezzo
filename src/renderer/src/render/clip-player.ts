@@ -352,7 +352,8 @@ export class ClipPlayer {
   private async showWanted(): Promise<void> {
     while (!this.playing && !this.disposed && this.wanted !== null && this.wanted !== this.shown) {
       const target = this.wanted;
-      const frame = await this.frames.seek(target);
+      // Past the working file's last picture (it can end a frame or two before the sound), that one stays up, as in the export.
+      const frame = await this.frames.seek(Math.min(target, this.frames.frameCount - 1));
       await this.prepareAt(this.timeOf(target), false).catch((e: unknown) => {
         frame.close();
         throw e;

@@ -160,13 +160,30 @@ export async function renderExport(job: ExportJob, port: MessagePort, clip: Clip
       }
     }
 
+    /** Draws and reads back working-file frame `index` over the picture last uploaded. */
+    const render = async (index: number) => {
+      const time = workingFrameTime(job, index);
+      await r.prepare(scene, time, true);
+      // A video layer that can't be decoded, or an animation that can't be loaded, fails the export rather than going missing from it.
+      if (layerError) throw layerError;
+      r.draw(scene, time);
+      if (pending.length === SLOTS) await sendOne();
+      c.startReadback(slot);
+      pending.push(slot);
+      slot = (slot + 1) % SLOTS;
+    };
+
+    const fileFrames = frames.frameCount;
     for (const piece of job.pieces) {
       if (signal.aborted || link.error) break;
+      const end = piece.first + piece.count;
+      let next = piece.first;
       for await (const { frame, index } of frames.frames(piece.first, piece.count)) {
         if (signal.aborted || link.error) {
           frame.close();
           break;
         }
+        next = index + 1;
         if (lead > 0) {
           // Under the cover.
           lead--;
@@ -175,15 +192,24 @@ export async function renderExport(job: ExportJob, port: MessagePort, clip: Clip
         }
         c.upload(frame);
         frame.close();
-        const time = workingFrameTime(job, index);
-        await r.prepare(scene, time, true);
-        // A video layer that can't be decoded, or an animation that can't be loaded, fails the export rather than going missing from it.
-        if (layerError) throw layerError;
-        r.draw(scene, time);
-        if (pending.length === SLOTS) await sendOne();
-        c.startReadback(slot);
-        pending.push(slot);
-        slot = (slot + 1) % SLOTS;
+        await render(index);
+      }
+      // A source's picture can end a frame or two before its sound, and the
+      // working file with it. The last picture stays up for the rest, as in
+      // a player; captions and layers go on over it.
+      if (next >= fileFrames && next < end && fileFrames > 0 && !signal.aborted && !link.error) {
+        if (next === piece.first) {
+          const last = await frames.seek(fileFrames - 1);
+          try {
+            c.upload(last);
+          } finally {
+            last.close();
+          }
+        }
+        for (; next < end && !signal.aborted && !link.error; next++) {
+          if (lead > 0) lead--;
+          else await render(next);
+        }
       }
     }
     signal.throwIfAborted();
