@@ -201,6 +201,7 @@
   "player": {
     "preparing": "This video can't be played directly, so Rezzo is making a preview copy: {{percent}}%",
     "failed": "This video can't be played here: {{detail}}",
+    "missing": "The video can't be found.",
     "play": "Play",
     "pause": "Pause",
     "playHelp": "Play or pause (Space)",
