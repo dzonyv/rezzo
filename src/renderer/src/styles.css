@@ -1066,17 +1066,6 @@ button.link:hover {
   font-size: 13px;
 }
 
-.spoken-languages {
-  display: grid;
-  grid-template-columns: repeat(3, minmax(0, 1fr));
-  gap: 8px;
-}
-
-.spoken-languages button {
-  height: 52px;
-  border-radius: 14px;
-}
-
 .transcribe-panel > button {
   height: 44px;
 }

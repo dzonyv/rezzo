@@ -24,8 +24,20 @@ import { speakerCountSchema, speakerPickSchema, voiceEditSchema } from './voices
 export const PROJECT_FORMAT = 16;
 export const PROJECT_EXTENSION = 'rezzo';
 
+/**
+ * Whisper's language settings a saved transcript can name. Projects made
+ * before the language picker went away may say hr or bs; new ones say sr.
+ */
 export const TRANSCRIPT_LANGUAGES = ['sr', 'hr', 'bs'] as const;
 export type TranscriptLanguage = (typeof TRANSCRIPT_LANGUAGES)[number];
+
+/**
+ * The language Whisper is always told. On the Croatian test clip `sr` was
+ * about as accurate as `hr` (Bosnian was never scored), and it kept
+ * ijekavian and dialect forms as spoken, while `bs` turned Serbian speech
+ * ijekavian. A small sample: see spikes/REPORT.md (2026-11-15).
+ */
+export const WHISPER_LANGUAGE: TranscriptLanguage = 'sr';
 
 const seconds = z.number().finite().nonnegative();
 

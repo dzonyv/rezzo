@@ -4,7 +4,7 @@ Rezzo is a desktop app for cutting vertical clips out of podcasts and talk shows
 
 I post podcast clips on social media, and the work is the same every time: find a good moment, crop a wide shot down to 9:16, keep whoever is talking in frame, add captions. The apps that handle this well either stamp a watermark on the video or put the useful parts behind a monthly subscription. Rezzo does the same job for free, and every feature is in the free version because there is no other version.
 
-It's made for Serbian, Croatian and Bosnian shows first, since that's what I work with.
+It's made for shows in Serbian first, since that's what I work with.
 
 ![A clip in the editor: two people stacked in Split, captions on the line between them, and the timeline below](docs/screenshots/clip.png)
 
@@ -18,7 +18,7 @@ An NVIDIA graphics card makes transcription and export a lot faster, but it isn'
 
 ## How it works
 
-You start with a whole episode. Pick the language (Serbian, Croatian or Bosnian) and Rezzo transcribes it with a time for every word, always in Latin script, even if the speech model hands back Cyrillic. While the video plays you can search the transcript, and fix the words Whisper got wrong one after another from the keyboard. Words it always gets wrong (it writes "futbal" every single time) go on a replacement list, and every new transcript gets them fixed.
+You start with a whole episode. Press Transcribe and Rezzo writes it down with a time for every word, always in Latin script, even if the speech model hands back Cyrillic. While the video plays you can search the transcript, and fix the words Whisper got wrong one after another from the keyboard. Words it always gets wrong (it writes "futbal" every single time) go on a replacement list, and every new transcript gets them fixed.
 
 ![The episode screen: the video and the voices found on the left, the transcript in the middle, the clips on the right, and the whole episode along the bottom](docs/screenshots/episode.png)
 
@@ -58,4 +58,4 @@ Issues and ideas are welcome. The project's rules are in [CLAUDE.md](CLAUDE.md).
 
 [GPL-3.0](LICENSE)
 
-The screenshots show frames from *Tears of Steel*, (CC) Blender Foundation | mango.blender.org, under CC BY 3.0, with the film's Croatian subtitles standing in for a transcript. Details are in [docs/screenshots/CREDITS.md](docs/screenshots/CREDITS.md).
+The screenshots show frames from *Tears of Steel*, (CC) Blender Foundation | mango.blender.org, under CC BY 3.0, with our Serbian translation of the film's English subtitles standing in for a transcript. Details are in [docs/screenshots/CREDITS.md](docs/screenshots/CREDITS.md).

@@ -5,8 +5,8 @@ Rezzo is a free, open-source (GPL-3.0) desktop app for making vertical short-for
 ## Language
 
 - Code, comments, commit messages and documentation: **English**.
-- The UI is localized from day one: English and BCS (Bosnian/Croatian/Serbian, Latin script). No hard-coded UI strings.
-- Conversation with the maintainer is in Serbian/BCS.
+- The UI is localized from day one: English and Serbian (Latin script; locale code `sh`). No hard-coded UI strings.
+- Conversation with the maintainer is in Serbian.
 
 ## Content and users
 
@@ -29,7 +29,7 @@ Windows 11, NVIDIA GTX 1660 6 GB (Turing NVENC: H.264/HEVC, no AV1), Ryzen 7 570
 
 - **Electron + React + TypeScript.**
 - **FFmpeg is bundled** with the app (not expected on the system). It handles decoding, cutting, audio and muxing the final file. Export encodes with **NVENC**, falling back to a software encoder.
-- **whisper.cpp with CUDA** for transcription with per-word timestamps. Language settings `sr`, `hr` and `bs` must be tested.
+- **whisper.cpp with CUDA** for transcription with per-word timestamps. Whisper is always given `sr`. In a small check it kept Croatian and Bosnian ijekavian as spoken; if users report ekavian in their transcripts, test longer Croatian or Bosnian audio before changing it.
 - **MediaPipe** (JS/WASM, in Electron) for faces and lip movement. **No Python.**
 - **Everything is a layer on the timeline with keyframes:** video with framing, captions, images, video effects.
 - **One WebGL renderer** draws both the preview and the export, so the export looks exactly like the preview.
@@ -40,7 +40,7 @@ Windows 11, NVIDIA GTX 1660 6 GB (Turing NVENC: H.264/HEVC, no AV1), Ryzen 7 570
 
 Details and numbers in `spikes/REPORT.md`.
 
-- Transcription: whisper.cpp **large-v3-turbo q5_0** with DTW word timings (`-dtw`, flash attention off). The user picks the language (sr/hr/bs); no auto-detect, no initial prompts.
+- Transcription: whisper.cpp **large-v3-turbo q5_0** with DTW word timings (`-dtw`, flash attention off). Whisper always gets `sr`; no language picker (removed after the 2026-11-15 check), no auto-detect, no initial prompts.
 - Export: WebGL renders, a shader converts to BT.709 YUV 4:2:0, pixels are read back asynchronously and piped to FFmpeg (`h264_nvenc`, `libx264` fallback). Not WebCodecs.
 - Working file: H.264, no B-frames, keyframe every 15 frames, constant frame rate, BT.709 tags, first video stream only.
 - WebCodecs decoding: close every decoded frame you don't keep right away; the hardware decoder's pool is small.

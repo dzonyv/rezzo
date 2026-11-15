@@ -7,7 +7,7 @@
 import { mkdir, readdir, readFile, rename, rm, stat } from 'node:fs/promises';
 import { availableParallelism } from 'node:os';
 import path from 'node:path';
-import { DTW_START_SHIFT, transcriptSchema, upgradeTranscript, type Transcript } from '../../shared/project.ts';
+import { DTW_START_SHIFT, TRANSCRIPT_LANGUAGES, transcriptSchema, upgradeTranscript, type Transcript } from '../../shared/project.ts';
 import type { TranscribeProgress, TranscribeRequest } from '../../shared/worker-api.ts';
 import { writeFileAtomic } from '../../node/files.ts';
 import { exec, ExecError, ffmpegExe } from './exec.ts';
@@ -21,8 +21,23 @@ export class TranscribeError extends Error {
   readonly code = 'whisper-failed';
 }
 
+const cachedTranscript = (cacheDir: string, language: string, modelId: string) =>
+  path.join(cacheDir, `transcript-${language}-${modelId}.json`);
+
+/**
+ * Removes transcripts cached under another language setting. Before the app
+ * always used one language, a video could be transcribed as hr or bs; those
+ * files are never read again.
+ */
+export async function dropOtherLanguages(cacheDir: string, language: string, modelId: string): Promise<void> {
+  for (const other of TRANSCRIPT_LANGUAGES) {
+    if (other !== language) await rm(cachedTranscript(cacheDir, other, modelId), { force: true });
+  }
+}
+
 export async function transcribe(ctx: JobContext, req: TranscribeRequest): Promise<Transcript> {
-  const done = path.join(req.cacheDir, `transcript-${req.language}-${req.modelId}.json`);
+  await dropOtherLanguages(req.cacheDir, req.language, req.modelId);
+  const done = cachedTranscript(req.cacheDir, req.language, req.modelId);
   const cached = await readTranscript(done);
   if (cached) return cached;
 

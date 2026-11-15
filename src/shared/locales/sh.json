@@ -150,11 +150,11 @@
   },
   "language": {
     "en": "English",
-    "sh": "BCS (bosanski, hrvatski, srpski)"
+    "sh": "Srpski"
   },
   "languageShort": {
     "en": "English",
-    "sh": "BCS"
+    "sh": "Srpski"
   },
   "episode": {
     "duration": "Trajanje",
@@ -170,13 +170,7 @@
   },
   "transcribe": {
     "title": "Transkript",
-    "language": "Jezik govora",
-    "languageHelp": "Izaberi jezik kojim se govori u ovom videu. Transkript je uvek na latinici.",
-    "languages": {
-      "sr": "srpski",
-      "hr": "hrvatski",
-      "bs": "bosanski"
-    },
+    "help": "Rezzo zapisuje svaku reč i trenutak kad je izgovorena. Transkript je uvek na latinici.",
     "start": "Transkribuj",
     "cancel": "Otkaži",
     "download": "Prva transkripcija jednom preuzima prepoznavanje govora ({{size}} GB).",

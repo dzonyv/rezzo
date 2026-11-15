@@ -3,6 +3,7 @@ import { initReactI18next } from 'react-i18next';
 import en from '../../shared/locales/en.json';
 import sh from '../../shared/locales/sh.json';
 import type { UiLanguage } from '../../shared/settings.ts';
+import { localeOf } from './format.ts';
 
 export function initI18n(language: UiLanguage): Promise<unknown> {
   return i18n.use(initReactI18next).init({
@@ -15,5 +16,6 @@ export function initI18n(language: UiLanguage): Promise<unknown> {
 
 export function setLanguage(language: UiLanguage): void {
   void i18n.changeLanguage(language);
-  document.documentElement.lang = language;
+  // `sh` is only the app's own code; the page says what it is, for spell-check and screen readers.
+  document.documentElement.lang = localeOf(language);
 }

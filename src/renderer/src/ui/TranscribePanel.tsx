@@ -1,25 +1,22 @@
 import { useEffect, useState } from 'react';
 import { useTranslation } from 'react-i18next';
 import type { TranscriptionStatus } from '../../../shared/api.ts';
-import { TRANSCRIPT_LANGUAGES, type Project, type TranscriptLanguage } from '../../../shared/project.ts';
+import type { Project } from '../../../shared/project.ts';
 import type { TranscribeProgress } from '../../../shared/worker-api.ts';
 import { cancelTranscription, startTranscription, useTranscription } from '../project/transcription.ts';
 
 /**
- * Beside the video until the project has a transcript: pick the spoken
- * language, start, watch it run. The episode screen takes over by itself
- * when the transcript is in.
+ * Beside the video until the project has a transcript: start it and watch
+ * it run. The episode screen takes over by itself when the transcript is in.
  */
 export function TranscribePanel({ project }: { project: Project }) {
   const { t } = useTranslation();
   const runningFor = useTranscription((s) => s.projectId);
   const progress = useTranscription((s) => s.progress);
   const [status, setStatus] = useState<TranscriptionStatus | null>(null);
-  const [language, setLanguage] = useState<TranscriptLanguage | null>(null);
 
   useEffect(() => {
     void window.rezzo.invoke('transcribe:status').then(setStatus);
-    void window.rezzo.invoke('settings:get').then((s) => setLanguage((l) => l ?? s.transcriptLanguage));
   }, [runningFor]);
 
   const running = runningFor === project.id;
@@ -39,19 +36,12 @@ export function TranscribePanel({ project }: { project: Project }) {
         </>
       ) : (
         <>
-          <p>{t('transcribe.languageHelp')}</p>
-          <div className="spoken-languages" role="group" aria-label={t('transcribe.language')}>
-            {TRANSCRIPT_LANGUAGES.map((l) => (
-              <button key={l} type="button" aria-pressed={language === l} onClick={() => setLanguage(l)}>
-                {t(`transcribe.languages.${l}`)}
-              </button>
-            ))}
-          </div>
+          <p>{t('transcribe.help')}</p>
           <button
             type="button"
             className="primary"
-            disabled={!language || busyElsewhere}
-            onClick={() => language && void startTranscription(language)}
+            disabled={busyElsewhere}
+            onClick={() => void startTranscription()}
           >
             {t('transcribe.start')}
           </button>

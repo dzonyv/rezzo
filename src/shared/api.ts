@@ -11,7 +11,7 @@ import type { LottieInfo } from './lottie.ts';
 import type { OverlayLayout } from './overlay-files.ts';
 import type { CustomFont } from './fonts.ts';
 import type { FrameRate } from './frames.ts';
-import type { Clip, Project, ProjectFormatError, Source, Transcript, TranscriptLanguage } from './project.ts';
+import type { Clip, Project, ProjectFormatError, Source, Transcript } from './project.ts';
 import type { Settings } from './settings.ts';
 import type { EpisodeVoices, SpeakerCount } from './voices.ts';
 import type { Encoder, ThumbnailSize, TranscribeProgress, VoicesProgress } from './worker-api.ts';
@@ -186,7 +186,7 @@ export interface InvokeApi {
 
   'transcribe:status': () => TranscriptionStatus;
   /** Runs until the transcript is ready; progress comes as transcribe:progress events. */
-  'transcribe:start': (request: { projectId: string; source: Source; language: TranscriptLanguage }) => TranscribeResult;
+  'transcribe:start': (request: { projectId: string; source: Source }) => TranscribeResult;
   'transcribe:cancel': () => void;
 
   /**

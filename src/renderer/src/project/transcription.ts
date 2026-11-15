@@ -5,7 +5,6 @@
 import i18n from 'i18next';
 import { useStore } from 'zustand';
 import { createStore } from 'zustand/vanilla';
-import type { TranscriptLanguage } from '../../../shared/project.ts';
 import { applyReplacements } from '../../../shared/replacements.ts';
 import type { TranscribeProgress } from '../../../shared/worker-api.ts';
 import { notify } from '../ui/prompts.ts';
@@ -27,14 +26,13 @@ window.rezzo.on('transcribe:progress', ({ projectId, progress }) => {
   if (store.getState().projectId === projectId) store.setState({ progress });
 });
 
-export async function startTranscription(language: TranscriptLanguage): Promise<void> {
+export async function startTranscription(): Promise<void> {
   const project = projectStore.getState().project;
   if (!project?.source || store.getState().projectId) return;
   store.setState({ projectId: project.id, progress: null });
-  void window.rezzo.invoke('settings:set', { transcriptLanguage: language });
 
   try {
-    const result = await window.rezzo.invoke('transcribe:start', { projectId: project.id, source: project.source, language });
+    const result = await window.rezzo.invoke('transcribe:start', { projectId: project.id, source: project.source });
     if (result.ok) {
       // The replacement list fixes what Whisper always gets wrong before anyone sees it.
       const { replacements } = await window.rezzo.invoke('settings:get');

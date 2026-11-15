@@ -1,7 +1,7 @@
 /**
  * Transcription with the real whisper.cpp and model, on a video you choose:
  *
- *   REZZO_E2E_VIDEO=D:\path\clip.mp4 REZZO_E2E_LANGUAGE=sr npm run test:e2e
+ *   REZZO_E2E_VIDEO=D:\path\clip.mp4 npm run test:e2e
  *
  * Skipped otherwise (CI has no GPU and shouldn't download 1.3 GB). It uses
  * your real tools folder (%LOCALAPPDATA%\Rezzo), so the download happens at
@@ -16,10 +16,6 @@ import { afterAll, describe, expect, it } from 'vitest';
 import { answerOpenDialog, answerSaveDialog, stopApp } from './helpers.ts';
 
 const video = process.env['REZZO_E2E_VIDEO'];
-const language = process.env['REZZO_E2E_LANGUAGE'] ?? 'sr';
-/** The spoken languages' buttons, as the English UI names them. */
-const LANGUAGE_NAMES: Record<string, string> = { sr: 'Serbian', hr: 'Croatian', bs: 'Bosnian' };
-if (!LANGUAGE_NAMES[language]) throw new Error(`REZZO_E2E_LANGUAGE must be one of ${Object.keys(LANGUAGE_NAMES).join(', ')}`);
 let app: ElectronApplication | undefined;
 let profile: string | undefined;
 
@@ -38,7 +34,6 @@ describe.skipIf(!video)('transcription (real footage)', () => {
     const page = await app.firstWindow();
     await answerOpenDialog(app, video!);
     await page.getByRole('button', { name: 'New project' }).click();
-    await page.getByRole('group', { name: 'Spoken language' }).getByRole('button', { name: LANGUAGE_NAMES[language], exact: true }).click();
 
     const started = Date.now();
     await page.getByRole('button', { name: 'Transcribe', exact: true }).click();

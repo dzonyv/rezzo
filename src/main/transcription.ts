@@ -6,7 +6,7 @@ import { app, type WebContents } from 'electron';
 import path from 'node:path';
 import { z } from 'zod';
 import type { TranscribeResult, TranscriptionStatus } from '../shared/api.ts';
-import { sourceSchema, TRANSCRIPT_LANGUAGES } from '../shared/project.ts';
+import { sourceSchema, WHISPER_LANGUAGE } from '../shared/project.ts';
 import { WorkerError, type TranscribeProgress } from '../shared/worker-api.ts';
 import { isInstalled } from '../node/tools/download.ts';
 import { tool } from '../node/tools/manifest.ts';
@@ -40,7 +40,6 @@ export async function transcriptionStatus(): Promise<TranscriptionStatus> {
 const requestSchema = z.object({
   projectId: z.uuid(),
   source: sourceSchema,
-  language: z.enum(TRANSCRIPT_LANGUAGES),
 });
 
 let running: AbortController | undefined;
@@ -50,7 +49,7 @@ export function cancelTranscription(): void {
 }
 
 export async function startTranscription(sender: WebContents, request: unknown): Promise<TranscribeResult> {
-  const { projectId, source, language } = requestSchema.parse(request);
+  const { projectId, source } = requestSchema.parse(request);
   if (!source.audio) return { ok: false, error: 'no-audio' };
 
   running?.abort();
@@ -69,7 +68,7 @@ export async function startTranscription(sender: WebContents, request: unknown):
       [{
         sourcePath: source.path,
         duration: source.duration,
-        language,
+        language: WHISPER_LANGUAGE,
         cacheDir: path.join(cacheDir(), source.fingerprint),
         whisperDir: downloadedToolDir(build),
         modelId: MODEL_ID,

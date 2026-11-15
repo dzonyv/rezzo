@@ -1,10 +1,9 @@
 import { z } from 'zod';
 import { captionStyleSchema, DEFAULT_CAPTION_STYLE, savedStyleSchema } from './caption-style.ts';
 import { customFontSchema } from './fonts.ts';
-import { TRANSCRIPT_LANGUAGES } from './project.ts';
 import { replacementSchema } from './replacements.ts';
 
-/** UI languages. `sh` is BCS (Bosnian, Croatian, Serbian; Latin script). */
+/** UI languages. `sh` is Serbian in Latin script; the code stays `sh` so saved settings keep working. */
 export const UI_LANGUAGES = ['en', 'sh'] as const;
 export type UiLanguage = (typeof UI_LANGUAGES)[number];
 
@@ -22,8 +21,6 @@ export const DEFAULT_CLIP_DOCK: ClipDock = { size: 'normal', height: 360 };
 
 export const settingsSchema = z.object({
   uiLanguage: z.enum(UI_LANGUAGES),
-  /** The language picked for the last transcription, offered again next time. */
-  transcriptLanguage: z.enum(TRANSCRIPT_LANGUAGES),
   /** The folder of the last export, offered again next time; null until the first one. */
   exportDir: z.string().min(1).nullable(),
   /** Corrections applied to every new transcript (shared/replacements.ts). */
@@ -45,7 +42,6 @@ export const settingsPatchSchema = settingsSchema.omit({ exportDir: true, fonts:
 export function defaultSettings(uiLanguage: UiLanguage): Settings {
   return {
     uiLanguage,
-    transcriptLanguage: 'sr',
     exportDir: null,
     replacements: [],
     captionStyles: [],
@@ -55,7 +51,11 @@ export function defaultSettings(uiLanguage: UiLanguage): Settings {
   };
 }
 
-/** BCS when the system is set to Bosnian, Croatian, Serbian or Montenegrin, English otherwise. */
+/**
+ * Serbian when the system is set to Bosnian, Croatian, Serbian or
+ * Montenegrin, English otherwise: people on those systems read the Serbian
+ * interface more easily than English, and can switch on the home screen.
+ */
 export function defaultUiLanguage(systemLocale: string): UiLanguage {
   return /^(bs|hr|sr|sh|cnr)(\b|_|-|$)/i.test(systemLocale) ? 'sh' : 'en';
 }
