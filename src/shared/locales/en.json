@@ -94,7 +94,9 @@
     "followSound": "sound with animation",
     "unlinkSound": "unlink sound",
     "duck": "quieter while someone talks",
-    "evenLoudness": "even out loudness"
+    "evenLoudness": "even out loudness",
+    "coverMoment": "cover moment",
+    "coverFraming": "cover framing"
   },
   "files": {
     "project": "Rezzo project",
@@ -104,7 +106,9 @@
     "font": "Font file",
     "image": "Image",
     "lottie": "Lottie animation",
-    "audio": "Sound file"
+    "audio": "Sound file",
+    "png": "PNG image",
+    "jpg": "JPG image"
   },
   "unsaved": {
     "title": "Save changes to “{{name}}”?",
@@ -290,6 +294,7 @@
       "effects": "Effects",
       "pauses": "Pauses",
       "voices": "Voices",
+      "cover": "Cover",
       "text": "Text",
       "sound": "Sound"
     },
@@ -300,6 +305,7 @@
       "effects": "Effects over the picture",
       "pauses": "Find and cut pauses",
       "voices": "Who talks, and the episode's voices",
+      "cover": "The picture shown before the clip plays",
       "text": "The episode's transcript",
       "sound": "Sound effects and music"
     },
@@ -818,5 +824,28 @@
     "failed": "Couldn't read the disk space: {{detail}}",
     "confirmOne": "Delete \"{{name}}\"?",
     "confirmOneBody": "This frees {{size}}. It's made or downloaded again the next time it's needed, which can take a few minutes."
+  },
+  "cover": {
+    "placeholder": "Your *title* here",
+    "hint": "The picture platforms show before the clip plays: a frame of the clip with your text and images over it. Drag the picture to frame it.",
+    "framing": "Framing",
+    "clipFraming": "The clip's framing at this moment. Drag or zoom the picture, or pick a layout, to frame the cover on its own.",
+    "ownFraming": "The cover has framing of its own.",
+    "useClipFraming": "Use the clip's framing",
+    "addHelp": "Add to the cover",
+    "save": "Save the cover",
+    "saveAs": {
+      "png": "Save PNG",
+      "jpg": "Save JPG"
+    },
+    "saveHelp": "1080×1920. The JPG is kept under 2 MB, for platforms that limit the size.",
+    "moment": "Moment",
+    "earlier": "A frame earlier",
+    "later": "A frame later",
+    "momentHelp": "Pick the frame for the cover. The arrow keys move it a frame, with Shift a second.",
+    "at": "Cover at {{time}}",
+    "placeHelp": "Drag the layer on the cover to move it, its corners to resize it and the round handle to turn it. Shift turns off snapping.",
+    "saved": "Saved the cover as {{file}}.",
+    "missing": "The cover can't be saved: these files aren't where they were: {{names}}"
   }
 }

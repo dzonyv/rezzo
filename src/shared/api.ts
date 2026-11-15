@@ -5,6 +5,7 @@
  */
 import type { ClipAnalysis } from './analysis.ts';
 import type { Asset, AssetFile, AssetKind, AssetStatus, AudioAsset, AudioInfo, VideoAsset, VideoInfo } from './assets.ts';
+import type { CoverFormat } from './cover.ts';
 import type { Loudness } from './loudness.ts';
 import type { SoundName } from './sounds.ts';
 import type { LottieInfo } from './lottie.ts';
@@ -231,6 +232,14 @@ export interface InvokeApi {
   'export:reveal': () => void;
   /** Opens the last exported file in the default player. */
   'export:open': () => void;
+  /**
+   * Asks where to save a clip's cover, named after the clip, and writes
+   * the picture there (already encoded as `format`). Resolves with the
+   * path, or null when the user cancelled the dialog.
+   */
+  'cover:save': (clipName: string, format: CoverFormat, bytes: Uint8Array) => string | null;
+  /** Shows the last saved cover in Explorer. */
+  'cover:reveal': () => void;
 
   /** Opens the third-party licenses that ship with this copy of the app. */
   'app:licenses': () => void;
@@ -328,6 +337,8 @@ export const INVOKE_CHANNELS = {
   'export:cancel': true,
   'export:reveal': true,
   'export:open': true,
+  'cover:save': true,
+  'cover:reveal': true,
   'app:licenses': true,
   'storage:usage': true,
   'storage:clear': true,

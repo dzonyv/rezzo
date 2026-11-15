@@ -21,7 +21,7 @@ import { MAX_TEXT_CHARS, textStyleSchema } from './text-style.ts';
 import { speakerCountSchema, speakerPickSchema, voiceEditSchema } from './voices.ts';
 
 /** Bumped when the file format changes in a way older files need migrating for. */
-export const PROJECT_FORMAT = 16;
+export const PROJECT_FORMAT = 17;
 export const PROJECT_EXTENSION = 'rezzo';
 
 /**
@@ -374,6 +374,29 @@ export const soundAssetId = (layer: SoundLayer): string | null => ('assetId' in 
 /** The kind of asset each file layer shows. */
 export const ASSET_KIND_OF = { image: 'image', overlay: 'video', lottie: 'lottie' } as const satisfies Record<FileLayer['kind'], Asset['kind']>;
 
+/**
+ * A layer on a clip's cover: an image or text, with the same settings as
+ * on the timeline but placed with one key, since the cover is one moment.
+ * Its start, end and motion aren't used.
+ */
+export const coverLayerSchema = z
+  .discriminatedUnion('kind', [imageLayerSchema, textLayerSchema])
+  .refine((l) => l.transform.length === 1, 'a cover layer is placed with one key');
+export type CoverLayer = ImageLayer | TextLayer;
+
+/**
+ * The clip's cover picture (shared/cover.ts): the clip's video held at
+ * `time` (source seconds), framed as the clip is there unless the cover
+ * has framing of its own, with its own layers over it, bottom first.
+ */
+export const coverSchema = z.object({
+  time: seconds,
+  /** The cover's own framing, one key on each track; null: the clip's framing at `time`. */
+  video: videoLayerSchema.nullable(),
+  layers: z.array(coverLayerSchema),
+});
+export type Cover = z.infer<typeof coverSchema>;
+
 export const clipSchema = z
   .object({
     id: z.uuid(),
@@ -385,16 +408,28 @@ export const clipSchema = z
     /** The clip's own sound is turned up or down to one loudness (shared/loudness.ts). */
     evenLoudness: z.boolean(),
     layers: z.array(layerSchema).min(1),
+    /** Not there until the cover is first edited. */
+    cover: coverSchema.optional(),
   })
   .refine((c) => c.end > c.start, 'a clip ends after it starts')
   .refine((c) => c.skips.every((s, i) => s.end > s.start && (i === 0 || s.start >= c.skips[i - 1]!.end)), 'skips are in order and apart')
   .refine((c) => c.layers[0]?.kind === 'video' && c.layers.filter((l) => l.kind === 'video').length === 1, 'a clip has one video layer, at the bottom')
   .refine((c) => c.layers.filter((l) => l.kind === 'caption').length <= 1, 'a clip has at most one caption layer')
+  .refine((c) => new Set(allLayers(c).map((l) => l.id)).size === allLayers(c).length, "layer ids are unique, the cover's included")
   .refine((c) => c.layers.every((l) => !isTimed(l) || l.end > l.start), 'a layer ends after it starts')
   .refine((c) => c.layers.every((l) => l.kind !== 'effect' || paramsValid(l.effect, l.params)), "an effect has its own settings, each in range")
   .refine(followsValid, 'a sound goes with the entrance or exit of a layer in its clip placed over the picture, and only one sound with each')
   .refine((c) => c.end - c.start <= MAX_CLIP_SECONDS + 1e-6, `a clip is at most ${MAX_CLIP_SECONDS} s long`);
 export type Clip = z.infer<typeof clipSchema>;
+
+/** The clip's layers and its cover's. */
+export function allLayers(clip: { layers: readonly Layer[]; cover?: { layers: readonly CoverLayer[] } | undefined }): Layer[] {
+  return clip.cover ? [...clip.layers, ...clip.cover.layers] : [...clip.layers];
+}
+
+/** The layer with this id, on the clip or on its cover. */
+export const findLayer = (clip: Pick<Clip, 'layers' | 'cover'>, id: string): Layer | undefined =>
+  clip.layers.find((l) => l.id === id) ?? clip.cover?.layers.find((l) => l.id === id);
 
 /** Every sound that goes with a layer goes with one placed over the picture, and no two with the same part of it. */
 function followsValid(clip: { layers: readonly Layer[] }): boolean {
@@ -424,9 +459,9 @@ export function captionLayerOf(clip: Clip): CaptionLayer | null {
 /** The clip's layers that show for part of it, bottom first. */
 export const timedLayers = (clip: Clip): TimedLayer[] => clip.layers.filter(isTimed);
 
-/** The ids of the project's files a clip's layers show or play. */
-export const layerAssetIds = (clip: Pick<Clip, 'layers'>): string[] =>
-  clip.layers.flatMap((l) => {
+/** The ids of the project's files a clip's layers show or play, its cover's included. */
+export const layerAssetIds = (clip: Pick<Clip, 'layers' | 'cover'>): string[] =>
+  allLayers(clip).flatMap((l) => {
     if (isFileLayer(l)) return [l.assetId];
     const sound = isSound(l) ? soundAssetId(l) : null;
     return sound === null ? [] : [sound];
@@ -465,7 +500,7 @@ export const projectSchema = z
   .refine((p) => {
     const kinds = new Map(p.assets.map((a) => [a.id, a.kind]));
     return p.clips.every((c) =>
-      c.layers.every((l) => {
+      allLayers(c).every((l) => {
         if (isFileLayer(l)) return kinds.get(l.assetId) === ASSET_KIND_OF[l.kind];
         const sound = isSound(l) ? soundAssetId(l) : null;
         return sound === null || kinds.get(sound) === 'audio';
@@ -518,6 +553,8 @@ const MIGRATIONS: Record<number, (old: Record<string, unknown>) => Record<string
   // Format 16 added text layers. Nothing to change; the new number keeps
   // older versions of the app from opening a file they can't read.
   15: (old) => old,
+  // Format 17 added covers. Nothing to change, as for 16.
+  16: (old) => old,
 };
 
 /**

@@ -34,10 +34,24 @@ const TRIM_SETTLE_MS = 400;
  * The 9:16 preview of the open clip. Makes sure there's a working file for
  * the clip's range, plays it through the compositor, and redraws when
  * anything in the clip changes. `texts` are the text layers' pictures
- * (render/text.ts). Children are drawn over the picture (the framing,
- * caption and layer handles).
+ * (render/text.ts). What's drawn is `drawn` when it's given (the clip's
+ * cover, shared/cover.ts); the working files and the sound stay the
+ * clip's, so going to the cover and back starts nothing over. Children are
+ * drawn over the picture (the framing, caption and layer handles).
  */
-export function ClipPreview({ clip, source, texts, children }: { clip: Clip; source: Source; texts: ReadonlyMap<string, TextImage>; children?: React.ReactNode }) {
+export function ClipPreview({
+  clip,
+  drawn = clip,
+  source,
+  texts,
+  children,
+}: {
+  clip: Clip;
+  drawn?: Clip;
+  source: Source;
+  texts: ReadonlyMap<string, TextImage>;
+  children?: React.ReactNode;
+}) {
   const { t } = useTranslation();
   const canvas = useRef<HTMLCanvasElement>(null);
   const compositor = useRef<Compositor | null>(null);
@@ -48,7 +62,7 @@ export function ClipPreview({ clip, source, texts, children }: { clip: Clip; sou
   const progress = useClipPlayback((s) => s.progress);
   const error = useClipPlayback((s) => s.error);
 
-  const captions = captionLayerOf(clip);
+  const captions = captionLayerOf(drawn);
   const segments = useProject((s) => s.project?.transcript?.segments);
   const allAssets = useProject((s) => s.project?.assets);
   // Adding a font the captions were missing changes how they're drawn.
@@ -104,7 +118,8 @@ export function ClipPreview({ clip, source, texts, children }: { clip: Clip; sou
   );
 
   // The files the layers show, as a value that changes only when they do (not when a layer moves).
-  const usedJson = JSON.stringify(assetsOf(clip, allAssets ?? []));
+  // The clip's and the cover's, so going from one to the other loads nothing again.
+  const usedJson = JSON.stringify(assetsOf({ ...clip, layers: drawn === clip ? clip.layers : [...clip.layers, ...drawn.layers] }, allAssets ?? []));
   const used = useMemo(() => JSON.parse(usedJson) as Asset[], [usedJson]);
 
   useEffect(() => {
@@ -277,11 +292,11 @@ export function ClipPreview({ clip, source, texts, children }: { clip: Clip; sou
   // Anything in the clip changed: redraw the frame on screen.
   useEffect(() => {
     const assets = allAssets ?? [];
-    const s = { clip, assets, captions: scene, images, overlays, lotties, texts };
+    const s = { clip: drawn, assets, captions: scene, images, overlays, lotties, texts };
     drawAt.current = (time) => renderer.current?.draw(s, time);
     prepareAt.current = (time, sequential) => renderer.current?.prepare(s, time, sequential) ?? Promise.resolve(false);
     currentPlayer()?.setScene(drawAt.current, prepareAt.current);
-  }, [clip, allAssets, scene, images, overlays, lotties, texts, generation]);
+  }, [drawn, allAssets, scene, images, overlays, lotties, texts, generation]);
 
   return (
     <div className="clip-preview">

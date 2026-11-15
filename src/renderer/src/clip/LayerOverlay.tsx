@@ -3,7 +3,7 @@ import { useTranslation } from 'react-i18next';
 import type { Asset } from '../../../shared/assets.ts';
 import { OUTPUT, valueAt } from '../../../shared/framing.ts';
 import { layerTransformAt, MAX_LAYER_SCALE, MIN_LAYER_SCALE, type Transform } from '../../../shared/motion.ts';
-import { isPlaced, placedLayers, type Clip, type PlacedLayer } from '../../../shared/project.ts';
+import { findLayer, isPlaced, placedLayers, type Clip, type PlacedLayer } from '../../../shared/project.ts';
 import { quadOf, showsAt, textQuadOf, type Quad } from '../../../shared/scene.ts';
 import { setChromaKey, setTransform } from '../project/layers.ts';
 import { projectStore } from '../project/store.ts';
@@ -51,7 +51,8 @@ const snapTo = (value: number, target: number, reach: number, off: boolean) => (
 
 /** The layer's transform without animations at `time`, as it is in the document right now. */
 function ownTransform(clipId: string, layerId: string, time: number): Transform | null {
-  const layer = projectStore.getState().project?.clips.find((c) => c.id === clipId)?.layers.find((l) => l.id === layerId);
+  const clip = projectStore.getState().project?.clips.find((c) => c.id === clipId);
+  const layer = clip && findLayer(clip, layerId);
   return layer && isPlaced(layer) ? valueAt(layer.transform, time) : null;
 }
 

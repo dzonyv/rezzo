@@ -4,6 +4,7 @@ import { newCaptionLayer } from './captions.ts';
 import { clipFromWords } from './clips.ts';
 import { DEFAULT_CHROMA_KEY } from './chroma-key.ts';
 import { defaultParams } from './effects.ts';
+import { defaultVideoLayer } from './framing.ts';
 import { DEFAULT_MOTION } from './motion.ts';
 import { DEFAULT_TEXT_STYLE, MAX_TEXT_CHARS } from './text-style.ts';
 import { DTW_START_SHIFT, MAX_CLIP_SECONDS, newProject, parseProject, PROJECT_FORMAT, ProjectFormatError, serializeProject, type Project } from './project.ts';
@@ -446,6 +447,44 @@ describe('project files', () => {
 
     it('upgrades a format 15 file, which had no text layers, as it is', () => {
       expect(parseProject(JSON.stringify({ ...sample, format: 15 }))).toEqual(sample);
+    });
+  });
+
+  describe('covers', () => {
+    const title = () => ({
+      id: crypto.randomUUID(), kind: 'text' as const, text: 'Šta se *desilo*?', style: DEFAULT_TEXT_STYLE, start: 0, end: 2,
+      transform: [{ t: 0.5, value: { x: 0.5, y: 0.4, scale: 1.2, rotation: 0, opacity: 1 }, ease: 'cut' as const }], motion: DEFAULT_MOTION,
+    });
+    const withCover = (cover: NonNullable<Project['clips'][number]['cover']>, assets = sample.assets): Project => ({
+      ...sample,
+      assets,
+      clips: [{ ...sample.clips[0]!, cover }],
+    });
+
+    it('round-trips one, with its own layers and framing', () => {
+      const p = withCover({ time: 0.5, video: { ...defaultVideoLayer(0.5), id: crypto.randomUUID() }, layers: [title()] });
+      expect(parseProject(serializeProject(p))).toEqual(p);
+    });
+
+    it('keeps the file an image on the cover shows, and wants it in the project', () => {
+      const p = withImage();
+      const image = p.clips[0]!.layers.at(-1)!;
+      p.clips[0]!.layers.pop();
+      p.clips[0]!.cover = { time: 0.5, video: null, layers: [image as Extract<typeof image, { kind: 'image' }>] };
+      expect(parseProject(serializeProject(p))).toEqual(p);
+      expect(code(() => parseProject(JSON.stringify({ ...p, assets: [] })))).toBe('invalid');
+    });
+
+    it('rejects a cover layer that is animated, or that has the id of a layer on the clip', () => {
+      const moving = title();
+      moving.transform.push({ t: 1, value: moving.transform[0]!.value, ease: 'cut' });
+      expect(code(() => parseProject(JSON.stringify(withCover({ time: 0.5, video: null, layers: [moving] }))))).toBe('invalid');
+      const twin = { ...title(), id: sample.clips[0]!.layers[0]!.id };
+      expect(code(() => parseProject(JSON.stringify(withCover({ time: 0.5, video: null, layers: [twin] }))))).toBe('invalid');
+    });
+
+    it('upgrades a format 16 file, which had no covers, as it is', () => {
+      expect(parseProject(JSON.stringify({ ...sample, format: 16 }))).toEqual(sample);
     });
   });
 

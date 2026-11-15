@@ -796,6 +796,15 @@ export class Compositor {
     return dst;
   }
 
+  /** Reads all of comp as RGBA, top row first (a cover picture). */
+  readPixels(): Uint8ClampedArray<ArrayBuffer> {
+    const gl = this.gl;
+    const dst = new Uint8ClampedArray(OUTPUT.width * OUTPUT.height * 4);
+    gl.bindFramebuffer(gl.FRAMEBUFFER, this.comp.fbo);
+    gl.readPixels(0, 0, OUTPUT.width, OUTPUT.height, gl.RGBA, gl.UNSIGNED_BYTE, dst);
+    return dst;
+  }
+
   /**
    * Converts comp to yuv420p and starts reading it back into pixel buffer
    * `slot` without waiting for the GPU. collect(slot) picks the bytes up

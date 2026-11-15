@@ -10,6 +10,7 @@ const ICONS: Record<ClipTool, string> = {
   sound: 'M2.5 7v4h3l4 3.5v-11L5.5 7zM12.5 6.5a3.5 3.5 0 0 1 0 5M14.5 4.5a6.5 6.5 0 0 1 0 9',
   pauses: 'M6.5 4v10M11.5 4v10',
   voices: 'M3 8v2M6 5.5v7M9 3v12M12 6v6M15 8v2',
+  cover: 'M4.5 2.5h9a1 1 0 0 1 1 1v11a1 1 0 0 1-1 1h-9a1 1 0 0 1-1-1v-11a1 1 0 0 1 1-1zM6 6h6M6 8.5h4M3.5 12.5l3-2.5 2.5 2 2-1.5 3.5 2.5',
   text: 'M3 4h12M3 7.5h12M3 11h12M3 14.5h7',
 };
 

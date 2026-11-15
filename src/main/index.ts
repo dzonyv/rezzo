@@ -5,6 +5,7 @@ import { addAsset, assetFileUrl, checkAsset, locateAsset } from './assets.ts';
 import { cancelPrepare, prepareClip } from './clip.ts';
 import { clearStorage, revealStorage, storageUsage } from './storage.ts';
 import { cancelOverlay, prepareOverlay } from './overlay.ts';
+import { revealCover, saveCover } from './cover.ts';
 import { cancelExport, openExport, revealExport, startExport } from './export.ts';
 import { addFont, readCustomFont } from './fonts.ts';
 import { librarySoundUrl } from './sounds.ts';
@@ -104,6 +105,8 @@ function registerHandlers(): void {
   handle('export:cancel', () => cancelExport());
   handle('export:reveal', () => revealExport());
   handle('export:open', () => openExport());
+  handle('cover:save', ({ window }, name, format, bytes) => saveCover(window, name, format, bytes));
+  handle('cover:reveal', () => revealCover());
 
   handle('app:licenses', () => openLicenses());
   handle('storage:usage', () => storageUsage());
