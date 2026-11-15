@@ -1,0 +1,24 @@
+{
+  "name": "rezzo-demo",
+  "private": true,
+  "description": "The short promo video for Rezzo, made with Remotion. Not part of the app.",
+  "license": "GPL-3.0-only",
+  "type": "module",
+  "scripts": {
+    "prepare-assets": "node scripts/prepare.mjs",
+    "studio": "remotion studio src/index.ts",
+    "render": "remotion render src/index.ts Promo out/rezzo-promo-sh.mp4",
+    "render:en": "remotion render src/index.ts PromoEN out/rezzo-promo-en.mp4",
+    "typecheck": "tsc"
+  },
+  "dependencies": {
+    "@remotion/cli": "4.0.543",
+    "react": "19.3.1",
+    "react-dom": "19.3.1",
+    "remotion": "4.0.543"
+  },
+  "devDependencies": {
+    "@types/react": "19.3.0",
+    "typescript": "6.0.3"
+  }
+}
