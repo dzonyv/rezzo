@@ -2,11 +2,13 @@ import { useVirtualizer } from '@tanstack/react-virtual';
 import { memo, useDeferredValue, useEffect, useMemo, useRef, useState } from 'react';
 import { useTranslation } from 'react-i18next';
 import { fitsInClip, rangeForWords } from '../../../shared/clips.ts';
+import { coverTitleOf, MAX_TITLE_WORDS } from '../../../shared/cover.ts';
 import { MAX_CLIP_SECONDS, type Clip, type Segment, type Source, type Transcript } from '../../../shared/project.ts';
-import { clipUiStore, setTool, useOpenClip, useOpenClipId } from '../clip/state.ts';
+import { clipUiStore, selectLayer, setTool, useOpenClip, useOpenClipId } from '../clip/state.ts';
 import { formatDuration } from '../format.ts';
 import { seek } from '../player/playback.ts';
 import { createClip, setClipWords } from '../project/clips.ts';
+import { addCoverText } from '../project/cover.ts';
 import { cutWords } from '../project/skips.ts';
 import { ruleFor } from '../../../shared/replacements.ts';
 import { wordsOfText } from '../../../shared/transcript-edit.ts';
@@ -380,7 +382,14 @@ function showTranscript(): boolean {
   return true;
 }
 
-/** How long the selected words run, and buttons that turn them into a clip. */
+/** Puts the words on the clip's cover as a new title, and shows the cover with it selected. */
+function titleCover(clipId: string, words: readonly FlatWord[]): void {
+  const id = addCoverText(clipId, coverTitleOf(words));
+  setTool('cover');
+  selectLayer(id);
+}
+
+/** How long the selected words run, and buttons that turn them into a clip or a cover title. */
 function SelectionBar({ words, source }: { words: FlatWord[]; source: Source }) {
   const { t } = useTranslation();
   const open = useOpenClip();
@@ -399,6 +408,16 @@ function SelectionBar({ words, source }: { words: FlatWord[]; source: Source }) 
       {inOpen && (
         <button type="button" title={t('clips.cutWordsHelp')} onClick={done(() => cutWords(open.id, words))}>
           {t('clips.cutWords')}
+        </button>
+      )}
+      {open && (
+        <button
+          type="button"
+          disabled={words.length > MAX_TITLE_WORDS}
+          title={words.length > MAX_TITLE_WORDS ? t('cover.tooManyWords', { count: MAX_TITLE_WORDS }) : t('cover.titleFromWordsHelp')}
+          onClick={done(() => titleCover(open.id, words))}
+        >
+          {t('cover.titleFromWords')}
         </button>
       )}
       {open && (

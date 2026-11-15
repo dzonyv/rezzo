@@ -68,6 +68,13 @@ export const clipAnalysisSchema = z.object({
 });
 export type ClipAnalysis = z.infer<typeof clipAnalysisSchema>;
 
+/** An RGBA picture as grey, one byte a pixel: the mean of its three channels. */
+export function greyOf(rgba: ArrayLike<number>): Uint8Array {
+  const out = new Uint8Array(rgba.length / 4);
+  for (let i = 0; i < out.length; i++) out[i] = (rgba[4 * i]! + rgba[4 * i + 1]! + rgba[4 * i + 2]!) / 3;
+  return out;
+}
+
 /** Mean absolute difference of two grey thumbnails, 0–255. */
 export function thumbDiff(a: Uint8Array, b: Uint8Array): number {
   let sum = 0;

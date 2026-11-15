@@ -6,7 +6,7 @@
  */
 import wasmBinary from '@mediapipe/tasks-vision/vision_wasm_internal.wasm?url';
 import wasmLoader from '@mediapipe/tasks-vision/vision_wasm_internal.js?url';
-import { ANALYSIS_FPS, ANALYSIS_VERSION, CUT_DIFF, seatsOf, shotsOf, thumbDiff, THUMB_H, THUMB_W, type AnalysedFrame, type ClipAnalysis } from '../../../shared/analysis.ts';
+import { ANALYSIS_FPS, ANALYSIS_VERSION, CUT_DIFF, greyOf, seatsOf, shotsOf, thumbDiff, THUMB_H, THUMB_W, type AnalysedFrame, type ClipAnalysis } from '../../../shared/analysis.ts';
 import { fps } from '../../../shared/frames.ts';
 import type { Box } from '../../../shared/heads.ts';
 import type { WorkingFile } from '../render/clip-player.ts';
@@ -119,7 +119,7 @@ export async function analyseClip(file: WorkingFile, onProgress: (fraction: numb
       try {
         if (signal.aborted || failed) break;
         thumbContext.drawImage(frame, 0, 0, THUMB_W, THUMB_H);
-        thumbs.push(grey(thumbContext.getImageData(0, 0, THUMB_W, THUMB_H).data));
+        thumbs.push(greyOf(thumbContext.getImageData(0, 0, THUMB_W, THUMB_H).data));
         // The same test shotsOf() makes; it only has to say "something changed" here.
         if (index >= every && thumbDiff(thumbs[index]!, thumbs[index - every]!) >= CUT_DIFF) fresh = true;
         if (index % every !== 0) continue;
@@ -157,11 +157,4 @@ export async function analyseClip(file: WorkingFile, onProgress: (fraction: numb
     shots,
     seats: seatsOf(frames, shots),
   };
-}
-
-/** RGBA to grey, as cut detection compares. */
-function grey(rgba: Uint8ClampedArray): Uint8Array {
-  const out = new Uint8Array(rgba.length / 4);
-  for (let i = 0; i < out.length; i++) out[i] = (rgba[4 * i]! + rgba[4 * i + 1]! + rgba[4 * i + 2]!) / 3;
-  return out;
 }

@@ -16,6 +16,23 @@ export type CoverFormat = (typeof COVER_FORMATS)[number];
 /** A JPG cover is at most this big: the usual limit for an uploaded thumbnail (YouTube's). */
 export const MAX_JPG_BYTES = 2 * 1024 * 1024;
 
+/** Most words a title taken from the transcript has: more don't fit on a cover. */
+export const MAX_TITLE_WORDS = 20;
+
+/**
+ * A cover title from words of the transcript: their text on one line,
+ * without the comma or full stop the last one ends in (a question or an
+ * exclamation stays).
+ */
+export function coverTitleOf(words: readonly { text: string }[]): string {
+  return words
+    .map((w) => w.text)
+    .join(' ')
+    .replace(/\s+/g, ' ')
+    .trim()
+    .replace(/[.,;:…]+$/u, '');
+}
+
 /** Cover layers don't move: the cover is one moment. */
 export const NO_MOTION: Motion = {
   in: { kind: 'none', direction: 'left', seconds: 0.3 },

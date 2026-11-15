@@ -846,6 +846,15 @@
     "at": "Naslovna na {{time}}",
     "placeHelp": "Prevuci sloj na naslovnoj da ga pomeriš, uglove da mu promeniš veličinu, a okruglu ručku da ga okreneš. Shift isključuje lepljenje.",
     "saved": "Naslovna je sačuvana kao {{file}}.",
-    "missing": "Naslovna ne može da se sačuva: ovi fajlovi nisu tamo gde su bili: {{names}}"
+    "missing": "Naslovna ne može da se sačuva: ovi fajlovi nisu tamo gde su bili: {{names}}",
+    "suggested": "Predloženi kadrovi",
+    "suggesting": "Tražim dobre kadrove kad se klip analizira…",
+    "noSuggestions": "Nema predloga za ovaj klip. Izaberi kadar ispod naslovne.",
+    "useFrame": "Uzmi kadar na {{time}}",
+    "titleFromWords": "Naslov za naslovnu",
+    "titleFromWordsHelp": "Stavi ove reči kao naslov na naslovnu otvorenog klipa",
+    "titleHint": "Ili izaberi reči u transkriptu i pritisni Naslov za naslovnu.",
+    "suggestFailed": "Nisu mogli da se predlože kadrovi za naslovnu: {{detail}}",
+    "tooManyWords": "Za naslov izaberi najviše {{count}} reči"
   }
 }

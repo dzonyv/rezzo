@@ -1,4 +1,4 @@
-import { useState } from 'react';
+import { useMemo, useState } from 'react';
 import { useTranslation } from 'react-i18next';
 import type { Asset } from '../../../shared/assets.ts';
 import { COVER_FORMATS, coverOf, type CoverFormat } from '../../../shared/cover.ts';
@@ -6,7 +6,9 @@ import { fps, type FrameRate } from '../../../shared/frames.ts';
 import { valueAt, type Size } from '../../../shared/framing.ts';
 import { isPlaced, videoLayerOf, type Clip, type Layout } from '../../../shared/project.ts';
 import { outputTime } from '../../../shared/skips.ts';
+import { useAnalysis } from '../analysis/store.ts';
 import { saveCover } from '../cover/save-cover.ts';
+import { useCoverSuggestions } from '../cover/suggest.ts';
 import { formatClipTime } from '../format.ts';
 import { addCoverImageFile } from '../project/assets.ts';
 import type { FramingTarget } from '../project/framing.ts';
@@ -14,6 +16,7 @@ import { addCoverText, followClipFraming, setCoverTime, stepCoverTime } from '..
 import { projectStore, type EditLabel } from '../project/store.ts';
 import { propertyFor, ZoomSlider } from './FramingOverlay.tsx';
 import { LayerPanel } from './LayerPanel.tsx';
+import { currentPlayer } from './playback.ts';
 import { selectLayer } from './state.ts';
 
 const MOMENT: EditLabel = 'history.coverMoment';
@@ -78,6 +81,7 @@ export function CoverPanel({ clip, shown, selectedId, assets, rate, half, source
       ) : (
         <>
           <p className="dim hint">{t('cover.hint')}</p>
+          <SuggestedFrames clip={clip} rate={rate} ready={ready} />
           <section className="cover-framing">
             <h3>{t('cover.framing')}</h3>
             <p className="dim hint">{t(clip.cover?.video ? 'cover.ownFraming' : 'cover.clipFraming')}</p>
@@ -97,6 +101,7 @@ export function CoverPanel({ clip, shown, selectedId, assets, rate, half, source
           {t('layers.kinds.image')}
         </button>
       </div>
+      <p className="dim hint">{t('cover.titleHint')}</p>
 
       <section className="cover-save">
         <h3>{t('cover.save')}</h3>
@@ -110,6 +115,51 @@ export function CoverPanel({ clip, shown, selectedId, assets, rate, half, source
         <p className="dim hint">{t('cover.saveHelp')}</p>
       </section>
     </>
+  );
+}
+
+/**
+ * A few frames the analysis thinks make a good cover, as pictures: pressing
+ * one moves the cover there. They come once the clip's analysis is done.
+ */
+function SuggestedFrames({ clip, rate, ready }: { clip: Clip; rate: FrameRate; ready: boolean }) {
+  const { t } = useTranslation();
+  const analysis = useAnalysis((s) => s.analysis);
+  const status = useAnalysis((s) => s.status);
+  const player = ready ? currentPlayer() : null;
+  const source = useMemo(() => (player ? { file: player.file, media: player.media } : null), [player]);
+  const suggestions = useCoverSuggestions(clip, analysis, source);
+  const time = coverOf(clip).time;
+  const frame = 1 / fps(rate);
+  return (
+    <section className="cover-suggestions">
+      <h3>{t('cover.suggested')}</h3>
+      {suggestions === null ? (
+        <p className="dim hint">{status === 'failed' ? t('cover.noSuggestions') : t('cover.suggesting')}</p>
+      ) : suggestions.length === 0 ? (
+        <p className="dim hint">{t('cover.noSuggestions')}</p>
+      ) : (
+        <div className="cover-frames">
+          {suggestions.map((s) => {
+            const at = formatClipTime(outputTime(clip, s.t));
+            const chosen = Math.abs(s.t - time) < frame;
+            return (
+              <button
+                key={s.t}
+                type="button"
+                aria-pressed={chosen}
+                aria-label={t('cover.useFrame', { time: at })}
+                title={t('cover.useFrame', { time: at })}
+                onClick={() => setCoverTime(clip.id, s.t)}
+              >
+                <img src={s.picture} alt="" />
+                <span>{at}</span>
+              </button>
+            );
+          })}
+        </div>
+      )}
+    </section>
   );
 }
 
