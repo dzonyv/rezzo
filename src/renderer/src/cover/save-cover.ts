@@ -1,7 +1,7 @@
 /**
  * Saving a clip's cover: the cover drawn once, at 1080×1920, by the same
  * scene renderer as the preview and the export, from the open clip's
- * working file; then encoded as PNG, or as a JPG that fits MAX_JPG_BYTES,
+ * working file as its player has it read in (decoded apart from playback); then encoded as PNG, or as a JPG that fits MAX_JPG_BYTES,
  * and handed to the main process to write where the user says.
  */
 import i18n from 'i18next';
@@ -12,7 +12,7 @@ import { layerAssetIds, type Clip } from '../../../shared/project.ts';
 import { workingFrameIndex } from '../../../shared/working.ts';
 import type { WorkingFile } from '../render/clip-player.ts';
 import { Compositor } from '../render/compositor.ts';
-import { demux } from '../render/demux.ts';
+import type { Demuxed } from '../render/demux.ts';
 import { FrameSource } from '../render/frame-source.ts';
 import { loadScene, MissingFilesError, SceneRenderer } from '../render/scene-renderer.ts';
 import { currentPlayer } from '../clip/playback.ts';
@@ -22,13 +22,10 @@ import { notify } from '../ui/prompts.ts';
 /** JPG qualities tried in turn, best first, until the picture fits. */
 const JPG_QUALITIES = [0.92, 0.85, 0.78, 0.7, 0.6, 0.5];
 
-/** The cover's pixels, RGBA, top row first: OUTPUT.width × OUTPUT.height. */
-export async function drawCover(clip: Clip, assets: readonly Asset[], file: WorkingFile): Promise<ImageData> {
+/** The cover's pixels, RGBA, top row first: OUTPUT.width × OUTPUT.height, from the working `file`, already read in as `media`. */
+export async function drawCover(clip: Clip, assets: readonly Asset[], file: WorkingFile, media: Demuxed): Promise<ImageData> {
   const shown = coverClip(clip);
   const time = coverOf(clip).time;
-  const response = await fetch(file.url);
-  if (!response.ok) throw new Error(`loading the working file failed: ${response.status}`);
-  const media = await demux(await response.arrayBuffer());
   // A canvas of its own, as for the export: the preview isn't disturbed.
   const canvas = document.createElement('canvas');
   canvas.width = 1;
@@ -94,7 +91,7 @@ export async function saveCover(clip: Clip, format: CoverFormat): Promise<void> 
   if (!player) return;
   try {
     const assets = coverAssets(clip, projectStore.getState().project?.assets ?? []);
-    const bytes = await encodeCover(await drawCover(clip, assets, player.file), format);
+    const bytes = await encodeCover(await drawCover(clip, assets, player.file, player.media), format);
     const saved = await window.rezzo.invoke('cover:save', clip.name || i18n.t('clips.untitled'), format, bytes);
     if (saved) notify('info', i18n.t('cover.saved', { file: saved.split(/[\\/]/).pop() }));
   } catch (e) {

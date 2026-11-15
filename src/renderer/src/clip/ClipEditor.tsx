@@ -7,12 +7,12 @@ import { videoLayersOverLimit } from '../../../shared/overlay-files.ts';
 import { DEFAULT_CLIP_DOCK } from '../../../shared/settings.ts';
 import { captionPages, captionTrackFor } from '../../../shared/captions.ts';
 import { keptLength, outputTime } from '../../../shared/skips.ts';
-import { captionLayerOf, isPlaced, isTimed, LAYOUTS, MAX_ZOOM, videoLayerOf, type Clip, type Source } from '../../../shared/project.ts';
+import { captionLayerOf, isPlaced, isTimed, LAYOUTS, videoLayerOf, type Clip, type Source, type TimedLayer } from '../../../shared/project.ts';
 import { exportClip, isExporting, useExport } from '../export/state.ts';
-import { setCoverTime } from '../project/cover.ts';
+import { stepCoverTime } from '../project/cover.ts';
 import { formatClipTime } from '../format.ts';
 import { nudgeClip, renameClip } from '../project/clips.ts';
-import { addKeyframe, deleteKeyframe, setFraming, setLayout, setSmooth, type FramingTarget } from '../project/framing.ts';
+import { addKeyframe, deleteKeyframe, setLayout, setSmooth, type FramingTarget } from '../project/framing.ts';
 import { deleteLayer, reorderLayer } from '../project/layers.ts';
 import { projectStore, useProject } from '../project/store.ts';
 import { retimeWord } from '../project/transcript.ts';
@@ -32,7 +32,7 @@ import { CaptionPanel } from './CaptionPanel.tsx';
 import { CoverMoment, CoverPanel } from './CoverPanel.tsx';
 import { ClipPreview } from './ClipPreview.tsx';
 import { ClipTimeline } from './ClipTimeline.tsx';
-import { FramingOverlay, propertyFor, regionFor, zoomed } from './FramingOverlay.tsx';
+import { FramingOverlay, propertyFor, ZoomSlider } from './FramingOverlay.tsx';
 import { layerName, rowsOf } from './layer-names.ts';
 import { LayerOverlay } from './LayerOverlay.tsx';
 import { useTextImages } from '../render/text.ts';
@@ -173,8 +173,7 @@ export function ClipEditor({ clip, source, side, voices }: { clip: Clip; source:
         selectLayer(null);
       } else if ((e.key === 'ArrowLeft' || e.key === 'ArrowRight') && !e.altKey) {
         e.preventDefault();
-        const open = projectStore.getState().project?.clips.find((c) => c.id === clip.id);
-        if (open) setCoverTime(clip.id, coverOf(open).time + (e.shiftKey ? 1 : frame) * (e.key === 'ArrowLeft' ? -1 : 1));
+        stepCoverTime(clip.id, (e.shiftKey ? Math.round(fps(rate)) : 1) * (e.key === 'ArrowLeft' ? -1 : 1));
       } else if (e.code === 'Space') {
         e.preventDefault();
       }
@@ -297,8 +296,6 @@ export function ClipEditor({ clip, source, side, voices }: { clip: Clip; source:
    * with a layer, its name and its place in the stack.
    */
   function dockTools() {
-    const rows = rowsOf(clip);
-    const row = selectedLayer ? rows.findIndex((l) => l.id === selectedLayer.id) : -1;
     return (
       <>
         <div className="clip-range">
@@ -317,20 +314,7 @@ export function ClipEditor({ clip, source, side, voices }: { clip: Clip; source:
         </div>
         <div className="dock-context">
           {selectedLayer ? (
-            <>
-              <span className="selected-name">{layerName(t, selectedLayer, assets)}</span>
-              {/* A sound draws nothing, so it has no place in the order. */}
-              {selectedLayer.kind !== 'sound' && (
-                <>
-                  <button type="button" disabled={row <= 0} onClick={() => reorderLayer(clip.id, selectedLayer.id, 'up')}>
-                    {t('layers.up')}
-                  </button>
-                  <button type="button" disabled={row < 0 || row === rows.length - 1} onClick={() => reorderLayer(clip.id, selectedLayer.id, 'down')}>
-                    {t('layers.down')}
-                  </button>
-                </>
-              )}
-            </>
+            selectedLayerTools(selectedLayer)
           ) : (
             <>
               <AutoFramePanel clip={clip} time={time} />
@@ -344,24 +328,28 @@ export function ClipEditor({ clip, source, side, voices }: { clip: Clip; source:
 
   /** Above the cover's moment: the selected layer on the cover and its place in the stack. */
   function coverDockTools() {
+    return <div className="dock-context">{selectedLayer ? selectedLayerTools(selectedLayer) : <span className="dim">{t('cover.momentHelp')}</span>}</div>;
+  }
+
+  /** The selected layer's name and its place in the stack of what's shown (the clip's layers, or the cover's). */
+  function selectedLayerTools(selected: TimedLayer) {
     const rows = rowsOf(shown);
-    const row = selectedLayer ? rows.findIndex((l) => l.id === selectedLayer.id) : -1;
+    const row = rows.findIndex((l) => l.id === selected.id);
     return (
-      <div className="dock-context">
-        {selectedLayer ? (
+      <>
+        <span className="selected-name">{layerName(t, selected, assets)}</span>
+        {/* A sound draws nothing, so it has no place in the order. */}
+        {selected.kind !== 'sound' && (
           <>
-            <span className="selected-name">{layerName(t, selectedLayer, assets)}</span>
-            <button type="button" disabled={row <= 0} onClick={() => reorderLayer(clip.id, selectedLayer.id, 'up')}>
+            <button type="button" disabled={row <= 0} onClick={() => reorderLayer(clip.id, selected.id, 'up')}>
               {t('layers.up')}
             </button>
-            <button type="button" disabled={row < 0 || row === rows.length - 1} onClick={() => reorderLayer(clip.id, selectedLayer.id, 'down')}>
+            <button type="button" disabled={row < 0 || row === rows.length - 1} onClick={() => reorderLayer(clip.id, selected.id, 'down')}>
               {t('layers.down')}
             </button>
           </>
-        ) : (
-          <span className="dim">{t('cover.momentHelp')}</span>
         )}
-      </div>
+      </>
     );
   }
 
@@ -459,25 +447,7 @@ export function ClipEditor({ clip, source, side, voices }: { clip: Clip; source:
           {layout === 'split' && ` ${t('clipEditor.editing', { what: t(`clipEditor.${half}`) })}`}
         </p>
 
-        <label className="zoom">
-          <span>{t('clipEditor.zoom')}</span>
-          <input
-            type="range"
-            min={1}
-            max={MAX_ZOOM}
-            step={0.01}
-            value={value.zoom}
-            disabled={!sourceSize}
-            onPointerDown={() => store.beginGesture('history.zoomFrame')}
-            onPointerUp={() => store.endGesture()}
-            onChange={(e) => {
-              if (!sourceSize) return;
-              const region = regionFor(layout, half);
-              const next = zoomed(value, property, region, sourceSize, Number(e.target.value), region.x + region.w / 2, region.y + region.h / 2);
-              setFraming(clip.id, 'history.zoomFrame', property, time, next);
-            }}
-          />
-        </label>
+        <ZoomSlider clipId={clip.id} layout={layout} half={half} value={value} time={time} sourceSize={sourceSize} />
       </>
     );
   }

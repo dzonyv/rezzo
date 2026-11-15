@@ -17,7 +17,8 @@ export class FrameSource {
   private dirty = false;
   /** While set, decoded frames before this index are closed on arrival. */
   private discardBefore: number | undefined;
-  private readonly media: Demuxed;
+  /** The file it decodes; another FrameSource can decode it too. */
+  readonly media: Demuxed;
   private readonly indexByTimestamp: Map<number, number>;
 
   constructor(media: Demuxed) {

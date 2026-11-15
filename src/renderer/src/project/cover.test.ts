@@ -2,7 +2,7 @@ import { beforeEach, describe, expect, it } from 'vitest';
 import type { AssetFile } from '../../../shared/assets.ts';
 import { defaultVideoLayer } from '../../../shared/framing.ts';
 import { newProject, projectSchema, videoLayerOf, type Project } from '../../../shared/project.ts';
-import { addCoverImage, addCoverText, followClipFraming, setCoverTime } from './cover.ts';
+import { addCoverImage, addCoverText, followClipFraming, setCoverTime, stepCoverTime } from './cover.ts';
 import { setFraming, setLayout } from './framing.ts';
 import { addImageLayer, deleteLayer, duplicateLayer, reorderLayer, setText, setTransform } from './layers.ts';
 import { projectStore } from './store.ts';
@@ -76,6 +76,20 @@ describe('cover edits', () => {
     expect(cover().time).toBe(13);
     state().undo();
     expect(cover().time).toBe(11);
+  });
+
+  it('steps over a cut both ways, and stays on the last frame', () => {
+    setCoverTime(CLIP, 13);
+    stepCoverTime(CLIP, -1);
+    expect(cover().time).toBeCloseTo(11 + 29 / 30, 6);
+    stepCoverTime(CLIP, 1);
+    expect(cover().time).toBe(13);
+    stepCoverTime(CLIP, -30);
+    expect(cover().time).toBeCloseTo(11 + 29 / 30, 6);
+    setCoverTime(CLIP, 25);
+    expect(cover().time).toBeCloseTo(20 - 1 / 30, 6);
+    stepCoverTime(CLIP, 30);
+    expect(cover().time).toBeCloseTo(20 - 1 / 30, 6);
   });
 
   it("frames the cover on its own, one key a track, leaving the clip's framing as it was", () => {

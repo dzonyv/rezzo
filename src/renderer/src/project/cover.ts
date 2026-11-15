@@ -8,7 +8,7 @@ import type { Draft } from 'immer';
 import type { AssetFile } from '../../../shared/assets.ts';
 import { coverOf, keptTime, NO_MOTION } from '../../../shared/cover.ts';
 import type { Size } from '../../../shared/framing.ts';
-import { frameAt, timeOfFrame } from '../../../shared/frames.ts';
+import { frameAt, timeOfFrame, type FrameRate } from '../../../shared/frames.ts';
 import type { Clip, Cover, CoverLayer, Project } from '../../../shared/project.ts';
 import { DEFAULT_TEXT_STYLE, MAX_TEXT_CHARS, type TextStyle } from '../../../shared/text-style.ts';
 import { sourceRate } from './framing.ts';
@@ -27,12 +27,36 @@ function editCover(clipId: string, label: EditLabel, recipe: (cover: Draft<Cover
   });
 }
 
+/** The clip's first and last frame. */
+function frameRange(clip: Pick<Clip, 'start' | 'end'>, rate: FrameRate) {
+  return { first: frameAt(clip.start, rate), last: Math.max(frameAt(clip.start, rate), frameAt(clip.end, rate) - 1) };
+}
+
 /** Moves the cover to the frame at `time`, kept inside what the clip plays; the moment slider calls it inside a gesture. */
 export function setCoverTime(clipId: string, time: number): void {
   editCover(clipId, 'history.coverMoment', (cover, clip) => {
     const rate = sourceRate();
-    cover.time = keptTime(clip, timeOfFrame(frameAt(time, rate), rate));
+    const { first, last } = frameRange(clip, rate);
+    cover.time = keptTime(clip, timeOfFrame(Math.min(Math.max(frameAt(time, rate), first), last), rate));
   });
+}
+
+/**
+ * Moves the cover `by` frames on (back when negative) to the next frame
+ * the clip plays, over any stretch it leaves out; at the clip's first or
+ * last frame it stays.
+ */
+export function stepCoverTime(clipId: string, by: number): void {
+  const clip = projectStore.getState().project?.clips.find((c) => c.id === clipId);
+  if (!clip || by === 0) return;
+  const rate = sourceRate();
+  const { first, last } = frameRange(clip, rate);
+  const from = frameAt(coverOf(clip).time, rate);
+  const step = Math.sign(by);
+  for (let f = Math.min(Math.max(from + by, first), last); step > 0 ? f <= last : f >= first; f += step) {
+    const at = timeOfFrame(f, rate);
+    if (f !== from && Math.abs(keptTime(clip, at) - at) < 1e-6) return setCoverTime(clipId, at);
+  }
 }
 
 /** The cover goes back to the clip's framing at its moment. */

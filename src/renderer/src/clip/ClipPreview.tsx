@@ -292,11 +292,11 @@ export function ClipPreview({
   // Anything in the clip changed: redraw the frame on screen.
   useEffect(() => {
     const assets = allAssets ?? [];
-    const s = { clip: drawn, assets, captions: scene, images, overlays, lotties, texts };
+    const s = { clip: drawn, assets, captions: scene, images, overlays, lotties, texts, keep: clip.layers.map((l) => l.id) };
     drawAt.current = (time) => renderer.current?.draw(s, time);
     prepareAt.current = (time, sequential) => renderer.current?.prepare(s, time, sequential) ?? Promise.resolve(false);
     currentPlayer()?.setScene(drawAt.current, prepareAt.current);
-  }, [drawn, allAssets, scene, images, overlays, lotties, texts, generation]);
+  }, [clip, drawn, allAssets, scene, images, overlays, lotties, texts, generation]);
 
   return (
     <div className="clip-preview">

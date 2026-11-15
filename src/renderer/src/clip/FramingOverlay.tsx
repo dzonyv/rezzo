@@ -1,4 +1,5 @@
 import { useEffect, useEffectEvent, useRef } from 'react';
+import { useTranslation } from 'react-i18next';
 import { MAX_ZOOM, videoLayerOf, type Crop, type FullFrame, type Layout } from '../../../shared/project.ts';
 import { OUTPUT, panCrop, panFull, regions, valueAt, zoomCrop, type Rect, type Size } from '../../../shared/framing.ts';
 import { coverClip } from '../../../shared/cover.ts';
@@ -42,6 +43,42 @@ export function zoomed(value: Crop | FullFrame, property: FramingProperty, regio
   const z = Math.min(MAX_ZOOM, Math.max(1, zoom));
   if (property === 'full') return { ...(value as FullFrame), zoom: z };
   return zoomCrop(value as Crop, region, size, z, px, py);
+}
+
+/** The zoom of the framing at `time` (the clip's or the cover's), zooming around the middle of the part it fills. One undo step per drag. */
+export function ZoomSlider({ clipId, layout, half, value, time, sourceSize, target = 'clip' }: {
+  clipId: string;
+  layout: Layout;
+  half: 'top' | 'bottom';
+  value: Crop | FullFrame;
+  time: number;
+  sourceSize: Size | null;
+  target?: FramingTarget;
+}) {
+  const { t } = useTranslation();
+  const store = projectStore.getState();
+  const property = propertyFor(layout, half);
+  return (
+    <label className="zoom">
+      <span>{t('clipEditor.zoom')}</span>
+      <input
+        type="range"
+        min={1}
+        max={MAX_ZOOM}
+        step={0.01}
+        value={value.zoom}
+        disabled={!sourceSize}
+        onPointerDown={() => store.beginGesture('history.zoomFrame')}
+        onPointerUp={() => store.endGesture()}
+        onChange={(e) => {
+          if (!sourceSize) return;
+          const region = regionFor(layout, half);
+          const next = zoomed(value, property, region, sourceSize, Number(e.target.value), region.x + region.w / 2, region.y + region.h / 2);
+          setFraming(clipId, 'history.zoomFrame', property, time, next, target);
+        }}
+      />
+    </label>
+  );
 }
 
 /**

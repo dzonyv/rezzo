@@ -1,23 +1,23 @@
 import { useState } from 'react';
 import { useTranslation } from 'react-i18next';
 import type { Asset } from '../../../shared/assets.ts';
-import { COVER_FORMATS, coverOf, keptTime, type CoverFormat } from '../../../shared/cover.ts';
-import { fps, frameAt, timeOfFrame, type FrameRate } from '../../../shared/frames.ts';
+import { COVER_FORMATS, coverOf, type CoverFormat } from '../../../shared/cover.ts';
+import { fps, type FrameRate } from '../../../shared/frames.ts';
 import { valueAt, type Size } from '../../../shared/framing.ts';
-import { isPlaced, MAX_ZOOM, videoLayerOf, type Clip, type Layout } from '../../../shared/project.ts';
+import { isPlaced, videoLayerOf, type Clip, type Layout } from '../../../shared/project.ts';
 import { outputTime } from '../../../shared/skips.ts';
 import { saveCover } from '../cover/save-cover.ts';
 import { formatClipTime } from '../format.ts';
 import { addCoverImageFile } from '../project/assets.ts';
-import { addCoverText, followClipFraming, setCoverTime } from '../project/cover.ts';
-import { setFraming } from '../project/framing.ts';
+import type { FramingTarget } from '../project/framing.ts';
+import { addCoverText, followClipFraming, setCoverTime, stepCoverTime } from '../project/cover.ts';
 import { projectStore, type EditLabel } from '../project/store.ts';
-import { propertyFor, regionFor, zoomed } from './FramingOverlay.tsx';
+import { propertyFor, ZoomSlider } from './FramingOverlay.tsx';
 import { LayerPanel } from './LayerPanel.tsx';
 import { selectLayer } from './state.ts';
 
 const MOMENT: EditLabel = 'history.coverMoment';
-const ZOOM: EditLabel = 'history.zoomFrame';
+const COVER: FramingTarget = 'cover';
 
 interface Props {
   /** The clip as it is in the document. */
@@ -40,7 +40,6 @@ interface Props {
 export function CoverPanel({ clip, shown, selectedId, assets, rate, half, sourceSize, ready }: Props) {
   const { t } = useTranslation();
   const [saving, setSaving] = useState<CoverFormat | null>(null);
-  const store = projectStore.getState();
   const cover = coverOf(clip);
   const selected = shown.layers.find((l) => l.id === selectedId);
   const video = videoLayerOf(shown);
@@ -82,25 +81,7 @@ export function CoverPanel({ clip, shown, selectedId, assets, rate, half, source
           <section className="cover-framing">
             <h3>{t('cover.framing')}</h3>
             <p className="dim hint">{t(clip.cover?.video ? 'cover.ownFraming' : 'cover.clipFraming')}</p>
-            <label className="zoom">
-              <span>{t('clipEditor.zoom')}</span>
-              <input
-                type="range"
-                min={1}
-                max={MAX_ZOOM}
-                step={0.01}
-                value={value.zoom}
-                disabled={!sourceSize}
-                onPointerDown={() => store.beginGesture(ZOOM)}
-                onPointerUp={() => store.endGesture()}
-                onChange={(e) => {
-                  if (!sourceSize) return;
-                  const region = regionFor(layout, half);
-                  const next = zoomed(value, property, region, sourceSize, Number(e.target.value), region.x + region.w / 2, region.y + region.h / 2);
-                  setFraming(clip.id, ZOOM, property, cover.time, next, 'cover');
-                }}
-              />
-            </label>
+            <ZoomSlider clipId={clip.id} layout={layout} half={half} value={value} time={cover.time} sourceSize={sourceSize} target={COVER} />
             <button type="button" disabled={!clip.cover?.video} onClick={() => followClipFraming(clip.id)}>
               {t('cover.useClipFraming')}
             </button>
@@ -141,15 +122,7 @@ export function CoverMoment({ clip, rate }: { clip: Clip; rate: FrameRate }) {
   const store = projectStore.getState();
   const time = coverOf(clip).time;
   const frame = 1 / fps(rate);
-  /** The next frame the clip plays, `by` frames on, past any stretch it leaves out. */
-  const step = (by: number) => {
-    const first = frameAt(clip.start, rate);
-    const last = frameAt(clip.end, rate) - 1;
-    for (let f = frameAt(time, rate) + by; f >= first && f <= last; f += by) {
-      const at = timeOfFrame(f, rate);
-      if (Math.abs(keptTime(clip, at) - at) < 1e-6) return setCoverTime(clip.id, at);
-    }
-  };
+  const step = (by: number) => stepCoverTime(clip.id, by);
   return (
     <div className="cover-moment">
       <span className="dim">{t('cover.moment')}</span>
