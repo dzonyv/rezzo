@@ -17,7 +17,7 @@ Phase 0 asked whether the three riskiest parts work on ordinary hardware and on 
 | Area | Decision | Why (details below) |
 |---|---|---|
 | Transcription model | **whisper.cpp large-v3-turbo q5_0** with DTW word timings (flash attention off) | Most accurate of the six (tied with turbo f16), 1 h of audio in 6 min; large-v3 is slower, loops on noisy audio and turns Serbian ekavian into ijekavian |
-| Language | **The user picks sr/hr/bs** per project; no auto-detect | Auto-detect is a coin toss between the three; the setting itself changes WER by a few points |
+| Language | **The user picks sr/hr/bs** per project; no auto-detect (since 2026-11-15: always `sr`, see the last section) | Auto-detect is a coin toss between the three; the setting itself changes WER by a few points |
 | Prompts | **None** | Every initial prompt tried (script hint, glossary) made results worse |
 | Fixing recurring mistakes | **A user-editable replacement list** applied to words after transcription, keeping their timings | "futbal" for "fudbal" is systematic in every model and prompts don't fix it |
 | Word timing | Turbo's DTW times, **with a correction to be tuned in Phase 2** | They run about 120 ms late on the words that needed fixing; alternative: re-align only the selected clip with large-v3 q5_0 |
@@ -641,3 +641,21 @@ Word times can't find pauses. A quarter to a third of each clip looks like a gap
 ### Going over a cut in the preview (5a)
 
 The decoder has to start again from a keyframe at each cut, up to 14 frames before the one it needs. On the GTX 1660, with a 720p test clip playing over two cuts, the picture stood still for 32 and 42 ms: about one frame. That can't be seen, so playback jumps and doesn't need to decode through short cuts. The sound doesn't wait, since it's scheduled ahead.
+
+## Later check: one language setting for everything (2026-11-15)
+
+The question: can the app drop the sr/hr/bs picker and always use `sr`? The worry was that `sr` might rewrite ijekavian speech as ekavian. No new transcriptions; this compares the Phase 0 runs of large-v3-turbo q5_0, the model the app uses, word by word between `sr` and `hr`/`bs` on the same clip.
+
+| Clip | Speech | Same words, `sr` vs `hr` | Same words, `sr` vs `bs` |
+|---|---|---|---|
+| A | Bosnian, ijekavian | 94.6% | 95.9% |
+| B | Serbian, ekavian | 92.5% | 94.6% |
+| C | Croatian, strong dialect | 73.1% | 84.4% |
+| D | Serbian, ekavian | 95.7% | 95.3% |
+
+- On ijekavian speech `sr` kept ijekavian: every ijekavian form in clip A's `sr` run is the same in the `hr` and `bs` runs. Nowhere did `sr` write an ekavian form where `hr` or `bs` wrote an ijekavian one. In one place on clip A, `bs` wrote an ijekavian word where `sr` and `hr` wrote a non-word, and one ekavian form is in all three runs alike (clip A isn't corrected, so we don't know what the speaker said there).
+- On clip C, `hr` replaced 3 dialect forms with standard ijekavian and `bs` replaced 1 of them. `sr` wrote all 3 as spoken, matching the corrected transcript.
+- The other way round, `bs` turned 2 Serbian forms in clips B and D into an ijekavian and a Croatian one. `hr` didn't.
+- Accuracy says the same as before: with turbo q5_0, `sr` is 24.6% WER over the three corrected clips against 26.6% for `hr` (table above).
+
+The sample is small: four clips of about a minute, with about ten words that differ between ekavian and ijekavian in all. It's enough to drop the picker, since nothing points the other way. A longer ijekavian recording would be worth a look if Croatian or Bosnian users report ekavian in their transcripts.

@@ -128,7 +128,7 @@ describe('app', () => {
 
   it('switches the UI language and remembers it', async () => {
     let page = await (await launch()).firstWindow();
-    await page.getByRole('group', { name: 'Interface language' }).getByRole('button', { name: 'BCS' }).click();
+    await page.getByRole('group', { name: 'Interface language' }).getByRole('button', { name: 'Srpski' }).click();
     await expect.poll(() => page.locator('.tagline').textContent()).toBe('Od cele epizode do vertikalnih klipova za Reels, TikTok i Shorts');
 
     const stored = JSON.parse(await readFile(path.join(userData, 'settings.json'), 'utf8'));
@@ -137,7 +137,7 @@ describe('app', () => {
     await app!.close();
     page = await (await launch()).firstWindow();
     await page.locator('h1').waitFor();
-    await expect.poll(() => page.locator('html').getAttribute('lang')).toBe('sh');
+    await expect.poll(() => page.locator('html').getAttribute('lang')).toBe('sr-Latn');
   });
 
   it('refuses channels outside the API', async () => {

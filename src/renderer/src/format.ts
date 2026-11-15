@@ -36,7 +36,7 @@ export function formatBytes(bytes: number, locale: string): string {
   return `${number} ${units[unit]}`;
 }
 
-/** The locale numbers and dates are written in for an interface language: BCS in Latin script. */
+/** The locale numbers and dates are written in for an interface language: Serbian in Latin script. */
 export const localeOf = (language: string): string => (language === 'sh' ? 'sr-Latn' : 'en');
 
 /** [30000, 1001] -> "29.97", [25, 1] -> "25". */

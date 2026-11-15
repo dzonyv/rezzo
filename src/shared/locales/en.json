@@ -150,11 +150,11 @@
   },
   "language": {
     "en": "English",
-    "sh": "BCS (bosanski, hrvatski, srpski)"
+    "sh": "Srpski"
   },
   "languageShort": {
     "en": "English",
-    "sh": "BCS"
+    "sh": "Srpski"
   },
   "episode": {
     "duration": "Length",
@@ -170,13 +170,7 @@
   },
   "transcribe": {
     "title": "Transcript",
-    "language": "Spoken language",
-    "languageHelp": "Pick the language people speak in this video. The transcript is always written in Latin script.",
-    "languages": {
-      "sr": "Serbian",
-      "hr": "Croatian",
-      "bs": "Bosnian"
-    },
+    "help": "Rezzo writes down every word with the moment it's said. The transcript is always in Latin script.",
     "start": "Transcribe",
     "cancel": "Cancel",
     "download": "The first transcription downloads speech recognition once ({{size}} GB).",
