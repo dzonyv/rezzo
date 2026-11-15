@@ -2,6 +2,7 @@ import { z } from 'zod';
 import { captionStyleSchema, DEFAULT_CAPTION_STYLE, savedStyleSchema } from './caption-style.ts';
 import { customFontSchema } from './fonts.ts';
 import { replacementSchema } from './replacements.ts';
+import { PLATFORMS } from './safe-zones.ts';
 
 /** UI languages. `sh` is Serbian in Latin script; the code stays `sh` so saved settings keep working. */
 export const UI_LANGUAGES = ['en', 'sh'] as const;
@@ -33,6 +34,8 @@ export const settingsSchema = z.object({
   fonts: z.array(customFontSchema).max(200),
   /** The clip editor's timeline, as the user left it. */
   clipDock: clipDockSchema,
+  /** Whose buttons the clip editor shows over the picture (shared/safe-zones.ts), or nobody's. */
+  safeZones: z.enum(['off', ...PLATFORMS]),
 });
 export type Settings = z.infer<typeof settingsSchema>;
 
@@ -48,6 +51,7 @@ export function defaultSettings(uiLanguage: UiLanguage): Settings {
     defaultCaptionStyle: DEFAULT_CAPTION_STYLE,
     fonts: [],
     clipDock: DEFAULT_CLIP_DOCK,
+    safeZones: 'off',
   };
 }
 

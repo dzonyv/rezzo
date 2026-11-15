@@ -12,7 +12,7 @@ import { useCoverSuggestions } from '../cover/suggest.ts';
 import { formatClipTime } from '../format.ts';
 import { addCoverImageFile } from '../project/assets.ts';
 import type { FramingTarget } from '../project/framing.ts';
-import { addCoverText, followClipFraming, setCoverTime, stepCoverTime } from '../project/cover.ts';
+import { addCoverText, followClipFraming, setCoverInVideo, setCoverTime, stepCoverTime } from '../project/cover.ts';
 import { projectStore, type EditLabel } from '../project/store.ts';
 import { propertyFor, ZoomSlider } from './FramingOverlay.tsx';
 import { LayerPanel } from './LayerPanel.tsx';
@@ -113,6 +113,11 @@ export function CoverPanel({ clip, shown, selectedId, assets, rate, half, source
           ))}
         </div>
         <p className="dim hint">{t('cover.saveHelp')}</p>
+        <label className="layer-check">
+          <input type="checkbox" checked={cover.inVideo} onChange={(e) => setCoverInVideo(clip.id, e.target.checked)} />
+          {t('cover.inVideo')}
+        </label>
+        <p className="dim hint">{t('cover.inVideoHelp')}</p>
       </section>
     </>
   );

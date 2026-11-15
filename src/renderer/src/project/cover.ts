@@ -59,6 +59,11 @@ export function stepCoverTime(clipId: string, by: number): void {
   }
 }
 
+/** Whether the cover is also put on the exported video's first frames. */
+export function setCoverInVideo(clipId: string, on: boolean): void {
+  editCover(clipId, 'history.coverInVideo', (cover) => void (cover.inVideo = on));
+}
+
 /** The cover goes back to the clip's framing at its moment. */
 export function followClipFraming(clipId: string): void {
   editCover(clipId, 'history.coverFraming', (cover) => void (cover.video = null));

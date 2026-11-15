@@ -21,7 +21,7 @@ import { MAX_TEXT_CHARS, textStyleSchema } from './text-style.ts';
 import { speakerCountSchema, speakerPickSchema, voiceEditSchema } from './voices.ts';
 
 /** Bumped when the file format changes in a way older files need migrating for. */
-export const PROJECT_FORMAT = 17;
+export const PROJECT_FORMAT = 18;
 export const PROJECT_EXTENSION = 'rezzo';
 
 /**
@@ -394,6 +394,8 @@ export const coverSchema = z.object({
   /** The cover's own framing, one key on each track; null: the clip's framing at `time`. */
   video: videoLayerSchema.nullable(),
   layers: z.array(coverLayerSchema),
+  /** The cover is also put on the exported video's first frames (COVER_LEAD), for platforms that only let you pick a frame. */
+  inVideo: z.boolean(),
 });
 export type Cover = z.infer<typeof coverSchema>;
 
@@ -555,7 +557,14 @@ const MIGRATIONS: Record<number, (old: Record<string, unknown>) => Record<string
   15: (old) => old,
   // Format 17 added covers. Nothing to change, as for 16.
   16: (old) => old,
+  // Format 18 let a cover go on the video's first frames. Covers made before it don't.
+  17: (old) => ({ ...old, clips: Array.isArray(old.clips) ? old.clips.map(withCoverOutOfVideo) : old.clips }),
 };
+
+/** A clip from before format 18, its cover (if it has one) kept out of the exported video. */
+function withCoverOutOfVideo(clip: { cover?: unknown }): unknown {
+  return typeof clip?.cover === 'object' && clip.cover !== null ? { ...clip, cover: { ...clip.cover, inVideo: false } } : clip;
+}
 
 /**
  * Captions still at the old default go on the line between the halves, off

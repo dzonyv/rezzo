@@ -1,5 +1,5 @@
 import { describe, expect, it } from 'vitest';
-import { coverClip, coverFraming, coverOf, keptTime } from './cover.ts';
+import { coverClip, coverFraming, coverLeadFrames, coverOf, keptTime } from './cover.ts';
 import { defaultVideoLayer } from './framing.ts';
 import { DEFAULT_MOTION } from './motion.ts';
 import type { Clip, TextLayer } from './project.ts';
@@ -23,12 +23,12 @@ describe('covers', () => {
   });
 
   it('starts at the first frame with the clip framing and nothing over it', () => {
-    expect(coverOf(clip)).toEqual({ time: 10, video: null, layers: [] });
-    expect(coverOf({ ...clip, cover: { time: 12.2, video: null, layers: [] } }).time).toBe(13);
+    expect(coverOf(clip)).toEqual({ time: 10, video: null, layers: [], inVideo: false });
+    expect(coverOf({ ...clip, cover: { time: 12.2, video: null, layers: [], inVideo: false } }).time).toBe(13);
   });
 
   it("is drawn as the clip's video with the cover's layers up the whole clip, not moving", () => {
-    const shown = coverClip({ ...clip, layers: [video, title], cover: { time: 11, video: null, layers: [title] } });
+    const shown = coverClip({ ...clip, layers: [video, title], cover: { time: 11, video: null, layers: [title], inVideo: false } });
     expect(shown.layers.map((l) => l.kind)).toEqual(['video', 'text']);
     expect(shown.layers[0]).toBe(video);
     expect(shown.layers[1]).toMatchObject({ id: title.id, start: 10, end: 20, motion: { in: { kind: 'none' }, out: { kind: 'none' }, loop: { kind: 'none' } } });
@@ -40,6 +40,15 @@ describe('covers', () => {
     const own = coverFraming({ ...video, layout: [{ t: 10, value: 'follow', ease: 'cut' }, { t: 15, value: 'split', ease: 'cut' }] }, 16);
     expect(own.layout).toEqual([{ t: 16, value: 'split', ease: 'cut' }]);
     expect(own.follow).toHaveLength(1);
-    expect(coverClip({ ...clip, cover: { time: 16, video: own, layers: [] } }).layers[0]).toBe(own);
+    expect(coverClip({ ...clip, cover: { time: 16, video: own, layers: [], inVideo: false } }).layers[0]).toBe(own);
+  });
+});
+
+describe('the cover in the video', () => {
+  it('takes about a tenth of a second, at least one frame', () => {
+    expect(coverLeadFrames(30)).toBe(3);
+    expect(coverLeadFrames(60)).toBe(6);
+    expect(coverLeadFrames(29.97)).toBe(3);
+    expect(coverLeadFrames(4)).toBe(1);
   });
 });

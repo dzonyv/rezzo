@@ -2,7 +2,7 @@ import { beforeEach, describe, expect, it } from 'vitest';
 import type { AssetFile } from '../../../shared/assets.ts';
 import { defaultVideoLayer } from '../../../shared/framing.ts';
 import { newProject, projectSchema, videoLayerOf, type Project } from '../../../shared/project.ts';
-import { addCoverImage, addCoverText, followClipFraming, setCoverTime, stepCoverTime } from './cover.ts';
+import { addCoverImage, addCoverText, followClipFraming, setCoverInVideo, setCoverTime, stepCoverTime } from './cover.ts';
 import { setFraming, setLayout } from './framing.ts';
 import { addImageLayer, deleteLayer, duplicateLayer, reorderLayer, setText, setTransform } from './layers.ts';
 import { projectStore } from './store.ts';
@@ -34,6 +34,16 @@ const valid = () => expect(() => projectSchema.parse(state().project)).not.toThr
 beforeEach(() => state().load(project(), null));
 
 describe('cover edits', () => {
+  it('puts the cover in the video and takes it out again, one undo each', () => {
+    setCoverInVideo(CLIP, true);
+    expect(cover()).toMatchObject({ time: 10, layers: [], inVideo: true });
+    valid();
+    setCoverInVideo(CLIP, false);
+    expect(cover().inVideo).toBe(false);
+    state().undo();
+    expect(cover().inVideo).toBe(true);
+  });
+
   it('makes the cover with its first edit: the first frame, the clip framing, the new text', () => {
     expect(clip().cover).toBeUndefined();
     const id = addCoverText(CLIP, 'Naslov');

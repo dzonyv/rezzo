@@ -96,7 +96,8 @@
     "duck": "utišavanje dok se priča",
     "evenLoudness": "ujednačavanje glasnoće",
     "coverMoment": "trenutak naslovne",
-    "coverFraming": "kadar naslovne"
+    "coverFraming": "kadar naslovne",
+    "coverInVideo": "naslovna u videu"
   },
   "files": {
     "project": "Rezzo projekat",
@@ -855,6 +856,19 @@
     "titleFromWordsHelp": "Stavi ove reči kao naslov na naslovnu otvorenog klipa",
     "titleHint": "Ili izaberi reči u transkriptu i pritisni Naslov za naslovnu.",
     "suggestFailed": "Nisu mogli da se predlože kadrovi za naslovnu: {{detail}}",
-    "tooManyWords": "Za naslov izaberi najviše {{count}} reči"
+    "tooManyWords": "Za naslov izaberi najviše {{count}} reči",
+    "inVideo": "Stavi naslovnu na prve frejmove videa",
+    "inVideoHelp": "Za platforme koje daju samo da izabereš frejm iz videa, kao YouTube Shorts: naslovna zauzme prvu desetinku sekunde, a zvuk ide dalje. Pregled prikazuje klip kakav je bio."
+  },
+  "safeZones": {
+    "label": "Bezbedne zone",
+    "help": "Pokazuje gde platforma stavlja svoja dugmad i tekst preko klipa. Okvirno: aplikacije ih s vremena na vreme pomeraju. Na naslovnoj za Reels pokazuje i šta ostaje u mreži profila.",
+    "grid": "Mreža profila",
+    "platforms": {
+      "off": "Bez bezbednih zona",
+      "tiktok": "TikTok",
+      "reels": "Instagram Reels",
+      "shorts": "YouTube Shorts"
+    }
   }
 }
