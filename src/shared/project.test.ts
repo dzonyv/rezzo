@@ -462,7 +462,7 @@ describe('project files', () => {
     });
 
     it('round-trips one, with its own layers and framing', () => {
-      const p = withCover({ time: 0.5, video: { ...defaultVideoLayer(0.5), id: crypto.randomUUID() }, layers: [title()] });
+      const p = withCover({ time: 0.5, video: { ...defaultVideoLayer(0.5), id: crypto.randomUUID() }, layers: [title()], inVideo: true });
       expect(parseProject(serializeProject(p))).toEqual(p);
     });
 
@@ -470,7 +470,7 @@ describe('project files', () => {
       const p = withImage();
       const image = p.clips[0]!.layers.at(-1)!;
       p.clips[0]!.layers.pop();
-      p.clips[0]!.cover = { time: 0.5, video: null, layers: [image as Extract<typeof image, { kind: 'image' }>] };
+      p.clips[0]!.cover = { time: 0.5, video: null, layers: [image as Extract<typeof image, { kind: 'image' }>], inVideo: false };
       expect(parseProject(serializeProject(p))).toEqual(p);
       expect(code(() => parseProject(JSON.stringify({ ...p, assets: [] })))).toBe('invalid');
     });
@@ -478,13 +478,19 @@ describe('project files', () => {
     it('rejects a cover layer that is animated, or that has the id of a layer on the clip', () => {
       const moving = title();
       moving.transform.push({ t: 1, value: moving.transform[0]!.value, ease: 'cut' });
-      expect(code(() => parseProject(JSON.stringify(withCover({ time: 0.5, video: null, layers: [moving] }))))).toBe('invalid');
+      expect(code(() => parseProject(JSON.stringify(withCover({ time: 0.5, video: null, layers: [moving], inVideo: false }))))).toBe('invalid');
       const twin = { ...title(), id: sample.clips[0]!.layers[0]!.id };
-      expect(code(() => parseProject(JSON.stringify(withCover({ time: 0.5, video: null, layers: [twin] }))))).toBe('invalid');
+      expect(code(() => parseProject(JSON.stringify(withCover({ time: 0.5, video: null, layers: [twin], inVideo: false }))))).toBe('invalid');
     });
 
     it('upgrades a format 16 file, which had no covers, as it is', () => {
       expect(parseProject(JSON.stringify({ ...sample, format: 16 }))).toEqual(sample);
+    });
+
+    it('upgrades a format 17 file with its covers kept out of the video', () => {
+      const p = withCover({ time: 0.5, video: null, layers: [title()], inVideo: false });
+      const { inVideo: _, ...old } = p.clips[0]!.cover!;
+      expect(parseProject(JSON.stringify({ ...p, format: 17, clips: [{ ...p.clips[0]!, cover: old }, ...sample.clips.slice(1)] }))).toEqual(p);
     });
   });
 

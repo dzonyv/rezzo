@@ -11,11 +11,13 @@ import type { ExportJob } from '../../../shared/api.ts';
 import type { Asset } from '../../../shared/assets.ts';
 import type { Clip, Word } from '../../../shared/project.ts';
 import type { ExportPortReply, ExportPortRequest } from '../../../shared/worker-api.ts';
-import { workingFrameTime } from '../../../shared/working.ts';
+import { coverClip, coverLeadFrames, coverOf } from '../../../shared/cover.ts';
+import { fps } from '../../../shared/frames.ts';
+import { workingFrameIndex, workingFrameTime } from '../../../shared/working.ts';
 import { Compositor, YUV_BYTES } from '../render/compositor.ts';
 import { demux } from '../render/demux.ts';
 import { FrameSource } from '../render/frame-source.ts';
-import { loadScene, SceneRenderer } from '../render/scene-renderer.ts';
+import { loadScene, SceneRenderer, type Scene } from '../render/scene-renderer.ts';
 
 const SLOTS = 3;
 const IN_FLIGHT = 4;
@@ -73,6 +75,27 @@ class EncoderLink {
   }
 }
 
+/**
+ * The clip's cover as one exported frame (yuv420p), drawn by `renderer`
+ * from the working file's frame at the cover's moment, as drawCover does
+ * for the saved picture.
+ */
+async function drawCoverFrame(clip: Clip, assets: readonly Asset[], job: ExportJob, frames: FrameSource, renderer: SceneRenderer, signal: AbortSignal): Promise<Uint8Array> {
+  const time = coverOf(clip).time;
+  // The clip's layers stay loaded for the frames after it.
+  const scene: Scene = { ...(await loadScene(coverClip(clip), assets, [], job.frameRate, signal)), keep: clip.layers.map((l) => l.id) };
+  const frame = await frames.seek(Math.min(Math.max(0, workingFrameIndex(job, time)), frames.frameCount - 1));
+  try {
+    renderer.compositor.upload(frame);
+  } finally {
+    frame.close();
+  }
+  await renderer.prepare(scene, time, false);
+  renderer.draw(scene, time);
+  renderer.compositor.startReadback(0);
+  return renderer.compositor.collect(0, new Uint8Array(YUV_BYTES));
+}
+
 export interface RenderOptions {
   signal: AbortSignal;
   /** Frames handed to the encoder so far. */
@@ -115,14 +138,27 @@ export async function renderExport(job: ExportJob, port: MessagePort, clip: Clip
     const inFlight: Promise<void>[] = [];
     let slot = 0;
     let sent = 0;
-    const sendOne = async () => {
-      const data = await c.collect(pending.shift()!, link.buffer());
+    const send = async (data: Uint8Array) => {
       if (inFlight.length === IN_FLIGHT) await inFlight.shift();
       const acked = link.send(data);
       acked.catch(() => {}); // awaited later; a failure stops the loop through link.error
       inFlight.push(acked);
       onProgress(++sent);
     };
+    const sendOne = async () => send(await c.collect(pending.shift()!, link.buffer()));
+
+    // The cover first, in place of the clip's first frames: drawn once and sent again for each.
+    let lead = 0;
+    if (clip.cover?.inVideo) {
+      const still = await drawCoverFrame(clip, assets, job, frames, r, signal);
+      if (layerError) throw layerError;
+      lead = Math.min(job.count, coverLeadFrames(fps(job.frameRate)));
+      for (let i = 0; i < lead && !signal.aborted && !link.error; i++) {
+        const data = link.buffer();
+        data.set(still);
+        await send(data);
+      }
+    }
 
     for (const piece of job.pieces) {
       if (signal.aborted || link.error) break;
@@ -130,6 +166,12 @@ export async function renderExport(job: ExportJob, port: MessagePort, clip: Clip
         if (signal.aborted || link.error) {
           frame.close();
           break;
+        }
+        if (lead > 0) {
+          // Under the cover.
+          lead--;
+          frame.close();
+          continue;
         }
         c.upload(frame);
         frame.close();

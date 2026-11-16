@@ -16,6 +16,17 @@ export type CoverFormat = (typeof COVER_FORMATS)[number];
 /** A JPG cover is at most this big: the usual limit for an uploaded thumbnail (YouTube's). */
 export const MAX_JPG_BYTES = 2 * 1024 * 1024;
 
+/**
+ * How long the cover is shown at the start of an exported video, when it's
+ * put there: long enough to find with a platform's frame picker, short
+ * enough to pass by unnoticed. It takes the place of the clip's first
+ * frames; the sound plays on under it.
+ */
+export const COVER_LEAD = 0.1;
+
+/** How many of the first frames the cover takes at `fps` frames a second: at least one. */
+export const coverLeadFrames = (fps: number): number => Math.max(1, Math.round(COVER_LEAD * fps));
+
 /** Most words a title taken from the transcript has: more don't fit on a cover. */
 export const MAX_TITLE_WORDS = 20;
 
@@ -52,7 +63,7 @@ export function keptTime(clip: Pick<Clip, 'start' | 'end' | 'skips'>, t: number)
 
 /** The clip's cover as it is, or the one it starts with: its first moment, the clip's framing, nothing over it. */
 export function coverOf(clip: Pick<Clip, 'start' | 'end' | 'skips' | 'cover'>): Cover {
-  const cover = clip.cover ?? { time: clip.start, video: null, layers: [] };
+  const cover = clip.cover ?? { time: clip.start, video: null, layers: [], inVideo: false };
   return { ...cover, time: keptTime(clip, cover.time) };
 }
 

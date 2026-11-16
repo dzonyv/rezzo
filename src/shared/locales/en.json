@@ -96,7 +96,8 @@
     "duck": "quieter while someone talks",
     "evenLoudness": "even out loudness",
     "coverMoment": "cover moment",
-    "coverFraming": "cover framing"
+    "coverFraming": "cover framing",
+    "coverInVideo": "cover in the video"
   },
   "files": {
     "project": "Rezzo project",
@@ -855,6 +856,19 @@
     "titleFromWordsHelp": "Put these words on the open clip's cover as a title",
     "titleHint": "Or select words in the transcript and press Cover title.",
     "suggestFailed": "Couldn't suggest frames for the cover: {{detail}}",
-    "tooManyWords": "Select at most {{count}} words for a cover title"
+    "tooManyWords": "Select at most {{count}} words for a cover title",
+    "inVideo": "Put the cover on the video's first frames",
+    "inVideoHelp": "For platforms that only let you pick a frame of the video, such as YouTube Shorts: the cover takes the place of the first tenth of a second, and the sound plays on. The preview shows the clip as it was."
+  },
+  "safeZones": {
+    "label": "Safe zones",
+    "help": "Shows where a platform puts its own buttons and text over the clip. A guide: the apps move them now and then. On a Reel's cover it also shows what the profile grid keeps.",
+    "grid": "Profile grid",
+    "platforms": {
+      "off": "No safe zones",
+      "tiktok": "TikTok",
+      "reels": "Instagram Reels",
+      "shorts": "YouTube Shorts"
+    }
   }
 }

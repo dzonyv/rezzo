@@ -1,7 +1,8 @@
 /**
  * Covers: the Cover tool turning the editor to the cover, framing it on
  * its own and picking its moment, a title on it that the clip doesn't
- * get, the saved project, and the PNG and JPG drawn as the preview is.
+ * get, the saved project, and the PNG and JPG drawn as the preview is;
+ * the cover on the exported video's first frames, and the safe zones.
  */
 import { execFile } from 'node:child_process';
 import { mkdir, mkdtemp, readFile, rm, stat, writeFile } from 'node:fs/promises';
@@ -203,5 +204,46 @@ describe('covers', () => {
     expect(await page.locator('.tool-rail').getByRole('button', { name: 'Cover', exact: true }).getAttribute('aria-pressed')).toBe('true');
     const project = await saved();
     expect(project.clips[0]!.cover!.layers.map((l) => (l.kind === 'text' ? l.text : l.kind))).toEqual(['Your *title* here', 'Ona laže']);
+  });
+
+  it("puts the cover on the exported video's first frames", async () => {
+    await openTool(page, 'Cover');
+    await page.getByRole('checkbox', { name: "Put the cover on the video's first frames" }).check();
+    const time = (await saved()).clips[0]!.cover!.time;
+    expect((await saved()).clips[0]!.cover!.inVideo).toBe(true);
+    const out = path.join(dir, 'out', 'naslovna.mp4');
+    await answerSaveDialog(app!, out);
+    await page.locator('.clip-editor header').getByRole('button', { name: 'Export' }).click();
+    await page.getByRole('heading', { name: 'Clip exported' }).waitFor({ timeout: 60_000 });
+    await page.locator('.export-dialog').getByRole('button', { name: 'Close', exact: true }).click();
+
+    const { stdout } = await run(ffmpegExe(), ['-v', 'error', '-i', out, '-map', '0:v', '-f', 'rawvideo', '-pix_fmt', 'gray', 'pipe:1'], { encoding: 'buffer', maxBuffer: 1 << 30 });
+    const size = W * H;
+    // As long as the clip: the cover takes the place of its first frames.
+    expect(stdout.length / size).toBe((END - START) * 30);
+    const frame = (i: number) => stdout.subarray(i * size, (i + 1) * size);
+    const number = (luma: Buffer) => {
+      let n = 0;
+      for (let b = 0; b < 16; b++) if (luma[NUMBER_ROW * W + bitX(b)]! > 128) n |= 1 << b;
+      return n;
+    };
+    const titled = (luma: Buffer) => luma.subarray(TITLE_ROW * W, (TITLE_ROW + 1) * W).filter((v) => v > 220).length > 20;
+    // A tenth of a second at 30 fps: three frames of the cover (in Full, its moment, with the titles), then the clip.
+    for (let i = 0; i < 3; i++) {
+      expect(number(frame(i))).toBe(Math.round(time * 30));
+      expect(titled(frame(i))).toBe(true);
+    }
+    expect(titled(frame(3))).toBe(false);
+  });
+
+  it("shows a platform's safe zones over the preview, and Instagram's grid on the cover", async () => {
+    const zones = page.getByRole('combobox', { name: 'Safe zones' });
+    await zones.selectOption('tiktok');
+    await page.locator('.safe-zones .clear').waitFor();
+    expect(await page.locator('.safe-zones .grid-crop').count()).toBe(0);
+    await zones.selectOption('reels');
+    await page.locator('.safe-zones .grid-crop').waitFor();
+    await zones.selectOption('off');
+    await expect.poll(() => page.locator('.safe-zones').count()).toBe(0);
   });
 });

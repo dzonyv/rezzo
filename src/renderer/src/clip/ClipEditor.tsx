@@ -4,7 +4,8 @@ import { coverClip, coverOf } from '../../../shared/cover.ts';
 import { keyAt, valueAt } from '../../../shared/framing.ts';
 import { fps, workingFrameRate } from '../../../shared/frames.ts';
 import { videoLayersOverLimit } from '../../../shared/overlay-files.ts';
-import { DEFAULT_CLIP_DOCK } from '../../../shared/settings.ts';
+import { DEFAULT_CLIP_DOCK, type Settings } from '../../../shared/settings.ts';
+import { PLATFORMS } from '../../../shared/safe-zones.ts';
 import { captionPages, captionTrackFor } from '../../../shared/captions.ts';
 import { keptLength, outputTime } from '../../../shared/skips.ts';
 import { captionLayerOf, isPlaced, isTimed, LAYOUTS, videoLayerOf, type Clip, type Source, type TimedLayer } from '../../../shared/project.ts';
@@ -18,7 +19,7 @@ import { projectStore, useProject } from '../project/store.ts';
 import { retimeWord } from '../project/transcript.ts';
 import { flatOf, refOf, wordAt } from '../transcript/words.ts';
 import { isAvailable } from '../fonts/registry.ts';
-import { useSettings } from '../settings.ts';
+import { setSettings, useSettings } from '../settings.ts';
 import { isTypingTarget } from '../ui/focus.ts';
 import { EffectLibrary, LayerTiles } from './AddLayers.tsx';
 import { AutoFramePanel } from './AutoFramePanel.tsx';
@@ -37,6 +38,7 @@ import { layerName, rowsOf } from './layer-names.ts';
 import { LayerOverlay } from './LayerOverlay.tsx';
 import { useTextImages } from '../render/text.ts';
 import { PeopleOverlay } from './PeopleOverlay.tsx';
+import { SafeZoneOverlay } from './SafeZoneOverlay.tsx';
 import { WhoTalks } from './WhoTalks.tsx';
 import { EffectPanel } from './EffectPanel.tsx';
 import { LayerPanel } from './LayerPanel.tsx';
@@ -46,6 +48,7 @@ import { ToolRail } from './ToolRail.tsx';
 import { WordStrip } from './WordStrip.tsx';
 
 const EDGES = ['start', 'end'] as const;
+const SAFE_ZONE_CHOICES = ['off', ...PLATFORMS] as const;
 
 /**
  * The open clip, filling the workspace: the 9:16 preview in the middle with
@@ -79,6 +82,7 @@ export function ClipEditor({ clip, source, side, voices }: { clip: Clip; source:
   const selected = shown.layers.find((l) => l.id === selectedId);
   const selectedLayer = selected && isTimed(selected) ? selected : null;
   const dock = useSettings((s) => s.clipDock) ?? DEFAULT_CLIP_DOCK;
+  const safeZones = useSettings((s) => s.safeZones) ?? 'off';
   const selectedDrawer = selectedLayer && !onCover ? (selectedLayer.kind === 'effect' ? 'effects' : selectedLayer.kind === 'sound' ? 'sound' : 'layers') : null;
   useEffect(() => {
     if (selectedDrawer) setTool(selectedDrawer);
@@ -215,6 +219,7 @@ export function ClipEditor({ clip, source, side, voices }: { clip: Clip; source:
             <LayerOverlay clip={shown} assets={assets} selectedId={selectedLayer?.id ?? null} time={time} texts={texts} />
             {showPeople && <PeopleOverlay layer={layer} time={time} sourceSize={sourceSize} />}
             {captions && <CaptionOverlay clipId={clip.id} layer={captions} track={captionTrackFor(layout)} time={time} />}
+            {safeZones !== 'off' && <SafeZoneOverlay platform={safeZones} onCover={onCover} />}
           </ClipPreview>
         </div>
 
@@ -256,6 +261,13 @@ export function ClipEditor({ clip, source, side, voices }: { clip: Clip; source:
           >
             {t('analysis.showPeople')}
           </button>
+          <select aria-label={t('safeZones.label')} title={t('safeZones.help')} value={safeZones} onChange={(e) => void setSettings({ safeZones: e.target.value as Settings['safeZones'] })}>
+            {SAFE_ZONE_CHOICES.map((p) => (
+              <option key={p} value={p}>
+                {t(`safeZones.platforms.${p}`)}
+              </option>
+            ))}
+          </select>
         </div>
       </div>
 
