@@ -172,6 +172,46 @@ describe('projects', () => {
     expect(await page.locator('.source-panel h2').textContent()).toBe('moved.mp4');
   });
 
+  it("doesn't make a preview copy of a video that moved, and plays it once it's found", async () => {
+    const moved = path.join(dir, 'moved.mp4');
+    await copyFile(video, path.join(dir, 'original.mp4'));
+    let { app: a, page } = await launch();
+    await newProjectFrom(a, page, path.join(dir, 'original.mp4'));
+    await nameField(page).waitFor();
+    await answerSaveDialog(a, path.join(dir, 'p.rezzo'));
+    await page.getByRole('button', { name: 'Save', exact: true }).click();
+    await expect.poll(() => page.locator('.dirty').count()).toBe(0);
+    await stop();
+
+    await rename(path.join(dir, 'original.mp4'), moved);
+    ({ app: a, page } = await launch());
+    // Counts asks for a preview copy; the real one would start FFmpeg on a file that isn't there.
+    await a.evaluate(({ ipcMain }) => {
+      const g = globalThis as typeof globalThis & { previewsAsked: number };
+      g.previewsAsked = 0;
+      ipcMain.removeHandler('episode:preview');
+      ipcMain.handle('episode:preview', () => {
+        g.previewsAsked++;
+        throw new Error('not in this test');
+      });
+    });
+    await page.getByRole('button', { name: /original/ }).click();
+    await expect.poll(() => page.locator('.banner.warning').count()).toBe(1);
+    await expect.poll(() => page.locator('.player-message').textContent()).toBe("The video can't be found.");
+    expect(await a.evaluate(() => (globalThis as typeof globalThis & { previewsAsked: number }).previewsAsked)).toBe(0);
+    expect(await page.locator('.player video').count()).toBe(0);
+
+    await answerOpenDialog(a, moved);
+    await page.getByRole('button', { name: 'Find it…' }).click();
+    await expect.poll(() => page.locator('.banner.warning').count()).toBe(0);
+    await expect.poll(() => page.locator('.player-message').count()).toBe(0);
+    const player = page.locator('.player video');
+    await expect.poll(() => player.evaluate((v: { videoWidth: number }) => v.videoWidth)).toBe(640);
+    await player.evaluate((v: { play(): Promise<void> }) => v.play());
+    await expect.poll(() => player.evaluate((v: { currentTime: number }) => v.currentTime)).toBeGreaterThan(0.2);
+    expect(await a.evaluate(() => (globalThis as typeof globalThis & { previewsAsked: number }).previewsAsked)).toBe(0);
+  });
+
   it('asks about unsaved changes when the window closes', async () => {
     const { app: a, page } = await launch();
     await newProjectFrom(a, page, video);

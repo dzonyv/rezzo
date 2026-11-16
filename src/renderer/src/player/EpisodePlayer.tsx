@@ -5,23 +5,38 @@ import { clipUiStore } from '../clip/state.ts';
 import { isTypingTarget } from '../ui/focus.ts';
 import { attachVideo, togglePlay } from './playback.ts';
 
-type Preview = { state: 'none' } | { state: 'making'; fraction: number } | { state: 'failed'; detail: string };
+type Preview =
+  | { state: 'none' }
+  | { state: 'making'; fraction: number }
+  | { state: 'failed'; detail: string }
+  /** The file moved or changed: no preview is made, SourcePanel's banner offers to find it. */
+  | { state: 'missing' };
 
 /**
  * Plays the source episode. Chromium plays most H.264/AAC files directly;
  * anything it can't decode switches to a 480p preview made once in the
  * background. Give it `key={source.fingerprint}` so a different source
- * starts from a clean state.
+ * starts from a clean state; the same source found somewhere else (a new
+ * `source` object) starts over too.
  */
 export function EpisodePlayer({ source }: { source: Source }) {
   const { t } = useTranslation();
   const [url, setUrl] = useState<string | null>(null);
   const [preview, setPreview] = useState<Preview>({ state: 'none' });
   const usingPreview = useRef(false);
+  // Bumped for each `source`, so a fallback started for the old one doesn't land on the new one.
+  const attempt = useRef(0);
 
   useEffect(() => {
     let current = true;
-    void window.rezzo.invoke('episode:media-url', source).then((u) => current && setUrl(u));
+    attempt.current++;
+    usingPreview.current = false;
+    void window.rezzo.invoke('episode:media-url', source).then((u) => {
+      if (!current) return;
+      // Found again after it went missing: back to playing the file itself.
+      setPreview({ state: 'none' });
+      setUrl(u);
+    });
     return () => {
       current = false;
     };
@@ -52,12 +67,21 @@ export function EpisodePlayer({ source }: { source: Source }) {
   const fallBackToPreview = async () => {
     if (usingPreview.current) return;
     usingPreview.current = true;
+    const mine = attempt.current;
+    // A file that isn't there (or isn't the one imported) can't be played or converted either.
+    if ((await window.rezzo.invoke('episode:check', source)) !== 'ok') {
+      if (mine === attempt.current) setPreview({ state: 'missing' });
+      return;
+    }
+    if (mine !== attempt.current) return;
     setPreview({ state: 'making', fraction: 0 });
     try {
-      setUrl(await window.rezzo.invoke('episode:preview', source));
+      const previewUrl = await window.rezzo.invoke('episode:preview', source);
+      if (mine !== attempt.current) return;
+      setUrl(previewUrl);
       setPreview({ state: 'none' });
     } catch (e) {
-      setPreview({ state: 'failed', detail: String(e) });
+      if (mine === attempt.current) setPreview({ state: 'failed', detail: String(e) });
     }
   };
 
@@ -69,6 +93,7 @@ export function EpisodePlayer({ source }: { source: Source }) {
           <progress max={1} value={preview.fraction} />
         </div>
       )}
+      {preview.state === 'missing' && <div className="player-message">{t('player.missing')}</div>}
       {preview.state === 'failed' && <div className="player-message">{t('player.failed', { detail: preview.detail })}</div>}
       {url && preview.state === 'none' && (
         <video

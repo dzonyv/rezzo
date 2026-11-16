@@ -202,6 +202,7 @@
   "player": {
     "preparing": "Ovaj video ne može da se pusti direktno, pa Rezzo pravi kopiju za pregled: {{percent}}%",
     "failed": "Ovaj video ne može da se pusti ovde: {{detail}}",
+    "missing": "Video nije pronađen.",
     "play": "Pusti",
     "pause": "Pauza",
     "playHelp": "Pusti ili pauziraj (razmaknica)",
