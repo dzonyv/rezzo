@@ -1,5 +1,5 @@
 import { useVirtualizer } from '@tanstack/react-virtual';
-import { memo, useDeferredValue, useEffect, useMemo, useRef, useState } from 'react';
+import { memo, useDeferredValue, useEffect, useLayoutEffect, useMemo, useRef, useState } from 'react';
 import { useTranslation } from 'react-i18next';
 import { fitsInClip, rangeForWords } from '../../../shared/clips.ts';
 import { coverTitleOf, MAX_TITLE_WORDS } from '../../../shared/cover.ts';
@@ -54,8 +54,8 @@ export function TranscriptView({ transcript, source }: { transcript: Transcript;
   const current = cursor.query === query && cursor.current < matches.length ? cursor.current : 0;
   const hits = useMemo(() => hitsBySegment(flat, matches, current), [flat, matches, current]);
 
-  // The episode strip marks the same matches.
-  useEffect(() => {
+  // The episode strip marks the same matches, in the same commit as the count, so the two never disagree.
+  useLayoutEffect(() => {
     hitsStore.setState({ times: matches.map((m) => flat.words[m.first]!.start), current: matches.length > 0 ? current : -1 });
   }, [flat, matches, current]);
   useEffect(() => () => hitsStore.setState({ times: [], current: -1 }), []);
