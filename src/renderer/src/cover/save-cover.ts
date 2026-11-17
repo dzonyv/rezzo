@@ -38,6 +38,7 @@ export async function drawCover(clip: Clip, assets: readonly Asset[], file: Work
     const scene = await loadScene(shown, assets, [], file.frameRate);
     compositor = new Compositor(canvas);
     renderer = new SceneRenderer(compositor);
+    renderer.cutouts.file = file.url;
     let layerError: unknown;
     renderer.lotties.onError = (_layerId, e) => (layerError ??= e);
     const index = Math.min(Math.max(0, workingFrameIndex(file, time)), frames.frameCount - 1);

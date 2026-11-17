@@ -235,24 +235,28 @@ export function deleteLayer(clipId: string, layerId: string): void {
  * A copy of the layer right above it; returns the copy's id. The sounds
  * that go with a layer are copied along with it, for the copy. A copy of
  * such a sound stands on its own: the part it went with already has one.
+ * A layer that isn't copied (a cutout) gives its own id back.
  */
 export function duplicateLayer(clipId: string, layerId: string): string {
   const id = crypto.randomUUID();
+  let made = layerId;
   editClip(clipId, 'history.duplicateLayer', (clip) => {
     const layers = listOf(clip, layerId);
     const i = layers?.findIndex((l) => l.id === layerId) ?? -1;
     const layer = layers?.[i];
-    if (!layers || !layer || !isTimed(layer)) return;
+    // A cover has one cutout: a second would only draw the same people again.
+    if (!layers || !layer || !isTimed(layer) || layer.kind === 'cutout') return;
     // A plain copy of the draft: structuredClone can't copy Immer's proxy.
     const copy: Layer = { ...structuredClone(current(layer)), id };
     if (copy.kind === 'sound') copy.follows = null;
     layers.splice(i + 1, 0, copy);
+    made = id;
     for (const part of FOLLOW_PARTS) {
       const sound = followerOf(clip, layerId, part);
       if (sound?.follows) clip.layers.push({ ...structuredClone(current(sound)), id: crypto.randomUUID(), follows: { ...sound.follows, layerId: id } });
     }
   });
-  return id;
+  return made;
 }
 
 /** Changes some of the layer's placement at `time`; dragging and sliders call it inside a gesture. */

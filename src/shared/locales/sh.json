@@ -881,7 +881,7 @@
   },
   "cutout": {
     "addHelp": "Ljudi sa slike nacrtani ponovo preko naslovne, da naslov može da stoji iza njih",
-    "help": "Ljudi sa slike, nacrtani ponovo na ovom mestu u redosledu: slojevi ispod idu iza njih. Pomeraš je sa Gore i Dole ispod naslovne.",
+    "help": "Ljudi sa slike, nacrtani ponovo na ovom mestu u redosledu: slojevi ispod idu iza njih. Pomeraš je sa Napred i Nazad ispod naslovne.",
     "finding": "Tražim ljude na slici…",
     "outline": "Obrub",
     "outlineColor": "Boja obruba",

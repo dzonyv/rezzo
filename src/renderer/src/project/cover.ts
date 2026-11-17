@@ -125,7 +125,7 @@ export function addCoverCutout(clipId: string): string {
 }
 
 /** Changes the cutout's outline or glow; sliders and colour pickers call it inside a gesture. */
-export function setCutoutStyle(clipId: string, layerId: string, part: keyof CutoutStyle, patch: Partial<CutoutStyle['outline']> | Partial<CutoutStyle['glow']>): void {
+export function setCutoutStyle<P extends keyof CutoutStyle>(clipId: string, layerId: string, part: P, patch: Partial<CutoutStyle[P]>): void {
   editCover(clipId, 'history.cutoutStyle', (cover) => {
     const layer = cover.layers.find((l) => l.id === layerId);
     if (layer?.kind === 'cutout') Object.assign(layer.style[part], patch);

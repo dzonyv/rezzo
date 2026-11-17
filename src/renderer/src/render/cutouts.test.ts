@@ -37,7 +37,7 @@ describe('cutout masks', () => {
     expect(await masks.settle()).toBe(true);
     expect(found).toHaveBeenCalledOnce();
     masks.update(5, follow(0.35));
-    expect(compositor.cutoutKey).toMatch(/^5:/);
+    expect(compositor.cutoutKey).toMatch(/@5:/);
     expect(await masks.settle()).toBe(false);
   });
 
@@ -53,7 +53,7 @@ describe('cutout masks', () => {
     expect(compositor.cutoutKey).toBeNull();
     await masks.settle();
     masks.update(5, follow(0.35));
-    expect(compositor.cutoutKey).toMatch(/^5:/);
+    expect(compositor.cutoutKey).toMatch(/@5:/);
   });
 
   it("says when it fails, and doesn't try that picture again", async () => {
@@ -77,5 +77,47 @@ describe('cutout masks', () => {
     await masks.settle();
     await new Promise((r) => setTimeout(r));
     expect(looking.mock.calls).toEqual([[true], [false]]);
+  });
+  it('says a failure once, until something is found again', async () => {
+    let fail = true;
+    const { masks } = setUp((_p, width, height) => (fail ? Promise.reject(new Error('no model')) : Promise.resolve({ data: new Uint8Array(width * height), width, height })));
+    const failed = vi.fn();
+    masks.onError = failed;
+    for (const t of [5, 6, 7]) masks.update(t, follow(0.35));
+    await masks.settle().catch(() => {});
+    await new Promise((r) => setTimeout(r));
+    expect(failed).toHaveBeenCalledOnce();
+    fail = false;
+    masks.update(8, follow(0.35));
+    await masks.settle();
+    fail = true;
+    masks.update(9, follow(0.35));
+    await masks.settle().catch(() => {});
+    await new Promise((r) => setTimeout(r));
+    expect(failed).toHaveBeenCalledTimes(2);
+  });
+
+  it('looks again in a close crop rather than use what it found in the whole frame', async () => {
+    const { masks, find } = setUp();
+    const full: FrameRecipe = { layout: 'full', background: 'blur', draws: [{ src: { x: 0, y: 0, w: 1, h: 1 }, dst: { x: 0, y: 656, w: 1080, h: 608 } }] };
+    masks.update(5, full);
+    await masks.settle();
+    masks.update(5, follow(0.35));
+    expect(find).toHaveBeenCalledTimes(2);
+  });
+
+  it('shares what it found with another renderer on the same working file', async () => {
+    const preview = setUp();
+    preview.masks.file = 'media://working/a.mp4';
+    preview.masks.update(5, follow(0.35));
+    await preview.masks.settle();
+    const saving = setUp();
+    saving.masks.file = 'media://working/a.mp4';
+    saving.masks.update(5, follow(0.35));
+    expect(saving.find).not.toHaveBeenCalled();
+    expect(saving.compositor.cutoutKey).not.toBeNull();
+    const other = setUp();
+    other.masks.update(5, follow(0.35));
+    expect(other.find).toHaveBeenCalledOnce();
   });
 });

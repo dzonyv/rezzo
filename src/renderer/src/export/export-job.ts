@@ -127,6 +127,7 @@ export async function renderExport(job: ExportJob, port: MessagePort, clip: Clip
     const scene = await loadScene(clip, assets, words, job.frameRate, signal);
     compositor = new Compositor(canvas);
     renderer = new SceneRenderer(compositor);
+    renderer.cutouts.file = job.url;
     const r = renderer;
     let layerError: unknown;
     r.layers.onError = (_layerId, e) => (layerError ??= e);

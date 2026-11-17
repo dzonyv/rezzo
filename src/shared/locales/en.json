@@ -881,7 +881,7 @@
   },
   "cutout": {
     "addHelp": "The people in the picture drawn again over the cover, so your title can go behind them",
-    "help": "The people in the picture, drawn again at this place in the stack: the layers under it go behind them. Move it with Up and Down under the cover.",
+    "help": "The people in the picture, drawn again at this place in the stack: the layers under it go behind them. Move it with Bring forward and Send backward under the cover.",
     "finding": "Finding the people in the picture…",
     "outline": "Outline",
     "outlineColor": "Outline colour",

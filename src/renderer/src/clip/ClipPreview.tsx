@@ -225,6 +225,8 @@ export function ClipPreview({
             return;
           }
           player.onError = (e) => clipPlaybackStore.setState({ status: 'failed', error: String(e) });
+          // The cover saved or exported from this working file uses the people the preview finds.
+          if (renderer.current) renderer.current.cutouts.file = result.url;
           player.setScene(drawAt.current, prepareAt.current);
           player.setSounds(sounds.current);
           player.setClipGain(clipGainNow.current);

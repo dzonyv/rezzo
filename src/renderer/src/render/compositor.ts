@@ -127,6 +127,12 @@ void main() {
   vec2 s = uSrcRect.xy + f * uSrcRect.zw;
   vec2 m = (s - uMaskRect.xy) / uMaskRect.zw;
   float inside = person(m);
+  vec3 picture = texture(uSrc, s).rgb;
+  // Inside the people nothing round them shows.
+  if (inside > 0.999) {
+    o = vec4(picture, 1.0);
+    return;
+  }
   float edge = 0.0;
   if (uOutline > 0.0) {
     for (int r = 1; r <= 3; r++) {
@@ -151,7 +157,7 @@ void main() {
   }
   vec4 c = vec4(uGlowColor, 1.0) * glow;
   c = vec4(uOutlineColor, 1.0) * edge + c * (1.0 - edge);
-  o = vec4(texture(uSrc, s).rgb, 1.0) * inside + c * (1.0 - inside);
+  o = vec4(picture, 1.0) * inside + c * (1.0 - inside);
 }`;
 
 /** A premultiplied overlay the size of the output, its top row first like comp. */

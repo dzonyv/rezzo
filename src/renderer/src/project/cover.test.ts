@@ -145,3 +145,9 @@ describe('cutout', () => {
     expect(cover().layers.map((l) => l.id)).toEqual([title]);
   });
 });
+
+it("doesn't copy a cutout: the cover has one", () => {
+  const id = addCoverCutout(CLIP);
+  expect(duplicateLayer(CLIP, id)).toBe(id);
+  expect(cover().layers.map((l) => l.id)).toEqual([id]);
+});
