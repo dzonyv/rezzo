@@ -8,12 +8,13 @@ import type { Draft } from 'immer';
 import type { AssetFile } from '../../../shared/assets.ts';
 import { coverOf, keptTime, NO_MOTION } from '../../../shared/cover.ts';
 import { DEFAULT_CUTOUT_STYLE, type CutoutStyle } from '../../../shared/cutout.ts';
+import type { EffectName } from '../../../shared/effects.ts';
 import type { Size } from '../../../shared/framing.ts';
 import { frameAt, timeOfFrame, type FrameRate } from '../../../shared/frames.ts';
 import type { Clip, Cover, PlacedCoverLayer, Project } from '../../../shared/project.ts';
 import { DEFAULT_TEXT_STYLE, MAX_TEXT_CHARS, type TextStyle } from '../../../shared/text-style.ts';
 import { sourceRate } from './framing.ts';
-import { adoptFile, startingScale } from './layers.ts';
+import { adoptFile, newEffectLayer, startingScale } from './layers.ts';
 import { projectStore, type EditLabel } from './store.ts';
 
 /** A new title on the cover sits this far down, a bit above the middle: big, and clear of the platforms' buttons at the bottom. */
@@ -120,6 +121,22 @@ export function addCoverCutout(clipId: string): string {
   const id = crypto.randomUUID();
   editCover(clipId, 'history.addCutout', (cover, clip) => {
     cover.layers.push({ id, kind: 'cutout', start: clip.start, end: clip.end, style: structuredClone(DEFAULT_CUTOUT_STYLE) });
+  });
+  return id;
+}
+
+/**
+ * Adds an effect to the cover, over the effects already at the bottom of
+ * it but under everything else, so it changes the picture and not the
+ * cutout or the title; returns its id.
+ */
+export function addCoverEffect(clipId: string, effect: EffectName): string {
+  let id = '';
+  editCover(clipId, 'history.addEffect', (cover, clip) => {
+    const layer = newEffectLayer(effect, clip.start, clip.end, cover.time);
+    id = layer.id;
+    const above = cover.layers.findIndex((l) => l.kind !== 'effect');
+    cover.layers.splice(above < 0 ? cover.layers.length : above, 0, layer);
   });
   return id;
 }

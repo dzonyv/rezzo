@@ -2,7 +2,8 @@
  * Covers: the Cover tool turning the editor to the cover, framing it on
  * its own and picking its moment, a title on it that the clip doesn't
  * get, the saved project, and the PNG and JPG drawn as the preview is;
- * the cover on the exported video's first frames, and the safe zones.
+ * the cutout, effects on the cover, the cover on the exported video's
+ * first frames, and the safe zones.
  */
 import { execFile } from 'node:child_process';
 import { mkdir, mkdtemp, readFile, rm, stat, writeFile } from 'node:fs/promises';
@@ -13,7 +14,7 @@ import type { ElectronApplication, Page } from 'playwright-core';
 import { afterAll, beforeAll, describe, expect, it } from 'vitest';
 import { defaultVideoLayer, valueAt } from '../src/shared/framing.ts';
 import { MAX_JPG_BYTES } from '../src/shared/cover.ts';
-import { videoLayerOf, type Project } from '../src/shared/project.ts';
+import { PROJECT_FORMAT, videoLayerOf, type Project } from '../src/shared/project.ts';
 import { analysisDone, answerOpenDialog, answerSaveDialog, ffmpegExe, launchApp, makeNumberedVideo, NUMBER_BIT_WIDTH, NUMBER_STRIP_HEIGHT, openTool, pickView, stopApp, until } from './helpers.ts';
 
 const run = promisify(execFile);
@@ -228,7 +229,6 @@ describe('covers', () => {
     await page.getByRole('heading', { name: 'Cutout', exact: true }).waitFor();
     const project = await saved();
     expect(project.clips[0]!.cover!.layers.map((l) => l.kind)).toEqual(['text', 'text', 'cutout']);
-    expect(project.format).toBe(19);
   });
 
   it('draws the outline round the people it finds, in the colour picked', async () => {
@@ -256,6 +256,57 @@ describe('covers', () => {
     await page.getByRole('button', { name: 'A frame earlier' }).click();
   });
 
+  it('puts a gradient on the cover from the edge picked, under the titles and the cutout', async () => {
+    /** The share of a preview row in a colour. */
+    const share = async (y: number, is: (r: number, g: number, b: number) => boolean) => {
+      const row = await previewRow(y);
+      let n = 0;
+      for (let x = 0; x < W; x++) if (is(row[x * 4]!, row[x * 4 + 1]!, row[x * 4 + 2]!)) n++;
+      return n / W;
+    };
+    const dark = (y: number) => share(y, (r, g, b) => r < 30 && g < 30 && b < 30);
+    const red = (y: number) => share(y, (r, g, b) => r > 200 && g < 60 && b < 60);
+    const BOTTOM = H - 3;
+    const TOP = 2;
+    await openTool(page, 'Cover');
+    await page.keyboard.press('Escape');
+    expect(await dark(BOTTOM)).toBeLessThan(0.1);
+    // The blurred number strip makes the top dark already.
+    const top = await dark(TOP);
+    const tile = page.locator('.clip-drawer .cover-effect-tiles').getByRole('button', { name: 'Gradient' });
+    expect(await tile.getAttribute('aria-pressed')).toBe('false');
+    await tile.click();
+    await page.getByRole('heading', { name: 'Effect: Gradient' }).waitFor();
+    // Black from the bottom, half way up: the titles further up stay as they were.
+    await expect.poll(() => dark(BOTTOM), { timeout: 10_000 }).toBeGreaterThan(0.95);
+    expect(await dark(TOP)).toBe(top);
+    expect((await inks()).white).toBeGreaterThan(20);
+    expect(await page.getByRole('button', { name: 'Add keyframe' }).count()).toBe(0);
+    expect(await page.getByRole('button', { name: 'Duplicate' }).count()).toBe(0);
+
+    await page.locator('.clip-drawer .layer-panel input[type="color"]').fill('#ff0000');
+    await expect.poll(() => red(BOTTOM), { timeout: 10_000 }).toBeGreaterThan(0.95);
+    await page.getByRole('slider', { name: 'Edge' }).fill('180');
+    await expect.poll(() => red(TOP), { timeout: 10_000 }).toBeGreaterThan(0.95);
+    expect(await red(BOTTOM)).toBeLessThan(0.05);
+
+    // It went in under everything else; the tile now selects it.
+    let project = await saved();
+    expect(project.format).toBe(PROJECT_FORMAT);
+    expect(project.clips[0]!.cover!.layers.map((l) => (l.kind === 'effect' ? l.effect : l.kind))).toEqual(['gradient', 'text', 'text', 'cutout']);
+    expect(project.clips[0]!.cover!.layers[0]).toMatchObject({ color: '#ff0000', params: { angle: 180, reach: 0.5 }, intensity: [{ value: 1 }] });
+    await page.keyboard.press('Escape');
+    expect(await tile.getAttribute('aria-pressed')).toBe('true');
+    await tile.click();
+    await page.getByRole('heading', { name: 'Effect: Gradient' }).waitFor();
+    await page.getByRole('slider', { name: 'Edge' }).fill('0');
+    await expect.poll(() => red(BOTTOM), { timeout: 10_000 }).toBeGreaterThan(0.95);
+    project = await saved();
+    expect(project.clips[0]!.cover!.layers.filter((l) => l.kind === 'effect')).toHaveLength(1);
+    // The clip itself has no gradient.
+    expect(project.clips[0]!.layers.map((l) => l.kind)).toEqual(['video']);
+  });
+
   it("puts the cover on the exported video's first frames", async () => {
     await openTool(page, 'Cover');
     await page.getByRole('checkbox', { name: "Put the cover on the video's first frames" }).check();
@@ -278,12 +329,16 @@ describe('covers', () => {
       return n;
     };
     const titled = (luma: Buffer) => luma.subarray(TITLE_ROW * W, (TITLE_ROW + 1) * W).filter((v) => v > 220).length > 20;
-    // A tenth of a second at 30 fps: three frames of the cover (in Full, its moment, with the titles), then the clip.
+    /** How bright the bottom row is: the red gradient's there on the cover, grey on the clip. */
+    const bottom = (luma: Buffer) => luma.subarray((H - 3) * W, (H - 2) * W).reduce((a, v) => a + v, 0) / W;
+    // A tenth of a second at 30 fps: three frames of the cover (in Full, its moment, with the titles and the gradient), then the clip.
     for (let i = 0; i < 3; i++) {
       expect(number(frame(i))).toBe(Math.round(time * 30));
       expect(titled(frame(i))).toBe(true);
+      expect(bottom(frame(i))).toBeLessThan(90);
     }
     expect(titled(frame(3))).toBe(false);
+    expect(bottom(frame(3))).toBeGreaterThan(100);
   });
 
   it("shows a platform's safe zones over the preview, and Instagram's grid on the cover", async () => {

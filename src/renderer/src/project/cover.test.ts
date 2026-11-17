@@ -3,9 +3,9 @@ import type { AssetFile } from '../../../shared/assets.ts';
 import { defaultVideoLayer } from '../../../shared/framing.ts';
 import { newProject, projectSchema, videoLayerOf, type Project } from '../../../shared/project.ts';
 import { DEFAULT_CUTOUT_STYLE } from '../../../shared/cutout.ts';
-import { addCoverCutout, addCoverImage, addCoverText, followClipFraming, setCoverInVideo, setCoverTime, setCutoutStyle, stepCoverTime } from './cover.ts';
+import { addCoverCutout, addCoverEffect, addCoverImage, addCoverText, followClipFraming, setCoverInVideo, setCoverTime, setCutoutStyle, stepCoverTime } from './cover.ts';
 import { setFraming, setLayout } from './framing.ts';
-import { addImageLayer, deleteLayer, duplicateLayer, reorderLayer, setText, setTransform } from './layers.ts';
+import { addEffectLayer, addImageLayer, deleteLayer, duplicateLayer, reorderLayer, setEffectColor, setEffectParam, setIntensity, setText, setTransform } from './layers.ts';
 import { projectStore } from './store.ts';
 
 const CLIP = '0b6f2a52-9d0c-4f39-8f39-7f0e2c9b1a11';
@@ -150,4 +150,44 @@ it("doesn't copy a cutout: the cover has one", () => {
   const id = addCoverCutout(CLIP);
   expect(duplicateLayer(CLIP, id)).toBe(id);
   expect(cover().layers.map((l) => l.id)).toEqual([id]);
+});
+
+describe('effects on the cover', () => {
+  it('go under the cutout and the title, over the effects already there, with one key at the moment', () => {
+    const title = addCoverText(CLIP, 'Naslov');
+    const people = addCoverCutout(CLIP);
+    const blur = addCoverEffect(CLIP, 'blur');
+    const gradient = addCoverEffect(CLIP, 'gradient');
+    expect(cover().layers.map((l) => l.id)).toEqual([blur, gradient, title, people]);
+    expect(cover().layers[1]).toMatchObject({ kind: 'effect', effect: 'gradient', color: '#000000', intensity: [{ t: cover().time, value: 1 }] });
+    expect(cover().layers[0]).not.toHaveProperty('color');
+    valid();
+  });
+
+  it('keep one key when the moment moves and the intensity changes', () => {
+    const id = addCoverEffect(CLIP, 'vignette');
+    setCoverTime(CLIP, cover().time + 1);
+    setIntensity(CLIP, id, cover().time, 0.4);
+    const layer = cover().layers[0]!;
+    expect(layer.kind === 'effect' && layer.intensity).toEqual([expect.objectContaining({ value: 0.4 })]);
+    valid();
+  });
+
+  it('change their settings, and the gradient its colour', () => {
+    const id = addCoverEffect(CLIP, 'gradient');
+    setEffectParam(CLIP, id, 'angle', 180);
+    setEffectColor(CLIP, id, '#ff0000');
+    expect(cover().layers[0]).toMatchObject({ params: { angle: 180 }, color: '#ff0000' });
+    valid();
+  });
+});
+
+it('gives a gradient on the clip a colour, and no other effect one', () => {
+  const gradient = addEffectLayer(CLIP, 'gradient', 0)!;
+  const blur = addEffectLayer(CLIP, 'blur', 0)!;
+  setEffectColor(CLIP, blur, '#ff0000');
+  const layers = clip().layers;
+  expect(layers.find((l) => l.id === gradient)).toMatchObject({ color: '#000000' });
+  expect(layers.find((l) => l.id === blur)).not.toHaveProperty('color');
+  valid();
 });

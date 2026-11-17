@@ -3,9 +3,10 @@ import { EFFECTS, type ParamDef } from '../../../shared/effects.ts';
 import { keyAt, valueAt } from '../../../shared/framing.ts';
 import type { FrameRate } from '../../../shared/frames.ts';
 import type { EffectLayer } from '../../../shared/project.ts';
-import { addLayerKey, deleteLayer, deleteLayerKey, duplicateLayer, insideLayer, setEffectParam, setIntensity, setLayerKeySmooth } from '../project/layers.ts';
+import { addLayerKey, deleteLayer, deleteLayerKey, duplicateLayer, insideLayer, setEffectColor, setEffectParam, setIntensity, setLayerKeySmooth } from '../project/layers.ts';
 import { projectStore, type EditLabel } from '../project/store.ts';
 import { selectLayer } from './state.ts';
+import { ColorInput } from './style-inputs.tsx';
 
 interface Props {
   clipId: string;
@@ -13,10 +14,13 @@ interface Props {
   /** Source seconds of the frame on screen; intensity edits and keyframes land there. */
   time: number;
   rate: FrameRate;
+  /** The effect is on the cover: one key, no copies, and back goes to the cover. */
+  onCover?: boolean;
 }
 
 const INTENSITY: EditLabel = 'history.effectIntensity';
 const SETTINGS: EditLabel = 'history.effectSettings';
+const COLOR: EditLabel = 'history.effectColor';
 
 /** How a setting's value reads: a share as a percentage, others with their unit. */
 function shownValue(def: ParamDef, value: number): { unit: ParamDef['unit']; value: string } {
@@ -24,8 +28,8 @@ function shownValue(def: ParamDef, value: number): { unit: ParamDef['unit']; val
   return { unit: def.unit, value: def.step >= 1 ? String(Math.round(value)) : value.toFixed(def.step >= 0.1 ? 1 : 2) };
 }
 
-/** The selected effect's settings: its intensity with keyframes, and the effect's own settings. */
-export function EffectPanel({ clipId, layer, time, rate }: Props) {
+/** The selected effect's settings: its intensity (with keyframes, on the clip), and the effect's own settings. */
+export function EffectPanel({ clipId, layer, time, rate, onCover = false }: Props) {
   const { t } = useTranslation();
   const store = projectStore.getState();
   const name = t(`effects.names.${layer.effect}`);
@@ -51,14 +55,16 @@ export function EffectPanel({ clipId, layer, time, rate }: Props) {
       <header>
         <h3>{t('effects.title', { name })}</h3>
         <button type="button" title={t('layers.back.help')} onClick={() => selectLayer(null)}>
-          {t('layers.back.effects')}
+          {t(onCover ? 'layers.back.layers' : 'layers.back.effects')}
         </button>
       </header>
 
       <div className="layer-row">
-        <button type="button" onClick={() => selectLayer(duplicateLayer(clipId, layer.id))}>
-          {t('layers.duplicate')}
-        </button>
+        {!onCover && (
+          <button type="button" onClick={() => selectLayer(duplicateLayer(clipId, layer.id))}>
+            {t('layers.duplicate')}
+          </button>
+        )}
         <button type="button" onClick={remove}>
           {t('layers.delete')}
         </button>
@@ -80,24 +86,35 @@ export function EffectPanel({ clipId, layer, time, rate }: Props) {
         </label>
       </div>
 
-      <div className="keyframes">
-        <button type="button" disabled={keyIndex >= 0} onClick={() => addLayerKey(clipId, layer.id, time)}>
-          <span className="diamond" aria-hidden="true" />
-          {t('clipEditor.addKeyframe')}
-        </button>
-        <label className={keyIndex < 0 || keyIndex === keys.length - 1 ? 'disabled' : undefined}>
-          <input
-            type="checkbox"
-            disabled={keyIndex < 0 || keyIndex === keys.length - 1}
-            checked={keyIndex >= 0 && keys[keyIndex]!.ease === 'smooth'}
-            onChange={(e) => setLayerKeySmooth(clipId, layer.id, keyIndex, e.target.checked)}
-          />
-          {t('clipEditor.smooth')}
-        </label>
-        <button type="button" disabled={keyIndex < 0 || keys.length === 1} onClick={() => deleteLayerKey(clipId, layer.id, keyIndex)}>
-          {t('clipEditor.deleteKeyframe')}
-        </button>
-      </div>
+      {!onCover && (
+        <div className="keyframes">
+          <button type="button" disabled={keyIndex >= 0} onClick={() => addLayerKey(clipId, layer.id, time)}>
+            <span className="diamond" aria-hidden="true" />
+            {t('clipEditor.addKeyframe')}
+          </button>
+          <label className={keyIndex < 0 || keyIndex === keys.length - 1 ? 'disabled' : undefined}>
+            <input
+              type="checkbox"
+              disabled={keyIndex < 0 || keyIndex === keys.length - 1}
+              checked={keyIndex >= 0 && keys[keyIndex]!.ease === 'smooth'}
+              onChange={(e) => setLayerKeySmooth(clipId, layer.id, keyIndex, e.target.checked)}
+            />
+            {t('clipEditor.smooth')}
+          </label>
+          <button type="button" disabled={keyIndex < 0 || keys.length === 1} onClick={() => deleteLayerKey(clipId, layer.id, keyIndex)}>
+            {t('clipEditor.deleteKeyframe')}
+          </button>
+        </div>
+      )}
+
+      {layer.color !== undefined && (
+        <div className="layer-grid layer-section">
+          <label className="layer-color">
+            <span>{t('effects.color')}</span>
+            <ColorInput value={layer.color} label={COLOR} onPick={(color) => setEffectColor(clipId, layer.id, color)} />
+          </label>
+        </div>
+      )}
 
       {params.length > 0 && (
         <div className="layer-grid layer-section">
@@ -122,7 +139,7 @@ export function EffectPanel({ clipId, layer, time, rate }: Props) {
           })}
         </div>
       )}
-      <p className="dim hint">{t('effects.help')}</p>
+      <p className="dim hint">{t(onCover ? 'effects.coverHelp' : 'effects.help')}</p>
     </section>
   );
 }

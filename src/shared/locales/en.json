@@ -75,6 +75,7 @@
     "addEffect": "add effect",
     "effectIntensity": "effect intensity",
     "effectSettings": "effect settings",
+    "effectColor": "Effect colour",
     "speakerCount": "number of people talking",
     "nameVoice": "name a voice",
     "mergeVoices": "merge voices",
@@ -620,6 +621,7 @@
       "blackWhite": "Black and white",
       "blur": "Blur",
       "vignette": "Vignette",
+      "gradient": "Gradient",
       "glitch": "Glitch",
       "grain": "Film grain"
     },
@@ -629,8 +631,12 @@
       "release": "Back at the end",
       "amount": "Amount",
       "speed": "Speed",
-      "size": "Size"
-    }
+      "size": "Size",
+      "reach": "Reach",
+      "angle": "Edge"
+    },
+    "color": "Colour",
+    "coverHelp": "On the cover an effect changes the layers under it, the picture included. Put it under the cutout to keep the people as they are, and under the title so the title stays clean. Move it with Bring forward and Send backward under the cover."
   },
   "sounds": {
     "title": "Sound: {{name}}",
@@ -862,7 +868,9 @@
     "suggestFailed": "Couldn't suggest frames for the cover: {{detail}}",
     "tooManyWords": "Select at most {{count}} words for a cover title",
     "inVideo": "Put the cover on the video's first frames",
-    "inVideoHelp": "For platforms that only let you pick a frame of the video, such as YouTube Shorts: the cover takes the place of the first tenth of a second, and the sound plays on. The preview shows the clip as it was."
+    "inVideoHelp": "For platforms that only let you pick a frame of the video, such as YouTube Shorts: the cover takes the place of the first tenth of a second, and the sound plays on. The preview shows the clip as it was.",
+    "effects": "Effects",
+    "effectsHelp": "For the picture under your title. Pressing one the cover already has selects it."
   },
   "safeZones": {
     "label": "Safe zones",

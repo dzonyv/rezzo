@@ -2,6 +2,7 @@ import { useMemo, useState } from 'react';
 import { useTranslation } from 'react-i18next';
 import type { Asset } from '../../../shared/assets.ts';
 import { COVER_FORMATS, coverOf, type CoverFormat } from '../../../shared/cover.ts';
+import { STILL_EFFECTS, type EffectName } from '../../../shared/effects.ts';
 import { fps, type FrameRate } from '../../../shared/frames.ts';
 import { valueAt, type Size } from '../../../shared/framing.ts';
 import { isPlaced, videoLayerOf, type Clip, type Layout } from '../../../shared/project.ts';
@@ -12,9 +13,10 @@ import { useCoverSuggestions } from '../cover/suggest.ts';
 import { formatClipTime } from '../format.ts';
 import { addCoverImageFile } from '../project/assets.ts';
 import type { FramingTarget } from '../project/framing.ts';
-import { addCoverCutout, addCoverText, followClipFraming, setCoverInVideo, setCoverTime, stepCoverTime } from '../project/cover.ts';
+import { addCoverCutout, addCoverEffect, addCoverText, followClipFraming, setCoverInVideo, setCoverTime, stepCoverTime } from '../project/cover.ts';
 import { projectStore, type EditLabel } from '../project/store.ts';
 import { CutoutPanel } from './CutoutPanel.tsx';
+import { EffectPanel } from './EffectPanel.tsx';
 import { propertyFor, ZoomSlider } from './FramingOverlay.tsx';
 import { LayerPanel } from './LayerPanel.tsx';
 import { currentPlayer } from './playback.ts';
@@ -64,6 +66,9 @@ export function CoverPanel({ clip, shown, selectedId, assets, rate, half, source
   // One cutout is enough: the tile selects it once it's there.
   const cutout = cover.layers.find((l) => l.kind === 'cutout');
   const addCutout = () => selectLayer(cutout?.id ?? addCoverCutout(clip.id));
+  // One of each effect: a tile selects the one the cover has.
+  const effectOf = (effect: EffectName) => cover.layers.find((l) => l.kind === 'effect' && l.effect === effect);
+  const addEffect = (effect: EffectName) => selectLayer(effectOf(effect)?.id ?? addCoverEffect(clip.id, effect));
   const addImage = async () => {
     const id = await addCoverImageFile(clip.id);
     if (id) selectLayer(id);
@@ -73,6 +78,8 @@ export function CoverPanel({ clip, shown, selectedId, assets, rate, half, source
     <>
       {selected?.kind === 'cutout' ? (
         <CutoutPanel clipId={clip.id} layer={selected} />
+      ) : selected?.kind === 'effect' ? (
+        <EffectPanel clipId={clip.id} layer={selected} time={cover.time} rate={rate} onCover />
       ) : selected && isPlaced(selected) ? (
         <LayerPanel
           clip={shown}
@@ -111,6 +118,18 @@ export function CoverPanel({ clip, shown, selectedId, assets, rate, half, source
         </button>
       </div>
       <p className="dim hint">{t('cover.titleHint')}</p>
+
+      <section className="cover-effects">
+        <h3>{t('cover.effects')}</h3>
+        <div className="cover-effect-tiles" role="group" aria-label={t('cover.effects')}>
+          {STILL_EFFECTS.map((effect) => (
+            <button key={effect} type="button" aria-pressed={effectOf(effect) !== undefined} onClick={() => addEffect(effect)}>
+              {t(`effects.names.${effect}`)}
+            </button>
+          ))}
+        </div>
+        <p className="dim hint">{t('cover.effectsHelp')}</p>
+      </section>
 
       <section className="cover-save">
         <h3>{t('cover.save')}</h3>

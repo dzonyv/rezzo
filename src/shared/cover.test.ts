@@ -36,6 +36,13 @@ describe('covers', () => {
     expect(shown).toMatchObject({ id: clip.id, start: 10, end: 20, skips: clip.skips });
   });
 
+  it('draws an effect on the cover over the whole clip at its one key, where it is in the stack', () => {
+    const blur = { id: crypto.randomUUID(), kind: 'effect' as const, effect: 'blur' as const, start: 11, end: 11.5, intensity: [{ t: 11, value: 0.6, ease: 'cut' as const }], params: { amount: 0.5 } };
+    const shown = coverClip({ ...clip, layers: [video, title], cover: { time: 11, video: null, layers: [blur, title], inVideo: false } });
+    expect(shown.layers.map((l) => l.kind)).toEqual(['video', 'effect', 'text']);
+    expect(shown.layers[1]).toEqual({ ...blur, start: 10, end: 20 });
+  });
+
   it("uses framing of the cover's own when it has some", () => {
     const own = coverFraming({ ...video, layout: [{ t: 10, value: 'follow', ease: 'cut' }, { t: 15, value: 'split', ease: 'cut' }] }, 16);
     expect(own.layout).toEqual([{ t: 16, value: 'split', ease: 'cut' }]);

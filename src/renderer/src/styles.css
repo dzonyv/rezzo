@@ -1925,6 +1925,7 @@ button.icon {
 }
 
 .cover-framing,
+.cover-effects,
 .cover-save {
   display: flex;
   flex-direction: column;
@@ -1934,6 +1935,7 @@ button.icon {
 }
 
 .cover-framing h3,
+.cover-effects h3,
 .cover-save h3 {
   margin: 0;
   font-size: 13px;
@@ -1941,6 +1943,21 @@ button.icon {
 
 .cover-framing .zoom {
   align-self: stretch;
+}
+
+/* The effects a cover can have, small, two to a row. */
+.cover-effect-tiles {
+  align-self: stretch;
+  display: grid;
+  grid-template-columns: repeat(2, minmax(0, 1fr));
+  gap: 4px 6px;
+}
+
+.cover-effect-tiles button {
+  padding: 4px 8px;
+  border-radius: 8px;
+  font-weight: 500;
+  text-align: left;
 }
 
 .cover-suggestions h3 {
