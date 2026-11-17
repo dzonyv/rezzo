@@ -91,7 +91,7 @@ async function drawCoverFrame(clip: Clip, assets: readonly Asset[], job: ExportJ
     frame.close();
   }
   await renderer.prepare(scene, time, false);
-  renderer.draw(scene, time);
+  await renderer.drawFinished(scene, time);
   renderer.compositor.startReadback(0);
   return renderer.compositor.collect(0, new Uint8Array(YUV_BYTES));
 }

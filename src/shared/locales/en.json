@@ -97,7 +97,9 @@
     "evenLoudness": "even out loudness",
     "coverMoment": "cover moment",
     "coverFraming": "cover framing",
-    "coverInVideo": "cover in the video"
+    "coverInVideo": "cover in the video",
+    "addCutout": "add cutout",
+    "cutoutStyle": "cutout outline or glow"
   },
   "files": {
     "project": "Rezzo project",
@@ -450,7 +452,8 @@
       "lottie": "Animation",
       "text": "Text",
       "effect": "Effect",
-      "audio": "Sound"
+      "audio": "Sound",
+      "cutout": "Cutout"
     },
     "video": "Video",
     "captions": "Captions",
@@ -875,5 +878,15 @@
   "view": {
     "label": "View",
     "help": "What's drawn over the picture while you edit: the people found, a platform's safe zones. None of it is exported."
+  },
+  "cutout": {
+    "addHelp": "The people in the picture drawn again over the cover, so your title can go behind them",
+    "help": "The people in the picture, drawn again at this place in the stack: the layers under it go behind them. Move it with Up and Down under the cover.",
+    "finding": "Finding the people in the picture…",
+    "outline": "Outline",
+    "outlineColor": "Outline colour",
+    "glow": "Glow",
+    "glowColor": "Glow colour",
+    "failed": "Couldn't find the people in the picture: {{detail}}"
   }
 }

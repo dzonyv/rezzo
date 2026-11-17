@@ -13,6 +13,7 @@ import { videoLayersOf } from '../../../shared/overlay-files.ts';
 import { sceneAt } from '../../../shared/scene.ts';
 import { CaptionPainter, loadCaptionScene, type CaptionScene } from './captions.ts';
 import type { Compositor, LayerImage } from './compositor.ts';
+import { CutoutMasks } from './cutouts.ts';
 import { loadImage } from './images.ts';
 import { LayerFrames } from './layer-frames.ts';
 import { loadLottie, LottieLayers, type LottieData } from './lottie.ts';
@@ -141,12 +142,15 @@ export class SceneRenderer {
   readonly layers: LayerFrames;
   /** Lottie layers' players; their errors come out here. */
   readonly lotties: LottieLayers;
+  /** The people for a cover's cutout; their errors come out here. */
+  readonly cutouts: CutoutMasks;
   private readonly painter = new CaptionPainter();
 
   constructor(compositor: Compositor) {
     this.compositor = compositor;
     this.layers = new LayerFrames(compositor);
     this.lotties = new LottieLayers(compositor);
+    this.cutouts = new CutoutMasks(compositor);
   }
 
   /**
@@ -172,7 +176,19 @@ export class SceneRenderer {
     const size = this.compositor.sourceSize;
     if (!size) return;
     const ops = sceneAt(scene.clip, scene.assets, t, size, scene.texts);
+    const cutout = ops.find((op) => op.type === 'cutout');
+    if (cutout) this.cutouts.update(t, cutout.recipe);
     this.lotties.draw(ops);
     this.compositor.render(ops, scene.images, scene.captions && this.painter.paint(scene.captions, videoLayerOf(scene.clip).layout, t), scene.texts);
+  }
+
+  /**
+   * Draws as draw() does, and again once a cutout's people are found, for
+   * a picture that has to be finished (a saved cover, the cover in an
+   * export). Rejects if they can't be found.
+   */
+  async drawFinished(scene: Scene, t: number): Promise<void> {
+    this.draw(scene, t);
+    if (await this.cutouts.settle()) this.draw(scene, t);
   }
 }

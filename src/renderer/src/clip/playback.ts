@@ -19,6 +19,8 @@ interface ClipPlaybackState {
   error: string | null;
   /** The working file's picture size, for turning drags into framing. */
   sourceSize: Size | null;
+  /** The people for the cover's cutout are being looked for. */
+  findingPeople: boolean;
 }
 
 export const clipPlaybackStore = createStore<ClipPlaybackState>()(() => ({
@@ -28,6 +30,7 @@ export const clipPlaybackStore = createStore<ClipPlaybackState>()(() => ({
   progress: 0,
   error: null,
   sourceSize: null,
+  findingPeople: false,
 }));
 
 export function useClipPlayback<T>(select: (s: ClipPlaybackState) => T): T {

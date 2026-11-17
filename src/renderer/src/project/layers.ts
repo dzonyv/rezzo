@@ -160,7 +160,7 @@ export function replaceImage(clipId: string, layerId: string, file: AssetFile, s
 /** Replaces the keyframes keyframesOf(layer) names. */
 function setKeysOf(layer: Draft<TimedLayer>, keys: Animated<unknown>): void {
   if (layer.kind === 'effect') layer.intensity = keys as Animated<number>;
-  else if (layer.kind !== 'sound') layer.transform = keys as typeof layer.transform;
+  else if (layer.kind !== 'sound' && layer.kind !== 'cutout') layer.transform = keys as typeof layer.transform;
 }
 
 /**

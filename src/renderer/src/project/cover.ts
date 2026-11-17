@@ -7,9 +7,10 @@
 import type { Draft } from 'immer';
 import type { AssetFile } from '../../../shared/assets.ts';
 import { coverOf, keptTime, NO_MOTION } from '../../../shared/cover.ts';
+import { DEFAULT_CUTOUT_STYLE, type CutoutStyle } from '../../../shared/cutout.ts';
 import type { Size } from '../../../shared/framing.ts';
 import { frameAt, timeOfFrame, type FrameRate } from '../../../shared/frames.ts';
-import type { Clip, Cover, CoverLayer, Project } from '../../../shared/project.ts';
+import type { Clip, Cover, PlacedCoverLayer, Project } from '../../../shared/project.ts';
 import { DEFAULT_TEXT_STYLE, MAX_TEXT_CHARS, type TextStyle } from '../../../shared/text-style.ts';
 import { sourceRate } from './framing.ts';
 import { adoptFile, startingScale } from './layers.ts';
@@ -70,7 +71,7 @@ export function followClipFraming(clipId: string): void {
 }
 
 /** One key, at the cover's moment. */
-const placed = (cover: Draft<Cover>, value: CoverLayer['transform'][number]['value']) => [{ t: cover.time, value, ease: 'cut' as const }];
+const placed = (cover: Draft<Cover>, value: PlacedCoverLayer['transform'][number]['value']) => [{ t: cover.time, value, ease: 'cut' as const }];
 
 /** Adds text over the cover's other layers, in the default style unless `style` is given; returns its id. */
 export function addCoverText(clipId: string, text: string, style: TextStyle = DEFAULT_TEXT_STYLE): string {
@@ -109,4 +110,24 @@ export function addCoverImage(clipId: string, file: AssetFile, size: Size): stri
     });
   });
   return id;
+}
+
+/**
+ * Adds the people cut out over the cover's other layers, so they all go
+ * behind them; returns its id.
+ */
+export function addCoverCutout(clipId: string): string {
+  const id = crypto.randomUUID();
+  editCover(clipId, 'history.addCutout', (cover, clip) => {
+    cover.layers.push({ id, kind: 'cutout', start: clip.start, end: clip.end, style: structuredClone(DEFAULT_CUTOUT_STYLE) });
+  });
+  return id;
+}
+
+/** Changes the cutout's outline or glow; sliders and colour pickers call it inside a gesture. */
+export function setCutoutStyle(clipId: string, layerId: string, part: keyof CutoutStyle, patch: Partial<CutoutStyle['outline']> | Partial<CutoutStyle['glow']>): void {
+  editCover(clipId, 'history.cutoutStyle', (cover) => {
+    const layer = cover.layers.find((l) => l.id === layerId);
+    if (layer?.kind === 'cutout') Object.assign(layer.style[part], patch);
+  });
 }

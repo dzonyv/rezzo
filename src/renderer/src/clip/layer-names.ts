@@ -13,6 +13,7 @@ export function layerName(t: TFunction, layer: TimedLayer, assets: readonly Asse
     return follows.part === 'in' ? t('sounds.follow.tagIn', { name }) : t('sounds.follow.tagOut', { name });
   }
   if (layer.kind === 'text') return textName(layer.text) || t('layers.kinds.text');
+  if (layer.kind === 'cutout') return t('layers.kinds.cutout');
   return assets.find((a) => a.id === layer.assetId)?.name ?? t(`layers.kinds.${ASSET_KIND_OF[layer.kind]}`);
 }
 

@@ -13,9 +13,13 @@ import { bundledToolDir, cacheDir } from './paths.ts';
 
 const modelFile = (id: string) => path.join(bundledToolDir(id), path.basename(new URL(tool(id).url).pathname));
 
-/** URLs the page can fetch MediaPipe's models from. */
-export function analysisModels(): { pose: string; face: string } {
-  return { pose: allowMedia(modelFile('pose-landmarker-full')), face: allowMedia(modelFile('face-landmarker')) };
+/** URLs the page can fetch MediaPipe's models from: finding people, and cutting them out on a cover. */
+export function analysisModels(): { pose: string; face: string; segmenter: string } {
+  return {
+    pose: allowMedia(modelFile('pose-landmarker-full')),
+    face: allowMedia(modelFile('face-landmarker')),
+    segmenter: allowMedia(modelFile('selfie-multiclass')),
+  };
 }
 
 /**

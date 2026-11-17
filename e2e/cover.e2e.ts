@@ -206,6 +206,56 @@ describe('covers', () => {
     expect(project.clips[0]!.cover!.layers.map((l) => (l.kind === 'text' ? l.text : l.kind))).toEqual(['Your *title* here', 'Ona laže']);
   });
 
+  it('cuts the people out over the titles, and finds nobody in a picture without people', async () => {
+    await openTool(page, 'Cover');
+    const tile = page.locator('.clip-drawer .add-tiles').getByRole('button', { name: 'Cutout' });
+    await tile.click();
+    await page.getByRole('heading', { name: 'Cutout', exact: true }).waitFor();
+    await page.getByRole('slider', { name: 'Outline' }).waitFor();
+    // The numbered video has nobody in it: the titles stay in front, with no outline round anything.
+    const png = path.join(dir, 'out', 'cutout.png');
+    await answerSaveDialog(app!, png);
+    await page.getByRole('button', { name: 'Save PNG' }).click();
+    await page.getByText('Saved the cover as cutout.png.').waitFor({ timeout: 30_000 });
+    expect(await page.getByText(/Couldn't find the people/).count()).toBe(0);
+    await expect.poll(async () => (await inks()).white, { timeout: 10_000 }).toBeGreaterThan(20);
+    const row = (await luma(png)).subarray(TITLE_ROW * W, (TITLE_ROW + 1) * W);
+    expect(row.filter((v) => v > 220).length).toBeGreaterThan(20);
+
+    // The tile selects the cutout that's there rather than adding another.
+    await page.keyboard.press('Escape');
+    await tile.click();
+    await page.getByRole('heading', { name: 'Cutout', exact: true }).waitFor();
+    const project = await saved();
+    expect(project.clips[0]!.cover!.layers.map((l) => l.kind)).toEqual(['text', 'text', 'cutout']);
+    expect(project.format).toBe(19);
+  });
+
+  it('draws the outline round the people it finds, in the colour picked', async () => {
+    /** Red pixels in the rows just under the number strip, where an outline round its white blocks goes. */
+    const red = async () => {
+      let n = 0;
+      for (let y = NUMBER_ROW; y < NUMBER_ROW + 40; y++) {
+        const row = await previewRow(y);
+        for (let x = 0; x < W; x++) if (row[x * 4]! > 200 && row[x * 4 + 1]! < 80 && row[x * 4 + 2]! < 80) n++;
+      }
+      return n;
+    };
+    await page.locator('.clip-drawer .cutout-section input[type="color"]').fill('#ff0000');
+    expect(await red()).toBe(0);
+    await page.evaluate(() => (globalThis as PageGlobal & { __rezzoPreview: { whiteIsPeople(): void } }).__rezzoPreview.whiteIsPeople());
+    // Another frame, so the people are looked for again.
+    await page.getByRole('button', { name: 'A frame later' }).click();
+    await expect.poll(red, { timeout: 10_000 }).toBeGreaterThan(50);
+    // Just under the strip, red under each white block and none under a black one.
+    const under = await previewRow(Math.round((H - 720 * SCALE) / 2 + NUMBER_STRIP_HEIGHT * SCALE) + 4);
+    const frame = await frameOnScreen();
+    const bits = Array.from({ length: 8 }, (_, b) => (frame >> b) & 1);
+    expect(bits).toContain(0);
+    expect(bits.map((_, b) => (under[bitX(b) * 4]! > 200 && under[bitX(b) * 4 + 1]! < 80 ? 1 : 0))).toEqual(bits);
+    await page.getByRole('button', { name: 'A frame earlier' }).click();
+  });
+
   it("puts the cover on the exported video's first frames", async () => {
     await openTool(page, 'Cover');
     await page.getByRole('checkbox', { name: "Put the cover on the video's first frames" }).check();

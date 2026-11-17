@@ -82,7 +82,8 @@ export function coverFraming(video: VideoLayer, t: number, id: string = crypto.r
 }
 
 /** A cover layer as the clip's scene draws it: up for the whole clip, not moving. */
-const shownLayer = (layer: CoverLayer, clip: Pick<Clip, 'start' | 'end'>): CoverLayer => ({ ...layer, start: clip.start, end: clip.end, motion: NO_MOTION });
+const shownLayer = (layer: CoverLayer, clip: Pick<Clip, 'start' | 'end'>): CoverLayer =>
+  layer.kind === 'cutout' ? { ...layer, start: clip.start, end: clip.end } : { ...layer, start: clip.start, end: clip.end, motion: NO_MOTION };
 
 /**
  * The cover as a clip to draw at coverOf(clip).time: the video, framed as

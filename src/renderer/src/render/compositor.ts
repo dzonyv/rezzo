@@ -23,8 +23,9 @@
  * to the canvas flips to WebGL's bottom-up convention.
  */
 import { chromaOf, rgbOf, type ChromaKey } from '../../../shared/chroma-key.ts';
+import type { CutoutStyle } from '../../../shared/cutout.ts';
 import type { EffectPass } from '../../../shared/effects.ts';
-import { cropRect, OUTPUT, type FrameRecipe, type Size } from '../../../shared/framing.ts';
+import { cropRect, OUTPUT, type FrameRecipe, type Rect, type Size } from '../../../shared/framing.ts';
 import type { OverlayLayout } from '../../../shared/overlay-files.ts';
 import type { Quad, SceneOp } from '../../../shared/scene.ts';
 import type { Overlay } from './captions.ts';
@@ -93,6 +94,64 @@ uniform vec4 uDstRect;
 void main() {
   vec2 f = (gl_FragCoord.xy - uDstRect.xy) / uDstRect.zw;
   o = vec4(texture(uSrc, uSrcRect.xy + f * uSrcRect.zw).rgb, 1.0);
+}`;
+
+/**
+ * The people in the source drawn again over comp, for one of the
+ * framing's draws (as DRAW, scissored to uDstRect), with an outline and a
+ * glow round them. uMask holds how sure the segmenter is that a pixel is a
+ * person, for the part of the source uMaskRect says; outside it there's
+ * nobody. uStep is how far one output pixel is in uMask. The outline is the
+ * people grown by uOutline pixels (the most found on rings round the
+ * pixel); the glow is how much of a wider ring is people, so it fades
+ * outwards. Premultiplied, bottom up: glow, outline, people.
+ */
+const CUTOUT = `${HEADER}
+uniform sampler2D uSrc;
+uniform sampler2D uMask;
+uniform vec4 uSrcRect;
+uniform vec4 uDstRect;
+uniform vec4 uMaskRect;
+uniform vec2 uStep;
+uniform float uOutline;
+uniform float uGlow;
+uniform vec3 uOutlineColor;
+uniform vec3 uGlowColor;
+const float TAU = 6.2831853;
+float person(vec2 m) {
+  if (any(lessThan(m, vec2(0.0))) || any(greaterThan(m, vec2(1.0)))) return 0.0;
+  return smoothstep(0.35, 0.65, texture(uMask, m).r);
+}
+void main() {
+  vec2 f = (gl_FragCoord.xy - uDstRect.xy) / uDstRect.zw;
+  vec2 s = uSrcRect.xy + f * uSrcRect.zw;
+  vec2 m = (s - uMaskRect.xy) / uMaskRect.zw;
+  float inside = person(m);
+  float edge = 0.0;
+  if (uOutline > 0.0) {
+    for (int r = 1; r <= 3; r++) {
+      for (int i = 0; i < 24; i++) {
+        float a = (float(i) + 0.33 * float(r)) * TAU / 24.0;
+        edge = max(edge, person(m + vec2(cos(a), sin(a)) * uStep * uOutline * float(r) / 3.0));
+      }
+    }
+  }
+  float glow = 0.0;
+  if (uGlow > 0.0) {
+    float sum = 0.0;
+    for (int r = 1; r <= 5; r++) {
+      float w = 1.0 - float(r - 1) / 5.0;
+      for (int i = 0; i < 16; i++) {
+        float a = (float(i) + 0.5 * float(r)) * TAU / 16.0;
+        glow += w * person(m + vec2(cos(a), sin(a)) * uStep * (uOutline + uGlow * float(r) / 5.0));
+        sum += w;
+      }
+    }
+    glow = clamp(2.0 * glow / sum, 0.0, 1.0);
+  }
+  vec4 c = vec4(uGlowColor, 1.0) * glow;
+  c = vec4(uOutlineColor, 1.0) * edge + c * (1.0 - edge);
+  o = vec4(texture(uSrc, s).rgb, 1.0) * inside + c * (1.0 - inside);
 }`;
 
 /** A premultiplied overlay the size of the output, its top row first like comp. */
@@ -391,6 +450,10 @@ export class Compositor {
   private bgA: Target;
   private bgB: Target;
   private programs: Record<'cover' | 'blur' | 'background' | 'draw' | 'overlay' | 'display' | 'prep', WebGLProgram>;
+  /** Made with the first cutout. */
+  private cutoutProgram: WebGLProgram | undefined;
+  /** The people found in the source frame (setCutoutMask), for the part of it `rect` says. */
+  private cutout: { tex: WebGLTexture; rect: Rect; key: string } | undefined;
   /** Made with the first overlay; `version` is the one uploaded. */
   private overlayTex: { tex: WebGLTexture; version: number } | undefined;
   private quadProgram: WebGLProgram;
@@ -584,6 +647,9 @@ export class Compositor {
         if (pixels) this.drawQuad(this.prep(op.layerId, { pixels }, null), op.quad, op.opacity);
       } else if (op.type === 'effect') {
         this.applyEffect(op.pass);
+      } else if (op.type === 'cutout') {
+        // Nobody found yet (the scene renderer is still looking): the layers under it stay in front.
+        if (this.cutout) this.drawCutout(op.recipe, op.style);
       } else {
         // No frame yet (its working file is still being made, or it failed): left out.
         const frame = this.frames.get(op.layerId);
@@ -616,6 +682,85 @@ export class Compositor {
       this.pass(this.programs.draw, this.comp, { uSrc: src.tex, uSrcRect: [s.x, s.y, s.w, s.h], uDstRect: [d.x, d.y, d.w, d.h] });
     }
     gl.disable(gl.SCISSOR_TEST);
+  }
+
+  /** The people in the source drawn again with each of the framing's draws, the outline and glow round them. */
+  private drawCutout(recipe: FrameRecipe, style: CutoutStyle): void {
+    const gl = this.gl;
+    const src = this.src!;
+    const mask = this.cutout!;
+    this.cutoutProgram ??= this.program(CUTOUT);
+    gl.enable(gl.BLEND);
+    // As for a quad: colour over, comp stays opaque.
+    gl.blendFuncSeparate(gl.ONE, gl.ONE_MINUS_SRC_ALPHA, gl.ZERO, gl.ONE);
+    gl.enable(gl.SCISSOR_TEST);
+    for (const { src: s, dst: d } of recipe.draws) {
+      const x0 = Math.round(d.x);
+      const y0 = Math.round(d.y);
+      gl.scissor(x0, y0, Math.round(d.x + d.w) - x0, Math.round(d.y + d.h) - y0);
+      this.pass(this.cutoutProgram, this.comp, {
+        uSrc: src.tex,
+        uMask: mask.tex,
+        uSrcRect: [s.x, s.y, s.w, s.h],
+        uDstRect: [d.x, d.y, d.w, d.h],
+        uMaskRect: [mask.rect.x, mask.rect.y, mask.rect.w, mask.rect.h],
+        uStep: [s.w / d.w / mask.rect.w, s.h / d.h / mask.rect.h],
+        uOutline: style.outline.width,
+        uGlow: style.glow.size,
+        uOutlineColor: rgbOf(style.outline.color),
+        uGlowColor: rgbOf(style.glow.color),
+      });
+    }
+    gl.disable(gl.SCISSOR_TEST);
+    gl.disable(gl.BLEND);
+  }
+
+  /**
+   * The people found in the source frame for a cutout: one byte a pixel,
+   * how sure the segmenter is that it's a person, top row first, for the
+   * part of the source `rect` says (texture coordinates). `key` names
+   * what it was found in; null lets it go.
+   */
+  setCutoutMask(mask: { key: string; data: Uint8Array; w: number; h: number; rect: Rect } | null): void {
+    const gl = this.gl;
+    if (this.cutout) gl.deleteTexture(this.cutout.tex);
+    this.cutout = undefined;
+    if (!mask) return;
+    const tex = gl.createTexture();
+    gl.bindTexture(gl.TEXTURE_2D, tex);
+    gl.texStorage2D(gl.TEXTURE_2D, 1, gl.R8, mask.w, mask.h);
+    gl.pixelStorei(gl.UNPACK_ALIGNMENT, 1);
+    gl.texSubImage2D(gl.TEXTURE_2D, 0, 0, 0, mask.w, mask.h, gl.RED, gl.UNSIGNED_BYTE, mask.data);
+    gl.pixelStorei(gl.UNPACK_ALIGNMENT, 4);
+    gl.texParameteri(gl.TEXTURE_2D, gl.TEXTURE_MIN_FILTER, gl.LINEAR);
+    gl.texParameteri(gl.TEXTURE_2D, gl.TEXTURE_MAG_FILTER, gl.LINEAR);
+    gl.texParameteri(gl.TEXTURE_2D, gl.TEXTURE_WRAP_S, gl.CLAMP_TO_EDGE);
+    gl.texParameteri(gl.TEXTURE_2D, gl.TEXTURE_WRAP_T, gl.CLAMP_TO_EDGE);
+    this.cutout = { tex, rect: mask.rect, key: mask.key };
+  }
+
+  /** What the cutout's mask was found in (setCutoutMask), or null without one. */
+  get cutoutKey(): string | null {
+    return this.cutout?.key ?? null;
+  }
+
+  /**
+   * Part of the source frame (`rect`, texture coordinates) scaled to w×h,
+   * as RGBA, top row first: the picture the segmenter looks at. Null
+   * before the first frame.
+   */
+  readSource(rect: Rect, w: number, h: number): Uint8ClampedArray<ArrayBuffer> | null {
+    if (!this.src) return null;
+    const gl = this.gl;
+    const into = this.target(w, h, 1);
+    try {
+      this.pass(this.programs.cover, into, { uSrc: this.src.tex, uRect: [rect.x, rect.y, rect.w, rect.h], uSize: [w, h] });
+      const dst = new Uint8ClampedArray(w * h * 4);
+      gl.readPixels(0, 0, w, h, gl.RGBA, gl.UNSIGNED_BYTE, dst);
+      return dst;
+    } finally {
+      this.dropTarget(into);
+    }
   }
 
   /** Deletes the textures in `held` whose id `wanted` no longer has. */
@@ -857,6 +1002,8 @@ export class Compositor {
     }
     if (this.src) gl.deleteTexture(this.src.tex);
     if (this.overlayTex) gl.deleteTexture(this.overlayTex.tex);
+    if (this.cutout) gl.deleteTexture(this.cutout.tex);
+    if (this.cutoutProgram) gl.deleteProgram(this.cutoutProgram);
     for (const { tex } of this.images.values()) gl.deleteTexture(tex);
     for (const { tex } of this.texts.values()) gl.deleteTexture(tex);
     for (const { tex } of this.frames.values()) gl.deleteTexture(tex);
@@ -876,6 +1023,8 @@ export class Compositor {
     }
     this.src = undefined;
     this.overlayTex = undefined;
+    this.cutout = undefined;
+    this.cutoutProgram = undefined;
     this.images.clear();
     this.texts.clear();
     this.frames.clear();

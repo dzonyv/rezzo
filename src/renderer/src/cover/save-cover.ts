@@ -49,7 +49,7 @@ export async function drawCover(clip: Clip, assets: readonly Asset[], file: Work
     }
     await renderer.prepare(scene, time, false);
     if (layerError) throw layerError;
-    renderer.draw(scene, time);
+    await renderer.drawFinished(scene, time);
     const pixels = compositor.readPixels();
     // Every pixel is opaque: the picture has no see-through parts.
     for (let i = 3; i < pixels.length; i += 4) pixels[i] = 255;

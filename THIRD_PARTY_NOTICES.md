@@ -66,6 +66,7 @@ Lottie animations are drawn by dotLottie Web 0.81.0 (`@lottiefiles/dotlottie-web
 
 - MediaPipe Tasks Vision 1.1.1 (`@mediapipe/tasks-vision`, Apache-2.0, Copyright Google LLC, https://github.com/google-ai-edge/mediapipe). Its JavaScript is compiled into the app's code, and its WebAssembly (`vision_wasm_internal.wasm` with its loader) ships next to it.
 - MediaPipe's Pose Landmarker (full) and Face Landmarker models (Apache-2.0, https://ai.google.dev/edge/mediapipe/solutions/vision/pose_landmarker), in `tools/pose-landmarker-full` and `tools/face-landmarker`.
+- MediaPipe's selfie multiclass segmentation model (`selfie_multiclass_256x256`, Apache-2.0, https://ai.google.dev/edge/mediapipe/solutions/vision/image_segmenter), which cuts people out on a cover. It ships in `tools/selfie-multiclass`.
 
 ## Telling voices apart
 

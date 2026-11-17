@@ -54,6 +54,16 @@
       "source": "https://ai.google.dev/edge/mediapipe/solutions/vision/face_landmarker"
     },
     {
+      "id": "selfie-multiclass",
+      "kind": "bundled",
+      "name": "MediaPipe Image Segmenter, selfie multiclass 256x256 (float32, v1)",
+      "url": "https://storage.googleapis.com/mediapipe-models/image_segmenter/selfie_multiclass_256x256/float32/1/selfie_multiclass_256x256.tflite",
+      "size": 16371837,
+      "sha256": "c6748b1253a99067ef71f7e26ca71096cd449baefa8f101900ea23016507e0e0",
+      "license": "Apache-2.0",
+      "source": "https://ai.google.dev/edge/mediapipe/solutions/vision/image_segmenter"
+    },
+    {
       "id": "whisper-cuda",
       "kind": "download",
       "name": "whisper.cpp b5454 (v1.9.5) Windows x64, CUDA 12.4",

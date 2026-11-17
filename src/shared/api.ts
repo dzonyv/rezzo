@@ -216,7 +216,7 @@ export interface InvokeApi {
   'overlay:cancel': (requestId: string) => void;
 
   /** URLs of MediaPipe's models, for the clip analysis. */
-  'analysis:models': () => { pose: string; face: string };
+  'analysis:models': () => { pose: string; face: string; segmenter: string };
   /** The cached analysis of the working file at this URL (from clip:prepare), or null. */
   'analysis:load': (workingUrl: string) => ClipAnalysis | null;
   'analysis:save': (workingUrl: string, analysis: ClipAnalysis) => void;

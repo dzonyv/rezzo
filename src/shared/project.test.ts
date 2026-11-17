@@ -6,6 +6,7 @@ import { DEFAULT_CHROMA_KEY } from './chroma-key.ts';
 import { defaultParams } from './effects.ts';
 import { defaultVideoLayer } from './framing.ts';
 import { DEFAULT_MOTION } from './motion.ts';
+import { DEFAULT_CUTOUT_STYLE, MAX_CUTOUT_OUTLINE } from './cutout.ts';
 import { DEFAULT_TEXT_STYLE, MAX_TEXT_CHARS } from './text-style.ts';
 import { DTW_START_SHIFT, MAX_CLIP_SECONDS, newProject, parseProject, PROJECT_FORMAT, ProjectFormatError, serializeProject, type Project } from './project.ts';
 
@@ -491,6 +492,22 @@ describe('project files', () => {
       const p = withCover({ time: 0.5, video: null, layers: [title()], inVideo: false });
       const { inVideo: _, ...old } = p.clips[0]!.cover!;
       expect(parseProject(JSON.stringify({ ...p, format: 17, clips: [{ ...p.clips[0]!, cover: old }, ...sample.clips.slice(1)] }))).toEqual(p);
+    });
+
+    const cutout = () => ({ id: crypto.randomUUID(), kind: 'cutout' as const, start: 0, end: 2, style: DEFAULT_CUTOUT_STYLE });
+
+    it('round-trips a cutout on a cover, and rejects one on the clip or with an outline too wide', () => {
+      const p = withCover({ time: 0.5, video: null, layers: [title(), cutout()], inVideo: false });
+      expect(parseProject(serializeProject(p))).toEqual(p);
+      const onClip = { ...sample, clips: [{ ...sample.clips[0]!, layers: [...sample.clips[0]!.layers, cutout()] }] };
+      expect(code(() => parseProject(JSON.stringify(onClip)))).toBe('invalid');
+      const wide = { ...cutout(), style: { ...DEFAULT_CUTOUT_STYLE, outline: { color: '#ffffff', width: MAX_CUTOUT_OUTLINE + 1 } } };
+      expect(code(() => parseProject(JSON.stringify(withCover({ time: 0.5, video: null, layers: [wide], inVideo: false }))))).toBe('invalid');
+    });
+
+    it('upgrades a format 18 file, which had no cutouts, as it is', () => {
+      const p = withCover({ time: 0.5, video: null, layers: [title()], inVideo: true });
+      expect(parseProject(JSON.stringify({ ...p, format: 18 }))).toEqual(p);
     });
   });
 
