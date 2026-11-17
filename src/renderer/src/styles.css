@@ -2733,6 +2733,104 @@ button.icon {
   flex: 1;
 }
 
+/* The eye in the preview's corner and what it shows (ViewMenu): faint until the pointer is over the picture or something is on. */
+.view-menu {
+  position: absolute;
+  top: 6px;
+  right: 6px;
+  z-index: 5;
+  opacity: 0.45;
+  transition: opacity 0.15s;
+}
+
+.clip-preview:hover .view-menu,
+.view-menu.shown,
+.view-menu:focus-within {
+  opacity: 1;
+}
+
+.view-menu .eye {
+  position: relative;
+  display: grid;
+  place-items: center;
+  width: 28px;
+  height: 28px;
+  padding: 0;
+  border: 0;
+  border-radius: 50%;
+  background: rgb(0 0 0 / 55%);
+  color: #fff;
+}
+
+.view-menu .eye:hover,
+.view-menu .eye[aria-expanded='true'] {
+  background: rgb(0 0 0 / 80%);
+}
+
+.view-menu .dot {
+  position: absolute;
+  top: 3px;
+  right: 3px;
+  width: 7px;
+  height: 7px;
+  border-radius: 50%;
+  background: var(--accent);
+}
+
+.view-menu-list {
+  position: absolute;
+  top: calc(100% + 4px);
+  right: 0;
+  display: flex;
+  flex-direction: column;
+  width: 220px;
+  padding: 4px;
+  border: 1px solid var(--border);
+  border-radius: 6px;
+  background: var(--surface-2);
+  box-shadow: 0 4px 16px rgb(0 0 0 / 40%);
+}
+
+.view-menu-list h4 {
+  margin: 8px 8px 2px;
+  color: var(--text-dim);
+  font-size: 11px;
+  font-weight: normal;
+}
+
+.view-menu-list button {
+  display: flex;
+  gap: 6px;
+  align-items: center;
+  padding: 4px 8px;
+  border: 0;
+  background: none;
+  color: inherit;
+  text-align: left;
+}
+
+.view-menu-list button:hover {
+  background: var(--surface);
+}
+
+.view-menu-list .check {
+  width: 12px;
+  color: var(--accent);
+}
+
+.view-menu-list [role='menuitemcheckbox'][aria-checked='true'] .check::before {
+  content: '✓';
+}
+
+.view-menu-list [role='menuitemradio'][aria-checked='true'] .check::before {
+  content: '•';
+}
+
+.view-menu-list p {
+  margin: 6px 8px 4px;
+  font-size: 11px;
+}
+
 /* A platform's buttons and text over the clip: shaded outside the clear part (SafeZoneOverlay). */
 .safe-zones {
   position: absolute;

@@ -14,7 +14,7 @@ import { afterAll, beforeAll, describe, expect, it } from 'vitest';
 import { defaultVideoLayer, valueAt } from '../src/shared/framing.ts';
 import { MAX_JPG_BYTES } from '../src/shared/cover.ts';
 import { videoLayerOf, type Project } from '../src/shared/project.ts';
-import { analysisDone, answerOpenDialog, answerSaveDialog, ffmpegExe, launchApp, makeNumberedVideo, NUMBER_BIT_WIDTH, NUMBER_STRIP_HEIGHT, openTool, stopApp, until } from './helpers.ts';
+import { analysisDone, answerOpenDialog, answerSaveDialog, ffmpegExe, launchApp, makeNumberedVideo, NUMBER_BIT_WIDTH, NUMBER_STRIP_HEIGHT, openTool, pickView, stopApp, until } from './helpers.ts';
 
 const run = promisify(execFile);
 
@@ -237,13 +237,12 @@ describe('covers', () => {
   });
 
   it("shows a platform's safe zones over the preview, and Instagram's grid on the cover", async () => {
-    const zones = page.getByRole('combobox', { name: 'Safe zones' });
-    await zones.selectOption('tiktok');
+    await pickView(page, 'TikTok');
     await page.locator('.safe-zones .clear').waitFor();
     expect(await page.locator('.safe-zones .grid-crop').count()).toBe(0);
-    await zones.selectOption('reels');
+    await pickView(page, 'Instagram Reels');
     await page.locator('.safe-zones .grid-crop').waitFor();
-    await zones.selectOption('off');
+    await pickView(page, 'No safe zones');
     await expect.poll(() => page.locator('.safe-zones').count()).toBe(0);
   });
 });

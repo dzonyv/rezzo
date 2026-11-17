@@ -12,7 +12,7 @@ import path from 'node:path';
 import type { ElectronApplication, Page } from 'playwright-core';
 import { afterAll, beforeAll, describe, expect, it } from 'vitest';
 import type { ClipAnalysis } from '../src/shared/analysis.ts';
-import { openThreeShots, stopApp } from './helpers.ts';
+import { openThreeShots, pickView, stopApp } from './helpers.ts';
 
 /** `window` inside page.evaluate(); this config has no DOM types. */
 type PageGlobal = typeof globalThis & {
@@ -56,9 +56,11 @@ describe('clip analysis', () => {
   });
 
   it('shows the people it found over the picture on request', async () => {
-    const toggle = page.getByRole('button', { name: 'Show people' });
-    await toggle.click();
-    await expect.poll(() => toggle.getAttribute('aria-pressed')).toBe('true');
+    await pickView(page, 'Show people');
+    await page.getByRole('button', { name: 'View', exact: true }).click();
+    const toggle = page.getByRole('menuitemcheckbox', { name: 'Show people' });
+    await expect.poll(() => toggle.getAttribute('aria-checked')).toBe('true');
+    await page.keyboard.press('Escape');
     await expect.poll(() => page.locator('.people-overlay').count()).toBe(1);
     expect(await page.locator('.people-overlay .person').count()).toBe(0);
   });
