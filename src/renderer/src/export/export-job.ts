@@ -91,7 +91,7 @@ async function drawCoverFrame(clip: Clip, assets: readonly Asset[], job: ExportJ
     frame.close();
   }
   await renderer.prepare(scene, time, false);
-  renderer.draw(scene, time);
+  await renderer.drawFinished(scene, time);
   renderer.compositor.startReadback(0);
   return renderer.compositor.collect(0, new Uint8Array(YUV_BYTES));
 }
@@ -127,6 +127,7 @@ export async function renderExport(job: ExportJob, port: MessagePort, clip: Clip
     const scene = await loadScene(clip, assets, words, job.frameRate, signal);
     compositor = new Compositor(canvas);
     renderer = new SceneRenderer(compositor);
+    renderer.cutouts.file = job.url;
     const r = renderer;
     let layerError: unknown;
     r.layers.onError = (_layerId, e) => (layerError ??= e);

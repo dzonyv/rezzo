@@ -12,8 +12,9 @@ import { useCoverSuggestions } from '../cover/suggest.ts';
 import { formatClipTime } from '../format.ts';
 import { addCoverImageFile } from '../project/assets.ts';
 import type { FramingTarget } from '../project/framing.ts';
-import { addCoverText, followClipFraming, setCoverInVideo, setCoverTime, stepCoverTime } from '../project/cover.ts';
+import { addCoverCutout, addCoverText, followClipFraming, setCoverInVideo, setCoverTime, stepCoverTime } from '../project/cover.ts';
 import { projectStore, type EditLabel } from '../project/store.ts';
+import { CutoutPanel } from './CutoutPanel.tsx';
 import { propertyFor, ZoomSlider } from './FramingOverlay.tsx';
 import { LayerPanel } from './LayerPanel.tsx';
 import { currentPlayer } from './playback.ts';
@@ -60,6 +61,9 @@ export function CoverPanel({ clip, shown, selectedId, assets, rate, half, source
   };
 
   const addText = () => selectLayer(addCoverText(clip.id, t('cover.placeholder')));
+  // One cutout is enough: the tile selects it once it's there.
+  const cutout = cover.layers.find((l) => l.kind === 'cutout');
+  const addCutout = () => selectLayer(cutout?.id ?? addCoverCutout(clip.id));
   const addImage = async () => {
     const id = await addCoverImageFile(clip.id);
     if (id) selectLayer(id);
@@ -67,7 +71,9 @@ export function CoverPanel({ clip, shown, selectedId, assets, rate, half, source
 
   return (
     <>
-      {selected && isPlaced(selected) ? (
+      {selected?.kind === 'cutout' ? (
+        <CutoutPanel clipId={clip.id} layer={selected} />
+      ) : selected && isPlaced(selected) ? (
         <LayerPanel
           clip={shown}
           layer={selected}
@@ -99,6 +105,9 @@ export function CoverPanel({ clip, shown, selectedId, assets, rate, half, source
         </button>
         <button type="button" className="tile" onClick={() => void addImage()}>
           {t('layers.kinds.image')}
+        </button>
+        <button type="button" className="tile" title={t('cutout.addHelp')} onClick={addCutout}>
+          {t('layers.kinds.cutout')}
         </button>
       </div>
       <p className="dim hint">{t('cover.titleHint')}</p>

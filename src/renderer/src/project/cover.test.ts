@@ -2,7 +2,8 @@ import { beforeEach, describe, expect, it } from 'vitest';
 import type { AssetFile } from '../../../shared/assets.ts';
 import { defaultVideoLayer } from '../../../shared/framing.ts';
 import { newProject, projectSchema, videoLayerOf, type Project } from '../../../shared/project.ts';
-import { addCoverImage, addCoverText, followClipFraming, setCoverInVideo, setCoverTime, stepCoverTime } from './cover.ts';
+import { DEFAULT_CUTOUT_STYLE } from '../../../shared/cutout.ts';
+import { addCoverCutout, addCoverImage, addCoverText, followClipFraming, setCoverInVideo, setCoverTime, setCutoutStyle, stepCoverTime } from './cover.ts';
 import { setFraming, setLayout } from './framing.ts';
 import { addImageLayer, deleteLayer, duplicateLayer, reorderLayer, setText, setTransform } from './layers.ts';
 import { projectStore } from './store.ts';
@@ -117,4 +118,36 @@ describe('cover edits', () => {
     followClipFraming(CLIP);
     expect(cover().video).toBeNull();
   });
+});
+
+describe('cutout', () => {
+  it('goes over everything on the cover, with the default look, one undo step', () => {
+    const title = addCoverText(CLIP, 'Naslov');
+    const id = addCoverCutout(CLIP);
+    expect(cover().layers.map((l) => l.kind)).toEqual(['text', 'cutout']);
+    expect(cover().layers[1]).toMatchObject({ id, style: DEFAULT_CUTOUT_STYLE });
+    valid();
+    state().undo();
+    expect(cover().layers.map((l) => l.id)).toEqual([title]);
+  });
+
+  it('changes its outline and glow, moves in the stack and goes', () => {
+    const title = addCoverText(CLIP, 'Naslov');
+    const id = addCoverCutout(CLIP);
+    setCutoutStyle(CLIP, id, 'outline', { width: 20, color: '#ff0000' });
+    setCutoutStyle(CLIP, id, 'glow', { size: 40 });
+    expect(cover().layers[1]).toMatchObject({ style: { outline: { width: 20, color: '#ff0000' }, glow: { size: 40, color: DEFAULT_CUTOUT_STYLE.glow.color } } });
+    expect(DEFAULT_CUTOUT_STYLE.outline.width).not.toBe(20);
+    reorderLayer(CLIP, id, 'down');
+    expect(cover().layers.map((l) => l.id)).toEqual([id, title]);
+    valid();
+    deleteLayer(CLIP, id);
+    expect(cover().layers.map((l) => l.id)).toEqual([title]);
+  });
+});
+
+it("doesn't copy a cutout: the cover has one", () => {
+  const id = addCoverCutout(CLIP);
+  expect(duplicateLayer(CLIP, id)).toBe(id);
+  expect(cover().layers.map((l) => l.id)).toEqual([id]);
 });

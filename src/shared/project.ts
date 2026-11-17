@@ -12,6 +12,7 @@ import { z } from 'zod';
 import { assetSchema, type Asset } from './assets.ts';
 import { captionStyleSchema } from './caption-style.ts';
 import { chromaKeySchema } from './chroma-key.ts';
+import { cutoutStyleSchema } from './cutout.ts';
 import { EFFECT_NAMES, paramsValid } from './effects.ts';
 import { fps, frameAt, timeOfFrame, workingFrameRate } from './frames.ts';
 import { motionSchema, transformSchema } from './motion.ts';
@@ -21,7 +22,7 @@ import { MAX_TEXT_CHARS, textStyleSchema } from './text-style.ts';
 import { speakerCountSchema, speakerPickSchema, voiceEditSchema } from './voices.ts';
 
 /** Bumped when the file format changes in a way older files need migrating for. */
-export const PROJECT_FORMAT = 18;
+export const PROJECT_FORMAT = 19;
 export const PROJECT_EXTENSION = 'rezzo';
 
 /**
@@ -305,6 +306,21 @@ export const textLayerSchema = z.object({
 });
 export type TextLayer = z.infer<typeof textLayerSchema>;
 
+/**
+ * The people in the cover's picture drawn again where this layer is in the
+ * stack, with an outline and a glow (shared/cutout.ts), so the layers
+ * under it go behind them. Only on a cover: the cover is one picture, and
+ * finding the people takes a moment. Its start and end aren't used.
+ */
+export const cutoutLayerSchema = z.object({
+  id: z.uuid(),
+  kind: z.literal('cutout'),
+  start: seconds,
+  end: seconds,
+  style: cutoutStyleSchema,
+});
+export type CutoutLayer = z.infer<typeof cutoutLayerSchema>;
+
 const fade = z.number().min(0).max(MAX_FADE_SECONDS);
 
 /**
@@ -347,7 +363,7 @@ export type SoundLayer = z.infer<typeof soundLayerSchema>;
  * source video first, then the rest over it. Sound layers draw nothing.
  */
 export const layerSchema = z.discriminatedUnion('kind', [
-  videoLayerSchema, captionLayerSchema, imageLayerSchema, overlayLayerSchema, lottieLayerSchema, textLayerSchema, effectLayerSchema, soundLayerSchema,
+  videoLayerSchema, captionLayerSchema, imageLayerSchema, overlayLayerSchema, lottieLayerSchema, textLayerSchema, effectLayerSchema, soundLayerSchema, cutoutLayerSchema,
 ]);
 export type Layer = z.infer<typeof layerSchema>;
 /** Layers that show a file over the picture. */
@@ -355,18 +371,18 @@ export type FileLayer = ImageLayer | OverlayLayer | LottieLayer;
 /** Layers placed and animated over the picture: those that show a file, and text. */
 export type PlacedLayer = FileLayer | TextLayer;
 /** Layers that play for part of the clip and can be moved around in it. */
-export type TimedLayer = PlacedLayer | EffectLayer | SoundLayer;
+export type TimedLayer = PlacedLayer | EffectLayer | SoundLayer | CutoutLayer;
 
 export const isFileLayer = (layer: Layer): layer is FileLayer => layer.kind === 'image' || layer.kind === 'overlay' || layer.kind === 'lottie';
 export const isPlaced = (layer: Layer): layer is PlacedLayer => isFileLayer(layer) || layer.kind === 'text';
-export const isTimed = (layer: Layer): layer is TimedLayer => isPlaced(layer) || layer.kind === 'effect' || layer.kind === 'sound';
+export const isTimed = (layer: Layer): layer is TimedLayer => isPlaced(layer) || layer.kind === 'effect' || layer.kind === 'sound' || layer.kind === 'cutout';
 export const isSound = (layer: Layer): layer is SoundLayer => layer.kind === 'sound';
 
 const NO_KEYS: Animated<unknown> = [];
 
-/** The keyframes a layer's keyframe controls work on: a placed layer's transform, an effect's intensity; a sound has none. */
+/** The keyframes a layer's keyframe controls work on: a placed layer's transform, an effect's intensity; a sound and a cutout have none. */
 export const keyframesOf = (layer: TimedLayer): Animated<unknown> =>
-  layer.kind === 'effect' ? layer.intensity : layer.kind === 'sound' ? NO_KEYS : layer.transform;
+  layer.kind === 'effect' ? layer.intensity : layer.kind === 'sound' || layer.kind === 'cutout' ? NO_KEYS : layer.transform;
 
 /** The project's sound file a sound layer plays, or null for a sound from the library. */
 export const soundAssetId = (layer: SoundLayer): string | null => ('assetId' in layer.sound ? layer.sound.assetId : null);
@@ -376,13 +392,15 @@ export const ASSET_KIND_OF = { image: 'image', overlay: 'video', lottie: 'lottie
 
 /**
  * A layer on a clip's cover: an image or text, with the same settings as
- * on the timeline but placed with one key, since the cover is one moment.
- * Its start, end and motion aren't used.
+ * on the timeline but placed with one key, since the cover is one moment,
+ * or the people cut out. Its start, end and motion aren't used.
  */
 export const coverLayerSchema = z
-  .discriminatedUnion('kind', [imageLayerSchema, textLayerSchema])
-  .refine((l) => l.transform.length === 1, 'a cover layer is placed with one key');
-export type CoverLayer = ImageLayer | TextLayer;
+  .discriminatedUnion('kind', [imageLayerSchema, textLayerSchema, cutoutLayerSchema])
+  .refine((l) => l.kind === 'cutout' || l.transform.length === 1, 'a cover layer is placed with one key');
+export type CoverLayer = ImageLayer | TextLayer | CutoutLayer;
+/** Cover layers placed over the picture: an image or text. */
+export type PlacedCoverLayer = Exclude<CoverLayer, CutoutLayer>;
 
 /**
  * The clip's cover picture (shared/cover.ts): the clip's video held at
@@ -417,6 +435,7 @@ export const clipSchema = z
   .refine((c) => c.skips.every((s, i) => s.end > s.start && (i === 0 || s.start >= c.skips[i - 1]!.end)), 'skips are in order and apart')
   .refine((c) => c.layers[0]?.kind === 'video' && c.layers.filter((l) => l.kind === 'video').length === 1, 'a clip has one video layer, at the bottom')
   .refine((c) => c.layers.filter((l) => l.kind === 'caption').length <= 1, 'a clip has at most one caption layer')
+  .refine((c) => c.layers.every((l) => l.kind !== 'cutout'), 'only a cover has a cutout')
   .refine((c) => new Set(allLayers(c).map((l) => l.id)).size === allLayers(c).length, "layer ids are unique, the cover's included")
   .refine((c) => c.layers.every((l) => !isTimed(l) || l.end > l.start), 'a layer ends after it starts')
   .refine((c) => c.layers.every((l) => l.kind !== 'effect' || paramsValid(l.effect, l.params)), "an effect has its own settings, each in range")
@@ -559,6 +578,8 @@ const MIGRATIONS: Record<number, (old: Record<string, unknown>) => Record<string
   16: (old) => old,
   // Format 18 let a cover go on the video's first frames. Covers made before it don't.
   17: (old) => ({ ...old, clips: Array.isArray(old.clips) ? old.clips.map(withCoverOutOfVideo) : old.clips }),
+  // Format 19 added cutouts on covers. Nothing to change, as for 16.
+  18: (old) => old,
 };
 
 /** A clip from before format 18, its cover (if it has one) kept out of the exported video. */

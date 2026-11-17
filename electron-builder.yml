@@ -38,6 +38,11 @@ extraResources:
     to: tools/face-landmarker
     filter:
       - '*.task'
+  # MediaPipe's model for cutting people out on a cover (src/renderer/src/cutout).
+  - from: vendor/tools/selfie-multiclass
+    to: tools/selfie-multiclass
+    filter:
+      - '*.tflite'
   # The sound effects library (src/main/sounds.ts), with who made each one.
   - from: resources/sounds
     to: sounds

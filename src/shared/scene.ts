@@ -9,6 +9,7 @@
  */
 import type { Asset } from './assets.ts';
 import type { ChromaKey } from './chroma-key.ts';
+import type { CutoutStyle } from './cutout.ts';
 import { effectPassAt, type EffectPass } from './effects.ts';
 import { frameRecipe, OUTPUT, type FrameRecipe, type Size } from './framing.ts';
 import { lottieFrameAt, lottieRenderSize } from './lottie.ts';
@@ -35,6 +36,8 @@ export type SceneOp =
   /** A text layer's picture, painted by render/text.ts. */
   | { type: 'text'; layerId: string; quad: Quad; opacity: number }
   | { type: 'effect'; layerId: string; pass: EffectPass }
+  /** The people in the video drawn again, with the video's framing (shared/cutout.ts). */
+  | { type: 'cutout'; layerId: string; recipe: FrameRecipe; style: CutoutStyle }
   | { type: 'captions' };
 
 const NO_TEXTS: ReadonlyMap<string, { size: Size }> = new Map();
@@ -109,15 +112,19 @@ export function quadContains(q: Quad, px: number, py: number): boolean {
  */
 export function sceneAt(clip: Clip, assets: readonly Asset[], t: number, source: Size, texts: ReadonlyMap<string, { size: Size }> = NO_TEXTS): SceneOp[] {
   const ops: SceneOp[] = [];
+  let recipe: FrameRecipe | undefined;
   for (const layer of clip.layers) {
     if (layer.kind === 'video') {
-      ops.push({ type: 'video', recipe: frameRecipe(videoLayerOf(clip), t, source) });
+      recipe = frameRecipe(videoLayerOf(clip), t, source);
+      ops.push({ type: 'video', recipe });
     } else if (layer.kind === 'caption') {
       ops.push({ type: 'captions' });
     } else if (!showsAt(layer, t)) {
       continue;
     } else if (layer.kind === 'sound') {
       continue;
+    } else if (layer.kind === 'cutout') {
+      if (recipe) ops.push({ type: 'cutout', layerId: layer.id, recipe, style: layer.style });
     } else if (layer.kind === 'effect') {
       const pass = effectPassAt(layer, t);
       if (pass) ops.push({ type: 'effect', layerId: layer.id, pass });

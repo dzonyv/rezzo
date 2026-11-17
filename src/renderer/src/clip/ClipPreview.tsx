@@ -138,6 +138,9 @@ export function ClipPreview({
       }
     };
     r.lotties.onError = (_layerId, e) => notify('error', i18n.t('layers.errors.lottie.play', { detail: e instanceof Error ? e.message : String(e) }));
+    r.cutouts.onFound = () => currentPlayer()?.setScene(drawAt.current, prepareAt.current);
+    r.cutouts.onError = (e) => notify('error', i18n.t('cutout.failed', { detail: e instanceof Error ? e.message : String(e) }));
+    r.cutouts.onLooking = (findingPeople) => clipPlaybackStore.setState({ findingPeople });
     setSampler((layerId, assetId, u, v) => c.sampleLayer(layerId, assetId, u, v));
     const resize = new ResizeObserver(() => {
       el.width = Math.round(el.clientWidth * devicePixelRatio);
@@ -155,7 +158,18 @@ export function ClipPreview({
     el.addEventListener('webglcontextrestored', restored);
     // For the end-to-end tests: what the renderer drew.
     Object.assign(window, {
-      __rezzoPreview: { readRow: (y: number) => Array.from(c.readRow(y)), hasAudio: () => currentPlayer()?.hasAudio ?? null },
+      __rezzoPreview: {
+        readRow: (y: number) => Array.from(c.readRow(y)),
+        hasAudio: () => currentPlayer()?.hasAudio ?? null,
+        // The test videos have nobody in them: white counts as people instead.
+        whiteIsPeople: () => {
+          r.cutouts.find = (pixels, width, height) => {
+            const data = new Uint8Array(width * height);
+            for (let i = 0; i < data.length; i++) data[i] = pixels[i * 4]! > 200 ? 255 : 0;
+            return Promise.resolve({ data, width, height });
+          };
+        },
+      },
     });
     return () => {
       resize.disconnect();
@@ -164,6 +178,7 @@ export function ClipPreview({
       setPlayer(null);
       compositor.current = null;
       renderer.current = null;
+      clipPlaybackStore.setState({ findingPeople: false });
       setSampler(null);
       r.dispose();
       c.dispose();
@@ -210,6 +225,8 @@ export function ClipPreview({
             return;
           }
           player.onError = (e) => clipPlaybackStore.setState({ status: 'failed', error: String(e) });
+          // The cover saved or exported from this working file uses the people the preview finds.
+          if (renderer.current) renderer.current.cutouts.file = result.url;
           player.setScene(drawAt.current, prepareAt.current);
           player.setSounds(sounds.current);
           player.setClipGain(clipGainNow.current);

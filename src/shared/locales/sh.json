@@ -97,7 +97,9 @@
     "evenLoudness": "ujednačavanje glasnoće",
     "coverMoment": "trenutak naslovne",
     "coverFraming": "kadar naslovne",
-    "coverInVideo": "naslovna u videu"
+    "coverInVideo": "naslovna u videu",
+    "addCutout": "dodavanje isečene osobe",
+    "cutoutStyle": "obrub ili sjaj isečene osobe"
   },
   "files": {
     "project": "Rezzo projekat",
@@ -450,7 +452,8 @@
       "lottie": "Animacija",
       "text": "Tekst",
       "effect": "Efekat",
-      "audio": "Zvuk"
+      "audio": "Zvuk",
+      "cutout": "Isečena osoba"
     },
     "video": "Video",
     "captions": "Titlovi",
@@ -875,5 +878,15 @@
   "view": {
     "label": "Prikaz",
     "help": "Šta se crta preko slike dok radiš: pronađeni ljudi, bezbedne zone platforme. Ništa od toga ne ide u izvoz."
+  },
+  "cutout": {
+    "addHelp": "Ljudi sa slike nacrtani ponovo preko naslovne, da naslov može da stoji iza njih",
+    "help": "Ljudi sa slike, nacrtani ponovo na ovom mestu u redosledu: slojevi ispod idu iza njih. Pomeraš je sa Napred i Nazad ispod naslovne.",
+    "finding": "Tražim ljude na slici…",
+    "outline": "Obrub",
+    "outlineColor": "Boja obruba",
+    "glow": "Sjaj",
+    "glowColor": "Boja sjaja",
+    "failed": "Ljudi na slici nisu pronađeni: {{detail}}"
   }
 }

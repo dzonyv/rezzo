@@ -4,7 +4,8 @@ import { newCaptionLayer } from './captions.ts';
 import { DEFAULT_CAPTION_STYLE } from './caption-style.ts';
 import { defaultVideoLayer } from './framing.ts';
 import { DEFAULT_MOTION } from './motion.ts';
-import type { Clip, EffectLayer, ImageLayer, LottieLayer, OverlayLayer, TextLayer } from './project.ts';
+import { DEFAULT_CUTOUT_STYLE } from './cutout.ts';
+import type { Clip, CutoutLayer, EffectLayer, ImageLayer, LottieLayer, OverlayLayer, TextLayer } from './project.ts';
 import { overlayTimeAt, quadContains, quadCorners, quadOf, sceneAt } from './scene.ts';
 import { DEFAULT_TEXT_STYLE } from './text-style.ts';
 
@@ -165,5 +166,16 @@ describe('scene', () => {
     expect(corners[0]![1]).toBeCloseTo(960 - 270);
     expect(quadContains(q, 540, 960 + 260)).toBe(true);
     expect(quadContains(q, 540 + 260, 960)).toBe(false);
+  });
+});
+
+describe('cutout', () => {
+  it("draws the people again where the cutout is in the stack, framed as the video", () => {
+    const cutout: CutoutLayer = { id: crypto.randomUUID(), kind: 'cutout', start: 0, end: 10, style: DEFAULT_CUTOUT_STYLE };
+    const clip: Clip = { id: crypto.randomUUID(), name: 'x', skips: [], evenLoudness: false, start: 0, end: 10, layers: [defaultVideoLayer(0), cutout] };
+    const ops = sceneAt(clip, [], 3, SOURCE);
+    expect(ops.map((o) => o.type)).toEqual(['video', 'cutout']);
+    expect(ops[1]).toMatchObject({ layerId: cutout.id, style: DEFAULT_CUTOUT_STYLE });
+    expect(ops[1]!.type === 'cutout' && ops[0]!.type === 'video' && ops[1]!.recipe === ops[0]!.recipe).toBe(true);
   });
 });
