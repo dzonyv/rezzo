@@ -245,4 +245,44 @@ describe('covers', () => {
     await pickView(page, 'No safe zones');
     await expect.poll(() => page.locator('.safe-zones').count()).toBe(0);
   });
+
+  it('works the view menu from the keyboard, and closes it without touching the selected layer', async () => {
+    await openTool(page, 'Cover');
+    await page.locator('.clip-drawer .add-tiles').getByRole('button', { name: 'Text' }).click();
+    const selected = page.getByRole('heading', { name: 'Text: Your title here' });
+    await selected.waitFor();
+    const eye = page.getByRole('button', { name: 'View', exact: true });
+    const menu = page.getByRole('menu', { name: 'View' });
+    const focused = () => page.locator(':focus').textContent();
+
+    await eye.click();
+    await expect.poll(focused).toBe('Show people');
+    // Down past "No safe zones" to TikTok, and Space picks it rather than reaching the editor.
+    await page.keyboard.press('ArrowDown');
+    await page.keyboard.press('ArrowDown');
+    await expect.poll(focused).toBe('TikTok');
+    await page.keyboard.press('Space');
+    await expect.poll(() => menu.getByRole('menuitemradio', { name: 'TikTok' }).getAttribute('aria-checked')).toBe('true');
+    await page.locator('.safe-zones .clear').waitFor();
+    expect(await page.locator('.view-menu .dot').count()).toBe(1);
+    // Up from the first item goes round to the last.
+    await page.keyboard.press('Home');
+    await page.keyboard.press('ArrowUp');
+    await expect.poll(focused).toBe('YouTube Shorts');
+
+    // Escape closes the menu only: the layer stays selected, and the eye has focus again.
+    await page.keyboard.press('Escape');
+    await expect.poll(() => menu.count()).toBe(0);
+    expect(await selected.isVisible()).toBe(true);
+    await expect.poll(() => eye.evaluate((el) => el === (el.ownerDocument as { activeElement: unknown }).activeElement)).toBe(true);
+
+    // A press elsewhere closes it too.
+    await eye.click();
+    await menu.waitFor();
+    await page.locator('.clip-editor .clip-name').click();
+    await expect.poll(() => menu.count()).toBe(0);
+
+    await pickView(page, 'No safe zones');
+    await expect.poll(() => page.locator('.view-menu .dot').count()).toBe(0);
+  });
 });

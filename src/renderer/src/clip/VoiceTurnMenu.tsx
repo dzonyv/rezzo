@@ -1,5 +1,6 @@
-import { useEffect, useEffectEvent, useLayoutEffect, useRef, useState } from 'react';
+import { useLayoutEffect, useRef, useState } from 'react';
 import { useTranslation } from 'react-i18next';
+import { useDismiss } from '../ui/dismiss.ts';
 import type { HeardVoice, VoiceTurn } from '../../../shared/voices.ts';
 import { correctTurn, mergeVoice, splitTurn } from '../project/voices.ts';
 import { voiceColor, voiceLabel } from '../voice-colors.ts';
@@ -40,24 +41,7 @@ export function VoiceTurnMenu({ turn, at, x, y, voices, onClose }: Props) {
     setPlace({ left: Math.max(0, Math.min(x, window.innerWidth - box.width)), top: Math.max(0, Math.min(y, window.innerHeight - box.height)) });
   }, [x, y]);
 
-  // The timeline draws on every frame of playback; that shouldn't touch these listeners.
-  const close = useEffectEvent(onClose);
-  useEffect(() => {
-    const onPointer = (e: PointerEvent) => {
-      if (!menu.current?.contains(e.target as Node)) close();
-    };
-    const onKey = (e: KeyboardEvent) => {
-      if (e.key !== 'Escape') return;
-      e.stopImmediatePropagation();
-      close();
-    };
-    document.addEventListener('pointerdown', onPointer, true);
-    window.addEventListener('keydown', onKey, true);
-    return () => {
-      document.removeEventListener('pointerdown', onPointer, true);
-      window.removeEventListener('keydown', onKey, true);
-    };
-  }, []);
+  useDismiss(menu, onClose);
 
   const then = (action: () => void) => () => {
     action();
