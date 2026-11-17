@@ -49,6 +49,17 @@ export async function openTool(page: Page, name: string): Promise<void> {
   if ((await button.getAttribute('aria-pressed')) !== 'true') await button.click();
 }
 
+/**
+ * Presses `name` in the menu under the eye in the preview's corner (what's
+ * drawn over the picture), then closes the menu.
+ */
+export async function pickView(page: Page, name: string): Promise<void> {
+  const eye = page.getByRole('button', { name: 'View', exact: true });
+  if ((await eye.getAttribute('aria-expanded')) !== 'true') await eye.click();
+  await page.getByRole('menu', { name: 'View' }).getByRole(name === 'Show people' ? 'menuitemcheckbox' : 'menuitemradio', { name, exact: true }).click();
+  await page.keyboard.press('Escape');
+}
+
 /** Puts the playhead `seconds` into a clip of `length` seconds by pressing on the timeline's ruler. */
 export async function seekTimeline(page: Page, seconds: number, length: number): Promise<void> {
   const timeline = page.locator('.clip-timeline');

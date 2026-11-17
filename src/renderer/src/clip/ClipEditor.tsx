@@ -4,8 +4,7 @@ import { coverClip, coverOf } from '../../../shared/cover.ts';
 import { keyAt, valueAt } from '../../../shared/framing.ts';
 import { fps, workingFrameRate } from '../../../shared/frames.ts';
 import { videoLayersOverLimit } from '../../../shared/overlay-files.ts';
-import { DEFAULT_CLIP_DOCK, type Settings } from '../../../shared/settings.ts';
-import { PLATFORMS } from '../../../shared/safe-zones.ts';
+import { DEFAULT_CLIP_DOCK } from '../../../shared/settings.ts';
 import { captionPages, captionTrackFor } from '../../../shared/captions.ts';
 import { keptLength, outputTime } from '../../../shared/skips.ts';
 import { captionLayerOf, isPlaced, isTimed, LAYOUTS, videoLayerOf, type Clip, type Source, type TimedLayer } from '../../../shared/project.ts';
@@ -39,6 +38,7 @@ import { LayerOverlay } from './LayerOverlay.tsx';
 import { useTextImages } from '../render/text.ts';
 import { PeopleOverlay } from './PeopleOverlay.tsx';
 import { SafeZoneOverlay } from './SafeZoneOverlay.tsx';
+import { ViewMenu } from './ViewMenu.tsx';
 import { WhoTalks } from './WhoTalks.tsx';
 import { EffectPanel } from './EffectPanel.tsx';
 import { LayerPanel } from './LayerPanel.tsx';
@@ -48,7 +48,8 @@ import { ToolRail } from './ToolRail.tsx';
 import { WordStrip } from './WordStrip.tsx';
 
 const EDGES = ['start', 'end'] as const;
-const SAFE_ZONE_CHOICES = ['off', ...PLATFORMS] as const;
+/** Showing people opens the Voices drawer, where who talks is set. */
+const VOICES: ClipTool = 'voices';
 
 /**
  * The open clip, filling the workspace: the 9:16 preview in the middle with
@@ -220,6 +221,15 @@ export function ClipEditor({ clip, source, side, voices }: { clip: Clip; source:
             {showPeople && <PeopleOverlay layer={layer} time={time} sourceSize={sourceSize} />}
             {captions && <CaptionOverlay clipId={clip.id} layer={captions} track={captionTrackFor(layout)} time={time} />}
             {safeZones !== 'off' && <SafeZoneOverlay platform={safeZones} onCover={onCover} />}
+            <ViewMenu
+              showPeople={showPeople}
+              onShowPeople={(on) => {
+                if (on) setTool(VOICES);
+                setShowPeople(on);
+              }}
+              safeZones={safeZones}
+              onSafeZones={(zones) => void setSettings({ safeZones: zones })}
+            />
           </ClipPreview>
         </div>
 
@@ -250,24 +260,6 @@ export function ClipEditor({ clip, source, side, voices }: { clip: Clip; source:
               </button>
             ))}
           </div>
-          <button
-            type="button"
-            aria-pressed={showPeople}
-            title={t('analysis.showPeopleHelp')}
-            onClick={() => {
-              if (!showPeople) setTool('voices');
-              setShowPeople(!showPeople);
-            }}
-          >
-            {t('analysis.showPeople')}
-          </button>
-          <select aria-label={t('safeZones.label')} title={t('safeZones.help')} value={safeZones} onChange={(e) => void setSettings({ safeZones: e.target.value as Settings['safeZones'] })}>
-            {SAFE_ZONE_CHOICES.map((p) => (
-              <option key={p} value={p}>
-                {t(`safeZones.platforms.${p}`)}
-              </option>
-            ))}
-          </select>
         </div>
       </div>
 

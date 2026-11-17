@@ -871,5 +871,9 @@
       "reels": "Instagram Reels",
       "shorts": "YouTube Shorts"
     }
+  },
+  "view": {
+    "label": "Prikaz",
+    "help": "Šta se crta preko slike dok radiš: pronađeni ljudi, bezbedne zone platforme. Ništa od toga ne ide u izvoz."
   }
 }

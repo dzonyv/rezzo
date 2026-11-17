@@ -871,5 +871,9 @@
       "reels": "Instagram Reels",
       "shorts": "YouTube Shorts"
     }
+  },
+  "view": {
+    "label": "View",
+    "help": "What's drawn over the picture while you edit: the people found, a platform's safe zones. None of it is exported."
   }
 }
