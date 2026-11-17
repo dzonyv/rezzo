@@ -352,6 +352,15 @@ export class ClipPlayer {
   private async showWanted(): Promise<void> {
     while (!this.playing && !this.disposed && this.wanted !== null && this.wanted !== this.shown) {
       const target = this.wanted;
+      const last = this.frames.frameCount - 1;
+      if (this.shown >= last && target >= last && this.shown >= 0) {
+        // Both past the working file's last picture (seek() holds it): it's already up, only what's over it changes.
+        await this.prepareAt(this.timeOf(target), false);
+        if (this.playing || this.disposed) return;
+        this.shown = target;
+        this.draw(target);
+        continue;
+      }
       const frame = await this.frames.seek(target);
       await this.prepareAt(this.timeOf(target), false).catch((e: unknown) => {
         frame.close();

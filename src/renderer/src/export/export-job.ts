@@ -160,6 +160,9 @@ export async function renderExport(job: ExportJob, port: MessagePort, clip: Clip
       }
     }
 
+    // A working file can end a frame or two before its clip (a source's sound
+    // running longer than its picture); frames() then holds the last picture,
+    // and captions and layers go on over it.
     for (const piece of job.pieces) {
       if (signal.aborted || link.error) break;
       for await (const { frame, index } of frames.frames(piece.first, piece.count)) {

@@ -51,50 +51,74 @@ export class FrameSource {
     return this.indexByTimestamp.get(frame.timestamp) ?? -1;
   }
 
-  /** Yields frames start..start+count-1 in order. The caller must close each frame. */
+  /**
+   * Yields frames start..start+count-1 in order. The caller must close each
+   * frame. Past the file's last frame, that one is yielded again for each
+   * index asked for (see seek()); a frame that fails to decode on the way
+   * ends it early instead.
+   */
   async *frames(start: number, count: number): AsyncGenerator<{ frame: VideoFrame; index: number }> {
     await this.restart();
     this.dirty = true;
     let next = this.keyframeAtOrBefore(start);
-    const end = Math.min(start + count, this.frameCount);
+    const end = start + count;
+    const fileEnd = Math.min(end, this.frameCount);
     let flushed = false;
     let drained = false;
     let wanted = start;
+    // The last frame, kept for the indices past it.
+    let held: VideoFrame | undefined;
 
-    while (wanted < end) {
-      while (next < this.frameCount && this.decoder.decodeQueueSize < 4 && this.ready.length < 4) {
-        this.decoder.decode(this.chunk(next++));
+    try {
+      while (wanted < fileEnd) {
+        while (next < this.frameCount && this.decoder.decodeQueueSize < 4 && this.ready.length < 4) {
+          this.decoder.decode(this.chunk(next++));
+        }
+        if (next >= this.frameCount && !flushed) {
+          flushed = true;
+          // Once the flush settles no more frames will come. It rejects if the
+          // decoder is reset meanwhile, which only means the same.
+          const done = () => {
+            drained = true;
+            this.notify();
+          };
+          this.decoder.flush().then(done, done);
+        }
+        const frame = this.ready.shift();
+        if (!frame) {
+          // Fewer frames than expected (a sample failed to decode): stop and
+          // let the caller notice instead of waiting forever.
+          if (drained) return;
+          await this.nextEvent();
+          continue;
+        }
+        const index = this.indexOf(frame);
+        if (index < wanted) {
+          frame.close();
+          continue;
+        }
+        wanted = index + 1;
+        if (index === this.frameCount - 1 && end > this.frameCount) held = frame.clone();
+        yield { frame, index };
       }
-      if (next >= this.frameCount && !flushed) {
-        flushed = true;
-        // Once the flush settles no more frames will come. It rejects if the
-        // decoder is reset meanwhile, which only means the same.
-        const done = () => {
-          drained = true;
-          this.notify();
-        };
-        this.decoder.flush().then(done, done);
-      }
-      const frame = this.ready.shift();
-      if (!frame) {
-        // Fewer frames than expected (a sample failed to decode): stop and
-        // let the caller notice instead of waiting forever.
-        if (drained) return;
-        await this.nextEvent();
-        continue;
-      }
-      const index = this.indexOf(frame);
-      if (index < wanted) {
-        frame.close();
-        continue;
-      }
-      wanted = index + 1;
-      yield { frame, index };
+      if (wanted >= end || this.frameCount === 0) return;
+      // Asked for frames past the end: none of the file's were wanted, or the last one was.
+      held ??= await this.seek(this.frameCount - 1);
+      this.dirty = true;
+      for (; wanted < end; wanted++) yield { frame: held.clone(), index: wanted };
+    } finally {
+      held?.close();
     }
   }
 
-  /** Decodes just frame `target`. The caller must close it. */
+  /**
+   * Decodes just frame `target`; past the file's last frame, that one. A
+   * working file can end a frame or two before its clip, because a source's
+   * sound can run longer than its picture: the last picture stays up, as in
+   * a player. The caller must close it.
+   */
   async seek(target: number): Promise<VideoFrame> {
+    if (this.frameCount > 0) target = Math.min(target, this.frameCount - 1);
     await this.restart();
     const key = this.keyframeAtOrBefore(target);
     this.discardBefore = target;
