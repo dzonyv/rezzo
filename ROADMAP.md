@@ -58,7 +58,7 @@ Built in three parts: 4a (clip analysis: voices, camera cuts, people), 4b (who t
 - Silence removal, and cutting words out of a clip ✓
 - Sound, before the first release: sound effects (a click, a camera shutter, a whoosh…) and music as audio layers on the clip timeline, with volume and fades. A small library of freely licensed effects comes with the app, and your own files work too. Loudness evened out, sounds that go with a layer's entrance or exit, and music that gets quieter while someone talks. ✓
 - Fixes from the audit of 2026-11-08, before the first release (details below). ✓ Some smaller items are still open, listed below under "Also from the audit".
-- Thumbnails: a cover picture for each clip, with a title, effects and the speaker cut out in front (details below).
+- Thumbnails: a cover picture for each clip, with a title, effects and the speaker cut out in front (details below). Parts a and c are done; part b (the cutout, effects and templates) is left.
 - AI suggestions for interesting moments.
 - macOS and Linux.
 
