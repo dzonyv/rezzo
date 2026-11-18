@@ -62,7 +62,10 @@ jobs:
             # A rerun: replace the files, keep whatever was written in the draft by hand.
             gh release upload "$GITHUB_REF_NAME" "release/$installer" release/SHA256SUMS.txt --clobber
           else
-            node scripts/release-notes.mts "$VERSION" "$installer" > release/notes.md
+            # Once the installer is code-signed, the text stops telling people what to do about SmartScreen.
+            signature=$(powershell -NoProfile -Command "(Get-AuthenticodeSignature 'release/$installer').Status")
+            signed=$([ "$(echo "$signature" | tr -d '\r')" = "Valid" ] && echo --signed || true)
+            node scripts/release-notes.mts "$VERSION" "$installer" $signed > release/notes.md
             gh release create "$GITHUB_REF_NAME" "release/$installer" release/SHA256SUMS.txt \
               --draft --verify-tag --title "Rezzo $VERSION" --notes-file release/notes.md
           fi
