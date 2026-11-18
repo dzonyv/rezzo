@@ -1,10 +1,11 @@
 import { CHANGELOG } from '../shared/changelog.ts';
 
 /**
- * The text of a GitHub release: what the version brought, from the
- * changelog in both interface languages, and where to read how to install
- * it. How to install lives in the README only, so it's changed in one
- * place (when the installer gets signed, say). The checksum is in
+ * The text of a GitHub release, in English and then Serbian: what the
+ * version brought, from the changelog, and how to install it, SmartScreen's
+ * warning included while the installer isn't signed. The README has the
+ * same advice in English; this page is where people read it as they
+ * download, so it's here in both languages. The checksum is in
  * SHA256SUMS.txt next to the installer, not here: a rebuild replaces that
  * file but leaves this text as it was.
  */
@@ -17,13 +18,21 @@ export function releaseNotes(version: string, installer: string): string {
     '',
     list(release.changes.en),
     '',
+    '## Installing',
+    '',
+    `Download \`${installer}\` and run it. It installs for your user and doesn't need administrator rights.`,
+    '',
+    'The installer isn\'t signed yet, so Windows SmartScreen warns you the first time. Click "More info", then "Run anyway". `SHA256SUMS.txt` has its SHA-256, to check the download by.',
+    '',
     '## Šta donosi',
     '',
     list(release.changes.sh),
     '',
-    '## Installing',
+    '## Instalacija',
     '',
-    `Download \`${installer}\` and run it. The [README](https://github.com/dzonyv/rezzo#download) says what to do when Windows warns you about it. \`SHA256SUMS.txt\` has its SHA-256.`,
+    `Preuzmi \`${installer}\` i pokreni ga. Instalira se samo za tvog korisnika i ne traži administratorska prava.`,
+    '',
+    'Instaler još nije potpisan, pa Windows SmartScreen prvi put upozori na njega. Klikni „More info”, pa „Run anyway”. U `SHA256SUMS.txt` je njegov SHA-256, za proveru preuzetog fajla.',
     '',
   ].join('\n');
 }
