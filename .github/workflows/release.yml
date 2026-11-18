@@ -1,0 +1,68 @@
+# Builds the installer for a version tag and leaves it in a draft GitHub
+# release, to be read over and published by hand:
+#
+#   git tag v0.1.0 && git push origin v0.1.0
+name: Release
+
+on:
+  push:
+    tags: ['v*']
+
+permissions:
+  contents: write
+
+# A tag pushed again while its build runs waits instead of racing it for the release.
+concurrency:
+  group: release-${{ github.ref }}
+
+jobs:
+  release:
+    runs-on: windows-latest
+    defaults:
+      run:
+        shell: bash
+    steps:
+      - uses: actions/checkout@v4
+        with:
+          # Otherwise the token that can write releases sits in .git/config, where any install script can read it.
+          persist-credentials: false
+      - uses: actions/setup-node@v4
+        with:
+          node-version: 24
+          cache: npm
+      - name: Check the tag is the version in package.json
+        run: |
+          version=$(node -p "require('./package.json').version")
+          if [ "v$version" != "$GITHUB_REF_NAME" ]; then
+            echo "::error::Tag $GITHUB_REF_NAME, but package.json says $version"
+            exit 1
+          fi
+          echo "VERSION=$version" >> "$GITHUB_ENV"
+      - run: npm ci
+      # npm doesn't always run Electron's install script; this fetches the binary if it's missing.
+      - run: node node_modules/electron/install.js
+      # CI tested the commit on main; these are quick, and the packaged e2e below tests what ships.
+      - run: npm run check
+      - run: npm run fetch-tools
+      # electron-builder publishes on its own when it sees a tag in CI; the release is made below instead.
+      - run: npm run dist -- --publish never
+      - run: npm run test:e2e:packaged
+      - name: Make the draft release
+        env:
+          GH_TOKEN: ${{ github.token }}
+        run: |
+          installer="Rezzo-Setup-$VERSION.exe"
+          (cd release && sha256sum "$installer" | sed 's/ \*/  /' > SHA256SUMS.txt)
+          # The list, not `gh release view`: a draft isn't attached to its tag yet.
+          draft=$(gh release list --limit 1000 --json tagName,isDraft --jq "[.[] | select(.tagName == \"$GITHUB_REF_NAME\")][0].isDraft // empty")
+          if [ "$draft" = "false" ]; then
+            echo "::error::$GITHUB_REF_NAME is already published; its installer stays as people downloaded it. Bump the version instead."
+            exit 1
+          elif [ "$draft" = "true" ]; then
+            # A rerun: replace the files, keep whatever was written in the draft by hand.
+            gh release upload "$GITHUB_REF_NAME" "release/$installer" release/SHA256SUMS.txt --clobber
+          else
+            node scripts/release-notes.mts "$VERSION" "$installer" > release/notes.md
+            gh release create "$GITHUB_REF_NAME" "release/$installer" release/SHA256SUMS.txt \
+              --draft --verify-tag --title "Rezzo $VERSION" --notes-file release/notes.md
+          fi
