@@ -48,6 +48,8 @@ npm run dev
 
 `fetch-tools` puts FFmpeg, the voice tools and the pose and face models in `vendor/`. `npm run check` runs the linter, the type checker and the unit tests, and `npm run test:e2e` builds the app and drives it with Playwright. `npm run dist` builds the installer into `release/`.
 
+To release a version, bump it in `package.json`, add what it brings to `src/shared/changelog.ts`, then push a tag like `v0.1.0`. GitHub Actions runs the tests, builds the installer and leaves it in a draft release with the changelog as its text. Read it over and publish it.
+
 ## Under the hood
 
 Electron, React and TypeScript. FFmpeg comes with the app, whisper.cpp does the transcription, MediaPipe finds people and faces, and sherpa-onnx tells voices apart. A single WebGL renderer draws both the preview and the export. Before any of it was built I checked that the hard parts work on an ordinary PC; what I found is in [spikes/REPORT.md](spikes/REPORT.md). What comes next is in [ROADMAP.md](ROADMAP.md). macOS and Linux are on that list.

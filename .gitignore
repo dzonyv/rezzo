@@ -34,6 +34,7 @@ desktop.ini
 *.mts
 # ...but not TypeScript config modules
 !*.config.mts
+!scripts/*.mts
 *.wav
 *.mp3
 *.m4a

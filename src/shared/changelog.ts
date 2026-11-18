@@ -24,6 +24,7 @@ export const CHANGELOG: Release[] = [
         'Voices told apart, and the camera following whoever is talking.',
         'Pauses and words cut out of a clip.',
         'Export at 1080×1920 on the graphics card, with no watermark.',
+        'A cover for each clip: a frame or your own picture, a title, the people cut out in front of it, effects and templates.',
       ],
       sh: [
         'Transkripcija sa vremenom svake reči, uvek na latinici.',
@@ -34,6 +35,7 @@ export const CHANGELOG: Release[] = [
         'Glasovi se razlikuju, a kadar prati onoga ko priča.',
         'Izbacivanje pauza i reči iz klipa.',
         'Izvoz u 1080×1920 preko grafičke kartice, bez watermarka.',
+        'Naslovna slika za svaki klip: kadar ili tvoja slika, naslov, ljudi izdvojeni ispred njega, efekti i šabloni.',
       ],
     },
   },
