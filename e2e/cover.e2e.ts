@@ -405,6 +405,10 @@ describe('covers', () => {
     expect(after.map((l) => l.text)).toEqual(before);
     expect(after[0]).toMatchObject({ style: { color: '#ffd400' } });
 
+    // A built-in's name is taken.
+    await page.getByRole('textbox', { name: 'Template name' }).fill('classic');
+    await page.getByRole('button', { name: 'Save as template' }).click();
+    await page.getByText('“classic” is the name of a template that comes with the app. Pick another.').waitFor();
     await page.getByRole('textbox', { name: 'Template name' }).fill('Moj izgled');
     await page.getByRole('button', { name: 'Save as template' }).click();
     await page.getByText('Saved the template “Moj izgled”.').waitFor();

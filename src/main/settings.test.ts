@@ -32,6 +32,15 @@ describe('settings', () => {
     expect((await getSettings()).uiLanguage).toBe('sh');
   });
 
+  it('keeps the saved templates that are fine when one of them is damaged', async () => {
+    const { writeFile } = await import('node:fs/promises');
+    const good = { name: 'Moj', template: { layers: [] } };
+    const bad = { name: 'Stari', template: { layers: [{ kind: 'effect', effect: 'blur', intensity: 1, params: { amount: 9 } }] } };
+    await writeFile(path.join(dir, 'settings.json'), JSON.stringify({ uiLanguage: 'sh', coverTemplates: [bad, good] }));
+    const { getSettings } = await import('./settings.ts');
+    expect((await getSettings()).coverTemplates).toEqual([good]);
+  });
+
   it('drops the spoken language that older settings files still have', async () => {
     const { writeFile } = await import('node:fs/promises');
     await writeFile(path.join(dir, 'settings.json'), JSON.stringify({ uiLanguage: 'sh', transcriptLanguage: 'hr' }));

@@ -879,12 +879,14 @@
       "fade": "Dark fade",
       "glow": "Glow"
     },
-    "templatesHelp": "A template puts its titles, cutout and effects on the cover in place of these. Your titles keep their words, and images stay. Save the cover as it is to use its look on other clips.",
+    "templatesHelp": "A template puts its titles, cutout and effects on the cover in place of these. Your titles keep their words, and images stay. Save the cover as it is to use its look on other clips: the look and place of its titles go with it, not their words.",
     "templateName": "Template name",
     "saveTemplate": "Save as template",
     "templateSaved": "Saved the template “{{name}}”.",
     "templateSaveFailed": "The template couldn't be saved.",
-    "deleteTemplate": "Delete the template “{{name}}”"
+    "deleteTemplate": "Delete the template “{{name}}”",
+    "templateNameTaken": "“{{name}}” is the name of a template that comes with the app. Pick another.",
+    "templateEmpty": "Put a title, the cutout or an effect on the cover to save it as a template."
   },
   "safeZones": {
     "label": "Safe zones",

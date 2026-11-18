@@ -33,17 +33,30 @@ const templateLayerSchema = z.discriminatedUnion('kind', [
 ]);
 export type TemplateLayer = z.infer<typeof templateLayerSchema>;
 
-export const coverTemplateSchema = z.object({ layers: z.array(templateLayerSchema).max(MAX_TEMPLATE_LAYERS) });
+/** As on a cover: at most one cutout, and one effect of each kind. */
+function oneOfEach(layers: readonly TemplateLayer[]): boolean {
+  const kinds = layers.flatMap((l) => (l.kind === 'cutout' ? ['cutout'] : l.kind === 'effect' ? [`effect ${l.effect}`] : []));
+  return new Set(kinds).size === kinds.length;
+}
+
+export const coverTemplateSchema = z.object({
+  layers: z.array(templateLayerSchema).max(MAX_TEMPLATE_LAYERS).refine(oneOfEach, 'one cutout and one effect of each kind at most'),
+});
 export type CoverTemplate = z.infer<typeof coverTemplateSchema>;
 
 export const savedTemplateSchema = z.object({ name: z.string().min(1).max(60), template: coverTemplateSchema });
 export type SavedTemplate = z.infer<typeof savedTemplateSchema>;
 
-/** The template a cover makes: its layers but the images, each as it is at the cover's moment. */
+/**
+ * The template a cover makes: its layers but the images, each as it is at
+ * the cover's moment. Titles keep their look and place but not their
+ * words, which are about this clip: put on another cover, a title with no
+ * words of that cover's says the placeholder.
+ */
 export function templateOf(cover: Pick<Cover, 'time' | 'layers'>): CoverTemplate {
   const layers: TemplateLayer[] = [];
   for (const l of cover.layers) {
-    if (l.kind === 'text') layers.push({ kind: 'text', text: l.text, style: structuredClone(l.style), place: { ...valueAt(l.transform, cover.time) } });
+    if (l.kind === 'text') layers.push({ kind: 'text', text: '', style: structuredClone(l.style), place: { ...valueAt(l.transform, cover.time) } });
     else if (l.kind === 'cutout') layers.push({ kind: 'cutout', style: structuredClone(l.style) });
     else if (l.kind === 'effect') {
       const effect: TemplateLayer = { kind: 'effect', effect: l.effect, intensity: valueAt(l.intensity, cover.time), params: { ...l.params } };
@@ -61,8 +74,9 @@ type NewId = () => string;
  * its order, with the cover's titles keeping their words. The first title
  * of the template gets the words of the cover's first title, and so on;
  * a template title with nobody's words says its own text, or `placeholder`.
- * What the template has no place for stays over it as it was: images, and
- * titles past the template's.
+ * What the template has no place for stays as it was: images at the
+ * bottom of the cover (a background) under the template's layers, other
+ * images and titles past the template's over them.
  */
 export function applyTemplate(
   cover: Pick<Cover, 'time' | 'layers'>,
@@ -98,8 +112,10 @@ export function applyTemplate(
       }
     }
   });
-  const kept = cover.layers.filter((l) => l.kind === 'image' || (l.kind === 'text' && titles.indexOf(l) >= used));
-  return [...made, ...kept];
+  const below = cover.layers.findIndex((l) => l.kind !== 'image');
+  const under = below < 0 ? cover.layers : cover.layers.slice(0, below);
+  const over = cover.layers.filter((l) => !under.includes(l) && (l.kind === 'image' || (l.kind === 'text' && titles.indexOf(l) >= used)));
+  return [...under, ...made, ...over];
 }
 
 const title = (place: Partial<Transform>, style: Partial<TextStyle> = {}): TemplateLayer => ({

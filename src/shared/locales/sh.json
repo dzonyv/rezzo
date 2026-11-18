@@ -879,12 +879,14 @@
       "fade": "Tamni prelaz",
       "glow": "Sjaj"
     },
-    "templatesHelp": "Šablon stavlja na naslovnu svoje naslove, izrezane ljude i efekte umesto ovih. Tvoji naslovi zadržavaju svoje reči, a slike ostaju. Sačuvaj naslovnu kakva je da njen izgled koristiš na drugim klipovima.",
+    "templatesHelp": "Šablon stavlja na naslovnu svoje naslove, izrezane ljude i efekte umesto ovih. Tvoji naslovi zadržavaju svoje reči, a slike ostaju. Sačuvaj naslovnu kakva je da njen izgled koristiš na drugim klipovima: s njom idu izgled i mesto naslova, ne i njihove reči.",
     "templateName": "Naziv šablona",
     "saveTemplate": "Sačuvaj kao šablon",
     "templateSaved": "Šablon „{{name}}“ je sačuvan.",
     "templateSaveFailed": "Šablon nije mogao da se sačuva.",
-    "deleteTemplate": "Obriši šablon „{{name}}“"
+    "deleteTemplate": "Obriši šablon „{{name}}“",
+    "templateNameTaken": "„{{name}}“ je naziv šablona koji dolazi sa aplikacijom. Izaberi drugi.",
+    "templateEmpty": "Stavi naslov, izrezane ljude ili efekat na naslovnu da bi je sačuvao kao šablon."
   },
   "safeZones": {
     "label": "Bezbedne zone",
