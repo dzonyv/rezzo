@@ -306,11 +306,12 @@ uniform vec3 uColor;
 uniform vec3 uParams;
 void main() {
   vec2 uv = gl_FragCoord.xy / uSize;
-  // Towards the edge the colour comes from: down at 0, then left, up, right.
+  // Towards the edge the colour comes from, on screen: down at 0, then left, up, right.
   vec2 d = vec2(-sin(uParams.z), cos(uParams.z));
-  // How far from that edge, 0 there and 1 at the far side, whichever way it's turned.
-  float reach = 0.5 * (abs(d.x) + abs(d.y));
-  float away = (reach - dot(uv - 0.5, d)) / (2.0 * reach);
+  // How far from that edge, 0 there and 1 at the far corner, whichever way it's turned;
+  // in pixels, so 45 degrees on the tall picture is 45 degrees to the eye.
+  float reach = 0.5 * dot(abs(d), uSize);
+  float away = (reach - dot(gl_FragCoord.xy - 0.5 * uSize, d)) / (2.0 * reach);
   float a = uParams.x * (1.0 - smoothstep(0.0, uParams.y, away));
   o = vec4(mix(at(uv), uColor, a), 1.0);
 }`;

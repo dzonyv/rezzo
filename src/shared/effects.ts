@@ -33,8 +33,10 @@ interface EffectDef {
   /** The colour a new effect of this kind starts with ("#rrggbb"); effects without one have no colour. */
   color?: string;
   /**
-   * It can go on a cover: what it does doesn't depend on where in its time
-   * the moment is. A zoom or a fade only makes sense while it plays.
+   * It can go on a cover: it changes how a picture looks rather than moving
+   * or fading it, which only makes sense while the clip plays. Glitch and
+   * grain take their noise from the moment, so a cover moved a frame gets
+   * different noise, as a frame of the clip would.
    */
   still?: true;
 }

@@ -33,10 +33,7 @@ export function EffectPanel({ clipId, layer, time, rate, onCover = false }: Prop
   const { t } = useTranslation();
   const store = projectStore.getState();
   const name = t(`effects.names.${layer.effect}`);
-  const at = insideLayer(layer, time);
-  const keys = layer.intensity;
-  const keyIndex = keyAt(keys, at, rate);
-  const intensity = valueAt(keys, at);
+  const intensity = valueAt(layer.intensity, insideLayer(layer, time));
   const params: [string, ParamDef][] = Object.entries(EFFECTS[layer.effect].params);
 
   /** One undo step per drag of a slider; arrow keys make a step each. */
@@ -86,26 +83,7 @@ export function EffectPanel({ clipId, layer, time, rate, onCover = false }: Prop
         </label>
       </div>
 
-      {!onCover && (
-        <div className="keyframes">
-          <button type="button" disabled={keyIndex >= 0} onClick={() => addLayerKey(clipId, layer.id, time)}>
-            <span className="diamond" aria-hidden="true" />
-            {t('clipEditor.addKeyframe')}
-          </button>
-          <label className={keyIndex < 0 || keyIndex === keys.length - 1 ? 'disabled' : undefined}>
-            <input
-              type="checkbox"
-              disabled={keyIndex < 0 || keyIndex === keys.length - 1}
-              checked={keyIndex >= 0 && keys[keyIndex]!.ease === 'smooth'}
-              onChange={(e) => setLayerKeySmooth(clipId, layer.id, keyIndex, e.target.checked)}
-            />
-            {t('clipEditor.smooth')}
-          </label>
-          <button type="button" disabled={keyIndex < 0 || keys.length === 1} onClick={() => deleteLayerKey(clipId, layer.id, keyIndex)}>
-            {t('clipEditor.deleteKeyframe')}
-          </button>
-        </div>
-      )}
+      {!onCover && <IntensityKeys clipId={clipId} layer={layer} time={time} rate={rate} />}
 
       {layer.color !== undefined && (
         <div className="layer-grid layer-section">
@@ -141,5 +119,32 @@ export function EffectPanel({ clipId, layer, time, rate, onCover = false }: Prop
       )}
       <p className="dim hint">{t(onCover ? 'effects.coverHelp' : 'effects.help')}</p>
     </section>
+  );
+}
+
+/** Keyframes on the intensity, at the frame on screen; a cover's effect has one key and none of these. */
+function IntensityKeys({ clipId, layer, time, rate }: Omit<Props, 'onCover'>) {
+  const { t } = useTranslation();
+  const keys = layer.intensity;
+  const keyIndex = keyAt(keys, insideLayer(layer, time), rate);
+  return (
+    <div className="keyframes">
+      <button type="button" disabled={keyIndex >= 0} onClick={() => addLayerKey(clipId, layer.id, time)}>
+        <span className="diamond" aria-hidden="true" />
+        {t('clipEditor.addKeyframe')}
+      </button>
+      <label className={keyIndex < 0 || keyIndex === keys.length - 1 ? 'disabled' : undefined}>
+        <input
+          type="checkbox"
+          disabled={keyIndex < 0 || keyIndex === keys.length - 1}
+          checked={keyIndex >= 0 && keys[keyIndex]!.ease === 'smooth'}
+          onChange={(e) => setLayerKeySmooth(clipId, layer.id, keyIndex, e.target.checked)}
+        />
+        {t('clipEditor.smooth')}
+      </label>
+      <button type="button" disabled={keyIndex < 0 || keys.length === 1} onClick={() => deleteLayerKey(clipId, layer.id, keyIndex)}>
+        {t('clipEditor.deleteKeyframe')}
+      </button>
+    </div>
   );
 }

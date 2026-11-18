@@ -130,15 +130,15 @@ export function addCoverCutout(clipId: string): string {
  * it but under everything else, so it changes the picture and not the
  * cutout or the title; returns its id.
  */
-export function addCoverEffect(clipId: string, effect: EffectName): string {
-  let id = '';
-  editCover(clipId, 'history.addEffect', (cover, clip) => {
-    const layer = newEffectLayer(effect, clip.start, clip.end, cover.time);
-    id = layer.id;
+export function addCoverEffect(clipId: string, effect: EffectName): string | null {
+  const clip = projectStore.getState().project?.clips.find((c) => c.id === clipId);
+  if (!clip) return null;
+  const layer = newEffectLayer(effect, clip.start, clip.end, coverOf(clip).time);
+  editCover(clipId, 'history.addEffect', (cover) => {
     const above = cover.layers.findIndex((l) => l.kind !== 'effect');
     cover.layers.splice(above < 0 ? cover.layers.length : above, 0, layer);
   });
-  return id;
+  return layer.id;
 }
 
 /** Changes the cutout's outline or glow; sliders and colour pickers call it inside a gesture. */

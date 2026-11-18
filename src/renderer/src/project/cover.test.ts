@@ -156,8 +156,8 @@ describe('effects on the cover', () => {
   it('go under the cutout and the title, over the effects already there, with one key at the moment', () => {
     const title = addCoverText(CLIP, 'Naslov');
     const people = addCoverCutout(CLIP);
-    const blur = addCoverEffect(CLIP, 'blur');
-    const gradient = addCoverEffect(CLIP, 'gradient');
+    const blur = addCoverEffect(CLIP, 'blur')!;
+    const gradient = addCoverEffect(CLIP, 'gradient')!;
     expect(cover().layers.map((l) => l.id)).toEqual([blur, gradient, title, people]);
     expect(cover().layers[1]).toMatchObject({ kind: 'effect', effect: 'gradient', color: '#000000', intensity: [{ t: cover().time, value: 1 }] });
     expect(cover().layers[0]).not.toHaveProperty('color');
@@ -165,7 +165,7 @@ describe('effects on the cover', () => {
   });
 
   it('keep one key when the moment moves and the intensity changes', () => {
-    const id = addCoverEffect(CLIP, 'vignette');
+    const id = addCoverEffect(CLIP, 'vignette')!;
     setCoverTime(CLIP, cover().time + 1);
     setIntensity(CLIP, id, cover().time, 0.4);
     const layer = cover().layers[0]!;
@@ -173,11 +173,14 @@ describe('effects on the cover', () => {
     valid();
   });
 
-  it('change their settings, and the gradient its colour', () => {
-    const id = addCoverEffect(CLIP, 'gradient');
+  it('change their settings, and the gradient its colour, and are not copied', () => {
+    const id = addCoverEffect(CLIP, 'gradient')!;
     setEffectParam(CLIP, id, 'angle', 180);
     setEffectColor(CLIP, id, '#ff0000');
     expect(cover().layers[0]).toMatchObject({ params: { angle: 180 }, color: '#ff0000' });
+    // One of each: a copy would be the same effect twice.
+    expect(duplicateLayer(CLIP, id)).toBe(id);
+    expect(cover().layers).toHaveLength(1);
     valid();
   });
 });
