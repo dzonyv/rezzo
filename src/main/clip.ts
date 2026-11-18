@@ -13,6 +13,7 @@ import { allowMedia, sourceUrl } from './media-protocol.ts';
 import { cacheDir } from './paths.ts';
 import { callWorker } from './worker-host.ts';
 import { findCovering, prune } from './working-cache.ts';
+import { logFailure } from './log.ts';
 
 /** Working files kept per source; older ones are deleted. */
 const KEEP = 20;
@@ -92,6 +93,7 @@ export async function prepareClip(sender: WebContents, sourceArg: unknown, range
     return { ok: true, url: allowMedia(file), start: spanStart(span), end: spanEnd(span), frameRate: span.rate };
   } catch (e) {
     if (abort.signal.aborted) return { ok: false, error: 'cancelled' };
+    logFailure('clip', e);
     return { ok: false, error: 'failed', detail: e instanceof Error ? e.message : String(e) };
   } finally {
     if (running.get(sender.id) === abort) running.delete(sender.id);

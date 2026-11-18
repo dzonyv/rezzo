@@ -17,6 +17,8 @@
     "madeBy": "Made by",
     "links": "About Rezzo",
     "report": "Report a problem",
+    "log": "Log",
+    "logHelp": "Opens the folder with the log of what went wrong. Attach rezzo.log when you report a problem.",
     "licenses": "Licenses"
   },
   "editor": {

@@ -1,0 +1,49 @@
+name: Something doesn't work
+description: Rezzo crashed, showed an error, or did something you didn't expect.
+labels: [bug]
+body:
+  - type: markdown
+    attributes:
+      value: |
+        Thanks for taking the time. The more of this you fill in, the sooner it gets fixed.
+
+        Please don't attach the episode or clips from it unless they're yours to share. A screenshot usually does the job.
+  - type: textarea
+    id: what
+    attributes:
+      label: What happened
+      description: What you did, what you expected, and what you got instead. The text of any error message helps a lot.
+    validations:
+      required: true
+  - type: textarea
+    id: steps
+    attributes:
+      label: How to make it happen again
+      description: The steps, if you know them. "It happens every time I export a clip with captions" is enough.
+      placeholder: |
+        1. Open a project
+        2. ...
+  - type: input
+    id: version
+    attributes:
+      label: Rezzo version
+      description: It's in the bottom right corner of the home screen.
+      placeholder: 0.1.0
+    validations:
+      required: true
+  - type: input
+    id: system
+    attributes:
+      label: Windows version and graphics card
+      placeholder: Windows 11, NVIDIA GTX 1660
+  - type: textarea
+    id: log
+    attributes:
+      label: Log
+      description: |
+        On the home screen, press **Log**. It opens a folder; drag `rezzo.log` here. The log has file and folder names in it, so look through it first if that matters to you.
+  - type: textarea
+    id: footage
+    attributes:
+      label: About the footage
+      description: If it seems to depend on the video, what kind is it? One wide shot or several cameras, resolution, length, where it came from (camera, OBS, a download).

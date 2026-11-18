@@ -5,6 +5,7 @@
 import { utilityProcess, type MessagePortMain, type UtilityProcess } from 'electron';
 import path from 'node:path';
 import workerPath from '../workers/media/index.ts?modulePath';
+import { log } from './log.ts';
 import { WorkerError, type WorkerMethod, type WorkerMethods, type WorkerReply } from '../shared/worker-api.ts';
 import { ffmpegBinDir } from './paths.ts';
 
@@ -19,6 +20,9 @@ interface Pending {
 let child: UtilityProcess | undefined;
 const pending = new Map<number, Pending>();
 let nextId = 1;
+
+/** Workers stopped on purpose; their exit isn't a crash. */
+const stopped = new WeakSet<UtilityProcess>();
 
 function worker(): UtilityProcess {
   if (child) return child;
@@ -40,6 +44,8 @@ function worker(): UtilityProcess {
   });
   proc.on('exit', (code) => {
     if (child === proc) child = undefined;
+    // Anything but a stop on purpose (stopWorker) is a crash worth knowing about.
+    if (code !== 0 && !stopped.has(proc)) log('error', 'media worker', `exited with ${code}, ${pending.size} job(s) running`);
     for (const p of pending.values()) p.reject(new WorkerError(`media worker exited with ${code}`, 'worker-exited'));
     pending.clear();
   });
@@ -156,6 +162,7 @@ function waitFor(paths: readonly string[]): Promise<unknown> | null {
 }
 
 export function stopWorker(): void {
+  if (child) stopped.add(child);
   child?.kill();
   child = undefined;
 }

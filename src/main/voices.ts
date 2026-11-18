@@ -13,6 +13,7 @@ import type { VoicesProgress } from '../shared/worker-api.ts';
 import { tool } from '../node/tools/manifest.ts';
 import { bundledToolDir, cacheDir } from './paths.ts';
 import { callWorker } from './worker-host.ts';
+import { logFailure } from './log.ts';
 
 const requestSchema = z.object({
   projectId: z.uuid(),
@@ -65,6 +66,7 @@ export async function startVoices(sender: WebContents, request: unknown): Promis
     return { ok: true, voices };
   } catch (e) {
     if (abort.signal.aborted) return { ok: false, error: 'cancelled' };
+    logFailure('voices', e);
     return { ok: false, error: 'failed', detail: e instanceof Error ? e.message : String(e) };
   } finally {
     if (running === abort) running = undefined;

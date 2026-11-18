@@ -12,6 +12,7 @@ import { isInstalled } from '../node/tools/download.ts';
 import { tool } from '../node/tools/manifest.ts';
 import { cacheDir, downloadedToolDir } from './paths.ts';
 import { callWorker } from './worker-host.ts';
+import { errorText, log, logFailure } from './log.ts';
 
 const MODEL_ID = 'large-v3-turbo-q5_0';
 const NVIDIA = 0x10de;
@@ -95,10 +96,12 @@ export async function startTranscription(sender: WebContents, request: unknown):
       // going and then failed would fail the same way on the CPU.
       const cudaWontStart = build === 'whisper-cuda' && e instanceof WorkerError && e.code === 'whisper-failed' && !whisperStarted;
       if (!cudaWontStart) throw e;
+      log('warn', 'transcription', `the CUDA build didn't start, using the CPU one: ${errorText(e)}`);
       return { ok: true, transcript: await run('whisper-cpu') };
     }
   } catch (e) {
     if (abort.signal.aborted) return { ok: false, error: 'cancelled' };
+    logFailure('transcription', e);
     const code = e instanceof WorkerError ? e.code : undefined;
     if (code === 'network' || code === 'http' || code === 'checksum' || code === 'extract') {
       return { ok: false, error: 'download-failed', detail: e instanceof Error ? e.message : String(e) };

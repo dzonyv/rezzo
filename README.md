@@ -54,7 +54,7 @@ Electron, React and TypeScript. FFmpeg comes with the app, whisper.cpp does the 
 
 ## Contributing
 
-Issues and ideas are welcome. The project's rules are in [CLAUDE.md](CLAUDE.md). The most important one: never commit podcast or show footage. Anything used for testing has to be openly licensed.
+Issues and ideas are welcome. If something breaks, press Log on the home screen and attach rezzo.log to the report; it stays on your computer otherwise. The project's rules are in [CLAUDE.md](CLAUDE.md). The most important one: never commit podcast or show footage. Anything used for testing has to be openly licensed.
 
 ## License
 

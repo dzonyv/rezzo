@@ -16,6 +16,7 @@ import { allowMedia, assetUrl } from './media-protocol.ts';
 import { cacheDir } from './paths.ts';
 import { callWorker } from './worker-host.ts';
 import { findCovering, prune } from './working-cache.ts';
+import { logFailure } from './log.ts';
 
 /** Working files kept per layer file; older ones are deleted. */
 const KEEP = 10;
@@ -125,6 +126,7 @@ export async function prepareOverlay(sender: WebContents, assetArg: unknown, ran
     return { ok: true, url: allowMedia(file), start: spanStart(span), end: spanEnd(span), frameRate: span.rate, layout: overlayLayout(asset) };
   } catch (e) {
     if (abort.signal.aborted) return { ok: false, error: 'cancelled' };
+    logFailure('overlay', e);
     return { ok: false, error: 'failed', detail: e instanceof Error ? e.message : String(e) };
   } finally {
     requests.delete(id);
