@@ -18,7 +18,7 @@ An NVIDIA graphics card makes transcription and export a lot faster, but it isn'
 
 ## How it works
 
-You start with a whole episode. Press Transcribe and Rezzo writes it down with a time for every word, always in Latin script, even if the speech model hands back Cyrillic. While the video plays you can search the transcript, and fix the words Whisper got wrong one after another from the keyboard. Words it always gets wrong (it writes "futbal" every single time) go on a replacement list, and every new transcript gets them fixed.
+You start with a whole episode. Press Transcribe and Rezzo writes it down with a time for every word, always in Latin script, even if the speech model hands back Cyrillic. While the video plays you can search the transcript, and fix the words Whisper got wrong one after another from the keyboard. Words it always gets wrong (it writes "futbal" every single time) go on a replacement list, and every new transcript gets them fixed. Whisper also writes some ekavian speech as ijekavian ("gdje" where someone said "gde"), so Rezzo turns those words back to ekavian, with the word as Whisper wrote it shown when you point at it. A guest who really speaks ijekavian can be left as spoken: Voices has an e or ije choice for each person, and one for the whole transcript.
 
 ![The episode screen: the video and the voices found on the left, the transcript in the middle, the clips on the right, and the whole episode along the bottom](docs/screenshots/episode.png)
 

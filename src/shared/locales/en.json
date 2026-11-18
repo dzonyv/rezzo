@@ -84,6 +84,9 @@
     "correctTurn": "correct a turn",
     "splitTurn": "split a turn",
     "forgetVoiceEdits": "undo all voice corrections",
+    "speech": "change how the transcript is written",
+    "voiceSpeech": "change how a voice is written",
+    "matchVoices": "match the words to the voices",
     "pickSpeaker": "say who talks",
     "autoFrame": "auto frame",
     "cutPauses": "remove pauses",
@@ -203,7 +206,8 @@
     "next": "Next match (Enter)",
     "empty": "The transcript will appear here.",
     "editWord": "Correct the word",
-    "editHelp": "Enter: done · Tab: next word · Ctrl+↓: next unsure word · Ctrl+Space: listen · Esc: cancel"
+    "editHelp": "Enter: done · Tab: next word · Ctrl+↓: next unsure word · Ctrl+Space: listen · Esc: cancel",
+    "spoken": "Whisper wrote “{{word}}”. Double-click to correct it."
   },
   "player": {
     "preparing": "This video can't be played directly, so Rezzo is making a preview copy: {{percent}}%",
@@ -747,7 +751,16 @@
     "newVoice": "New voice",
     "nobody": "Nobody",
     "split": "Split here",
-    "wholeVoice": "This whole voice is"
+    "wholeVoice": "This whole voice is",
+    "speech": "Speech",
+    "speechHelp": "Whisper sometimes writes ekavian speech as ijekavian (gdje for gde). Ekavian turns those words back; As spoken leaves them as Whisper wrote them.",
+    "ekavian": "Ekavian",
+    "asSpoken": "As spoken",
+    "voiceEkavian": "e",
+    "voiceAsSpoken": "ije",
+    "voiceSpeech": "How {{voice}} is written",
+    "voiceEkavianHelp": "Ekavian: Rezzo turns this person's ijekavian words into ekavian",
+    "voiceAsSpokenHelp": "As spoken: this person's words stay as Whisper wrote them"
   },
   "analysis": {
     "cut": "Camera cut",

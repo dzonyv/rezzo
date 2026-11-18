@@ -22,7 +22,7 @@ import { MAX_TEXT_CHARS, textStyleSchema } from './text-style.ts';
 import { speakerCountSchema, speakerPickSchema, voiceEditSchema } from './voices.ts';
 
 /** Bumped when the file format changes in a way older files need migrating for. */
-export const PROJECT_FORMAT = 20;
+export const PROJECT_FORMAT = 21;
 export const PROJECT_EXTENSION = 'rezzo';
 
 /**
@@ -79,6 +79,10 @@ export const wordSchema = z.object({
   p: z.number().min(0).max(1),
   /** A new caption page starts at this word (set by the user). */
   pageBreak: z.literal(true).optional(),
+  /** How Whisper wrote it, when Rezzo turned it ekavian (see ekavian.ts). */
+  spoken: z.string().min(1).optional(),
+  /** Written by the user (a correction, or the replacement list), so Rezzo leaves its spelling alone. */
+  typed: z.literal(true).optional(),
 });
 export type Word = z.infer<typeof wordSchema>;
 
@@ -524,6 +528,8 @@ export const projectSchema = z
       /** Who the user said was talking, across all clips: one click teaches the whole episode. */
       picks: z.array(speakerPickSchema),
     }),
+    /** How the transcript is written for anyone whose voice has no choice of its own (see ekavian.ts). */
+    speech: z.enum(['ekavian', 'asSpoken']),
   })
   .refine((p) => new Set(p.assets.map((a) => a.id)).size === p.assets.length, 'asset ids are unique')
   .refine((p) => {
@@ -539,7 +545,7 @@ export const projectSchema = z
 export type Project = z.infer<typeof projectSchema>;
 
 export function newProject(name: string, id: string = crypto.randomUUID()): Project {
-  return { format: PROJECT_FORMAT, id, name, source: null, transcript: null, clips: [], assets: [], voices: { count: 'auto', edits: [], picks: [] } };
+  return { format: PROJECT_FORMAT, id, name, source: null, transcript: null, clips: [], assets: [], voices: { count: 'auto', edits: [], picks: [] }, speech: 'ekavian' };
 }
 
 /** The asset with this id, or undefined. */
@@ -590,6 +596,8 @@ const MIGRATIONS: Record<number, (old: Record<string, unknown>) => Record<string
   18: (old) => old,
   // Format 20 added effects on covers and the gradient. Nothing to change, as for 16.
   19: (old) => old,
+  // Format 21 turned ijekavian words ekavian. Transcripts made before it stay as they were.
+  20: (old) => ({ ...old, speech: 'asSpoken' }),
 };
 
 /** A clip from before format 18, its cover (if it has one) kept out of the exported video. */

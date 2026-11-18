@@ -22,14 +22,14 @@ export const replacementSchema = z.object({
 export type Replacement = z.infer<typeof replacementSchema>;
 
 /** Punctuation before, the word itself, punctuation after. */
-const PARTS = /^([^\p{L}\p{N}]*)(.*?)([^\p{L}\p{N}]*)$/su;
+export const PARTS = /^([^\p{L}\p{N}]*)(.*?)([^\p{L}\p{N}]*)$/su;
 
 const key = (text: string) => toLatin(text).normalize('NFC').toLowerCase();
 
 const isUpper = (s: string) => s === s.toUpperCase() && s !== s.toLowerCase();
 
 /** `text` written with the capitals of `like`. */
-function withCaseOf(like: string, text: string): string {
+export function withCaseOf(like: string, text: string): string {
   if ([...like].length > 1 && isUpper(like)) return text.toUpperCase();
   const first = [...like][0];
   return first && isUpper(first) ? text.charAt(0).toUpperCase() + text.slice(1) : text;

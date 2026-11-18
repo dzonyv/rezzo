@@ -1,11 +1,14 @@
+import { useId } from 'react';
 import { useTranslation } from 'react-i18next';
 import type { Project } from '../../../shared/project.ts';
 import { MAX_SPEAKERS, type HeardVoice, type SpeakerCount } from '../../../shared/voices.ts';
 import { formatDuration } from '../format.ts';
-import { forgetVoiceEdits, mergeVoice, nameVoice, retryVoices, setSpeakerCount, useHeardVoices, useVoices } from '../project/voices.ts';
+import { isEkavian, type Speech } from '../../../shared/ekavian.ts';
+import { forgetVoiceEdits, mergeVoice, nameVoice, retryVoices, setSpeakerCount, setSpeech, setVoiceSpeech, useHeardVoices, useVoices } from '../project/voices.ts';
 import { voiceColor, voiceLabel } from '../voice-colors.ts';
 
 const AUTO: SpeakerCount = 'auto';
+const SPEECHES: readonly Speech[] = ['ekavian', 'asSpoken'];
 
 /** The episode's voices: how many, how much each talks, what they're called, and how many people there should be. */
 export function VoicesPanel({ project }: { project: Project }) {
@@ -14,6 +17,7 @@ export function VoicesPanel({ project }: { project: Project }) {
   const progress = useVoices((s) => s.progress);
   const heard = useHeardVoices();
   const detail = useVoices((s) => s.detail);
+  const speechLabel = useId();
 
   return (
     <section className="voices-panel">
@@ -36,7 +40,12 @@ export function VoicesPanel({ project }: { project: Project }) {
       {heard && (
         <ul className="voice-list">
           {heard.voices.map((voice) => (
-            <VoiceRow key={voice.id} voice={voice} others={heard.voices.filter((v) => v.id !== voice.id)} />
+            <VoiceRow
+              key={voice.id}
+              voice={voice}
+              others={heard.voices.filter((v) => v.id !== voice.id)}
+              ekavian={isEkavian(voice.ekavian, project.speech)}
+            />
           ))}
         </ul>
       )}
@@ -54,8 +63,20 @@ export function VoicesPanel({ project }: { project: Project }) {
           ))}
         </select>
       </label>
+      <div className="speech-row">
+        <span id={speechLabel} title={t('voices.speechHelp')}>
+          {t('voices.speech')}
+        </span>
+        <div className="segmented" role="group" aria-labelledby={speechLabel}>
+          {SPEECHES.map((speech) => (
+            <button key={speech} type="button" aria-pressed={project.speech === speech} title={t('voices.speechHelp')} onClick={() => void setSpeech(speech)}>
+              {t(`voices.${speech}`)}
+            </button>
+          ))}
+        </div>
+      </div>
       {project.voices.edits.length + project.voices.picks.length > 0 && (
-        <button type="button" onClick={forgetVoiceEdits}>
+        <button type="button" onClick={() => void forgetVoiceEdits()}>
           {t('voices.forget')}
         </button>
       )}
@@ -63,8 +84,8 @@ export function VoicesPanel({ project }: { project: Project }) {
   );
 }
 
-/** One voice: its colour, a box for its name, how long it talks, and who else it might be. */
-function VoiceRow({ voice, others }: { voice: HeardVoice; others: readonly HeardVoice[] }) {
+/** One voice: its colour, a box for its name, how long it talks, whether it's written ekavian, and who else it might be. */
+function VoiceRow({ voice, others, ekavian }: { voice: HeardVoice; others: readonly HeardVoice[]; ekavian: boolean }) {
   const { t } = useTranslation();
   const label = voiceLabel(t, voice);
   return (
@@ -78,16 +99,24 @@ function VoiceRow({ voice, others }: { voice: HeardVoice; others: readonly Heard
         defaultValue={voice.name ?? ''}
         onBlur={(e) => {
           const name = e.target.value.trim();
-          if (name !== (voice.name ?? '')) nameVoice(voice.at, name);
+          if (name !== (voice.name ?? '')) void nameVoice(voice.at, name);
         }}
         onKeyDown={(e) => e.key === 'Enter' && e.currentTarget.blur()}
       />
       <span className="dim">{formatDuration(voice.seconds)}</span>
+      <div className="segmented voice-speech" role="group" aria-label={t('voices.voiceSpeech', { voice: label })}>
+        <button type="button" aria-pressed={ekavian} title={t('voices.voiceEkavianHelp')} onClick={() => void setVoiceSpeech(voice.at, true)}>
+          {t('voices.voiceEkavian')}
+        </button>
+        <button type="button" aria-pressed={!ekavian} title={t('voices.voiceAsSpokenHelp')} onClick={() => void setVoiceSpeech(voice.at, false)}>
+          {t('voices.voiceAsSpoken')}
+        </button>
+      </div>
       {others.length > 0 && (
         <select
           aria-label={t('voices.mergeInto', { voice: label })}
           value=""
-          onChange={(e) => e.target.value && mergeVoice(voice.at, Number(e.target.value))}
+          onChange={(e) => e.target.value && void mergeVoice(voice.at, Number(e.target.value))}
         >
           <option value="">{t('voices.sameAs')}</option>
           {others.map((other) => (

@@ -73,6 +73,10 @@ Lottie animations are drawn by dotLottie Web 0.81.0 (`@lottiefiles/dotlottie-web
 - sherpa-onnx 2.0.1 (Apache-2.0, the k2-fsa project), https://github.com/k2-fsa/sherpa-onnx. The prebuilt Node addon for Windows x64 from the npm package `sherpa-onnx-win-x64` ships in `tools/sherpa-onnx`, with the ONNX Runtime 1.28.2 DLLs it needs (MIT, Copyright (c) Microsoft Corporation, https://github.com/microsoft/onnxruntime).
 - The 3D-Speaker CAM++ speaker embedding model (`3dspeaker_speech_campplus_sv_zh_en_16k-common_advanced`, Apache-2.0, the 3D-Speaker project, https://github.com/modelscope/3D-Speaker), as converted to ONNX by the sherpa-onnx project. It ships in `tools/voice-embeddings`.
 
+## Ekavian words
+
+- The list of ijekavian word forms and their ekavian ones (`src/renderer/src/ekavian/words.txt`, compiled into the app's code) is made from the Serbian Latin Hunspell dictionary that LibreOffice ships, by Milutin Smiljanić, at commit 5fe575db of https://github.com/LibreOffice/dictionaries (`sr/sr-Latn.dic` and `sr/sr-Latn.aff`). The dictionary is released under GNU LGPL 3 or later, MPL 2 or later, or GNU GPL 3 or later, at your choice; Rezzo uses it under the GPL 3 or later. `scripts/make-ekavian.mts` shows how the list is made from it.
+
 ## Downloaded on first use, not included
 
 The first time you transcribe, Rezzo downloads these into `%LOCALAPPDATA%\Rezzo\tools`. They aren't part of the installer.

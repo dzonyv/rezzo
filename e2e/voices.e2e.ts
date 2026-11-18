@@ -13,6 +13,7 @@ import path from 'node:path';
 import { promisify } from 'node:util';
 import type { ElectronApplication, Page } from 'playwright-core';
 import { afterAll, beforeAll, describe, expect, it } from 'vitest';
+import { clipFromWords } from '../src/shared/clips.ts';
 import type { Project } from '../src/shared/project.ts';
 import { VOICES_VERSION } from '../src/shared/voices.ts';
 import { answerOpenDialog, answerSaveDialog, ffmpegExe, launchApp, segmentOf, stopApp, until } from './helpers.ts';
@@ -65,6 +66,11 @@ beforeAll(async () => {
     // Pauses of 0.6 s cut the speech into pieces of about 2 s.
     segments: [segmentOf(0.2, 2.2), segmentOf(2.8, 4.8), segmentOf(6.3, 8.3), segmentOf(8.9, 10.9)],
   };
+  // One ijekavian word for each voice, as Whisper sometimes writes ekavian speech.
+  project.transcript.segments[0]!.words[0]!.text = 'Gdje';
+  project.transcript.segments[2]!.words[0]!.text = 'vještine,';
+  // A clip of every word, named after them as a new clip is.
+  project.clips = [{ ...clipFromWords(project.transcript.segments.flatMap((x) => x.words), project.source!), start: 0, end: 12 }];
   await writeFile(file, JSON.stringify(project));
   await page.getByRole('button', { name: /two-sounds/ }).click();
   await page.locator('.transcript .w').first().waitFor();
@@ -92,5 +98,42 @@ describe('voices', () => {
     await expect.poll(() => countSelect().inputValue()).toBe('auto');
     await countSelect().selectOption('1');
     await expect.poll(() => voiceRows().count(), { timeout: 30_000 }).toBe(1);
+  });
+
+  it('writes the transcript ekavian, and a voice as spoken, each as one undo step', async () => {
+    await countSelect().selectOption('2');
+    await expect.poll(() => voiceRows().count(), { timeout: 30_000 }).toBe(2);
+    const words = () => page.locator('.transcript .w').allTextContents();
+    const has = async (word: string) => (await words()).some((w) => w.trim() === word);
+
+    await page.getByRole('group', { name: 'Speech' }).getByRole('button', { name: 'Ekavian' }).click();
+    await expect.poll(() => has('Gde')).toBe(true);
+    expect(await has('veštine,')).toBe(true);
+    expect(await page.locator('.transcript .w.turned').first().getAttribute('title')).toBe('Whisper wrote “Gdje”. Double-click to correct it.');
+
+    // One voice as spoken: its word goes back, the other voice's stays ekavian.
+    await voiceRows().first().getByRole('button', { name: 'ije' }).click();
+    await expect.poll(async () => (await has('Gdje')) !== (await has('vještine,'))).toBe(true);
+    expect((await has('Gde')) !== (await has('veštine,'))).toBe(true);
+    await expect.poll(() => voiceRows().first().getByRole('button', { name: 'ije' }).getAttribute('aria-pressed')).toBe('true');
+
+    await page.getByRole('button', { name: 'Undo', exact: true }).click();
+    await expect.poll(async () => (await has('Gde')) && (await has('veštine,'))).toBe(true);
+
+    const project = await saved();
+    expect(project.speech).toBe('ekavian');
+    expect(project.transcript!.segments[2]!.words[0]).toMatchObject({ text: 'veštine,', spoken: 'vještine,' });
+    // The clip was still named after its words, so its name follows them.
+    expect(project.clips[0]!.name).toMatch(/^Gde reč1/);
+
+    // One voice as spoken, then one person: the words follow the voices as they're worked out again.
+    await voiceRows().first().getByRole('button', { name: 'ije' }).click();
+    await expect.poll(async () => (await has('Gdje')) !== (await has('vještine,'))).toBe(true);
+    await countSelect().selectOption('1');
+    await expect.poll(() => voiceRows().count(), { timeout: 30_000 }).toBe(1);
+    await expect.poll(async () => (await has('Gdje')) && (await has('vještine,')), { timeout: 10_000 }).toBe(true);
+
+    await page.getByRole('group', { name: 'Speech' }).getByRole('button', { name: 'As spoken' }).click();
+    await expect.poll(async () => (await has('Gdje')) && (await has('vještine,'))).toBe(true);
   });
 });

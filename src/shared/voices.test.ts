@@ -127,14 +127,23 @@ describe('corrections to the voices', () => {
     const heard = heardVoices(found, []);
     expect(heard.turns).toEqual(found.turns);
     expect(heard.voices).toEqual([
-      { id: 0, name: null, seconds: 9, at: 9.5 },
-      { id: 1, name: null, seconds: 3, at: 14 },
+      { id: 0, name: null, ekavian: null, seconds: 9, at: 9.5 },
+      { id: 1, name: null, ekavian: null, seconds: 3, at: 14 },
     ]);
   });
 
   it('names a voice by a moment it talks at, and takes a name away', () => {
     expect(heardVoices(found, [{ kind: 'name', at: 2, name: 'Ana' }]).voices[0]!.name).toBe('Ana');
     expect(heardVoices(found, [{ kind: 'name', at: 2, name: 'Ana' }, { kind: 'name', at: 9, name: '' }]).voices[0]!.name).toBeNull();
+  });
+
+  it('says whether a voice speaks ekavian, and carries it into a merge', () => {
+    expect(heardVoices(found, [{ kind: 'speech', at: 14, ekavian: false }]).voices.map((v) => v.ekavian)).toEqual([null, false]);
+    const merged = heardVoices(found, [
+      { kind: 'speech', at: 14, ekavian: false },
+      { kind: 'merge', at: 14, into: 2 },
+    ]);
+    expect(merged.voices).toMatchObject([{ id: 0, ekavian: false }]);
   });
 
   it('finds the voice near a moment that falls in a pause', () => {
@@ -148,7 +157,7 @@ describe('corrections to the voices', () => {
       { kind: 'name', at: 14, name: 'Ana' },
       { kind: 'merge', at: 14, into: 2 },
     ]);
-    expect(heard.voices).toEqual([{ id: 0, name: 'Ana', seconds: 12, at: 9.5 }]);
+    expect(heard.voices).toEqual([{ id: 0, name: 'Ana', ekavian: null, seconds: 12, at: 9.5 }]);
     expect(heard.turns.every((t) => t.voice === 0)).toBe(true);
   });
 

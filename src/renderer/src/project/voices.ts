@@ -3,13 +3,26 @@
  * transcript, and again when the transcript, its words or the number of
  * people change. The result comes from the cache, not the project.
  */
+import { isDraft, original, type Draft } from 'immer';
 import { useMemo } from 'react';
 import { useStore } from 'zustand';
 import { createStore } from 'zustand/vanilla';
 import type { VoicesResult } from '../../../shared/api.ts';
-import type { Project } from '../../../shared/project.ts';
-import { heardVoices, type EpisodeVoices, type HeardVoices, type SpeakerCount, type SpeakerPick, type Span, type VoiceEdit } from '../../../shared/voices.ts';
+import { clipName } from '../../../shared/clips.ts';
+import { isEkavian, speechChanges, textAfter, writeSpeech, type EkavianTable, type Speech } from '../../../shared/ekavian.ts';
+import type { Clip, Project, Segment, Word } from '../../../shared/project.ts';
+import {
+  heardVoices,
+  voiceAt,
+  type EpisodeVoices,
+  type HeardVoices,
+  type SpeakerCount,
+  type SpeakerPick,
+  type Span,
+  type VoiceEdit,
+} from '../../../shared/voices.ts';
 import type { VoicesProgress } from '../../../shared/worker-api.ts';
+import { ekavianNow, loadEkavian } from '../ekavian/table.ts';
 import { projectStore, useProject, type EditLabel } from './store.ts';
 
 export interface VoicesState {
@@ -53,8 +66,10 @@ async function run(project: Project): Promise<void> {
     result = { ok: false, error: 'failed', detail: e instanceof Error ? e.message : String(e) };
   }
   if (id !== runs) return;
-  if (result.ok) voicesStore.setState({ status: 'ready', progress: null, voices: result.voices });
-  else if (result.error === 'failed') voicesStore.setState({ status: 'failed', progress: null, detail: result.detail });
+  if (result.ok) {
+    voicesStore.setState({ status: 'ready', progress: null, voices: result.voices });
+    void matchWordsToVoices();
+  } else if (result.error === 'failed') voicesStore.setState({ status: 'failed', progress: null, detail: result.detail });
   else voicesStore.setState({ status: 'idle', progress: null });
 }
 
@@ -73,6 +88,8 @@ const inputsOf = (p: Project | null) => (p?.source && p.transcript ? `${p.id}|${
 let settle: ReturnType<typeof setTimeout> | undefined;
 
 projectStore.subscribe((s, prev) => {
+  // Ready before anyone makes a choice that needs it.
+  if (s.project?.transcript) void loadEkavian().catch(() => undefined);
   const now = inputsOf(s.project);
   const before = inputsOf(prev.project);
   const wordsEdited = now !== null && now === before && s.project?.transcript?.segments !== prev.project?.transcript?.segments;
@@ -106,12 +123,83 @@ export function useHeardVoices(): HeardVoices | null {
   return useMemo(() => (found ? heardVoices(found, edits ?? []) : null), [found, edits]);
 }
 
-function addVoiceEdit(label: EditLabel, edit: VoiceEdit): void {
-  projectStore.getState().edit(label, (d) => void d.voices.edits.push(edit));
+/** Whether a word is to be ekavian: its voice's choice, or the project's for a word nobody's voice covers. */
+export function ekavianChooser(speech: Speech, heard: HeardVoices | null): (word: Word) => boolean {
+  if (!heard) return () => isEkavian(null, speech);
+  const own = new Map(heard.voices.map((v) => [v.id, v.ekavian]));
+  return (word) => {
+    const voice = voiceAt(heard.turns, (word.start + word.end) / 2);
+    return isEkavian(voice === null ? null : own.get(voice), speech);
+  };
 }
 
+/** The words inside a clip's range. */
+const wordsIn = (segments: readonly Segment[], clip: Pick<Clip, 'start' | 'end'>): Word[] =>
+  segments.flatMap((s) => s.words.filter((w) => w.start >= clip.start && w.end <= clip.end));
+
+/**
+ * Writes the transcript's words the way the project's choices in `draft`
+ * now say. A clip still called after its words, as it was named when it
+ * was made, gets the new words in its name too.
+ */
+function rewriteWords(draft: Draft<Project>, table: EkavianTable): void {
+  if (!draft.transcript) return;
+  // Read from the transcript as it was, so only the words that change are drafted.
+  const plain: readonly Segment[] = isDraft(draft.transcript) ? original(draft.transcript)!.segments : draft.transcript.segments;
+  const found = voicesStore.getState().voices;
+  const ekavianFor = ekavianChooser(draft.speech, found ? heardVoices(found, draft.voices.edits) : null);
+  if (speechChanges(plain, ekavianFor, table) === 0) return;
+  for (const clip of draft.clips) {
+    const words = wordsIn(plain, clip);
+    if (words.length === 0 || clip.name !== clipName(words)) continue;
+    clip.name = clipName(words.map((w) => ({ text: textAfter(w, ekavianFor(w), table) })));
+  }
+  writeSpeech(draft.transcript.segments, ekavianFor, table, plain);
+}
+
+/** The word list for an edit, or null if it can't load, so the edit still happens. */
+async function tableForEdit(): Promise<EkavianTable | null> {
+  try {
+    return await loadEkavian();
+  } catch (e) {
+    console.warn('The ekavian word list could not be loaded:', e);
+    return null;
+  }
+}
+
+/**
+ * Makes an edit to the voices. Any of them but a name can change whose a
+ * word is, or whether it's ekavian, so the words are rewritten in the same
+ * undo step. Once the list has loaded (it starts with the transcript), the
+ * edit happens at once, before anything else the user does.
+ */
+async function editVoices(label: EditLabel, recipe: (draft: Draft<Project>) => void, rewrite = true): Promise<void> {
+  const table = rewrite ? (ekavianNow() ?? (await tableForEdit())) : null;
+  projectStore.getState().edit(label, (d) => {
+    recipe(d);
+    if (table) rewriteWords(d, table);
+  });
+}
+
+/**
+ * After the voices are worked out again, their turns and numbers can move:
+ * the words are matched to whoever now says them, as an undo step of its
+ * own, and only if any word changes.
+ */
+async function matchWordsToVoices(): Promise<void> {
+  const table = await tableForEdit();
+  const project = projectStore.getState().project;
+  const found = voicesStore.getState().voices;
+  if (!table || !project?.transcript || !found) return;
+  const ekavianFor = ekavianChooser(project.speech, heardVoices(found, project.voices.edits));
+  if (speechChanges(project.transcript.segments, ekavianFor, table) === 0) return;
+  projectStore.getState().edit('history.matchVoices', (d) => rewriteWords(d, table));
+}
+
+const addVoiceEdit = (label: EditLabel, edit: VoiceEdit, rewrite = true) => editVoices(label, (d) => void d.voices.edits.push(edit), rewrite);
+
 /** Names the voice talking at `at`; an empty name takes it away. */
-export const nameVoice = (at: number, name: string) => addVoiceEdit('history.nameVoice', { kind: 'name', at, name });
+export const nameVoice = (at: number, name: string) => addVoiceEdit('history.nameVoice', { kind: 'name', at, name }, false);
 
 /** The voice at `at` is the same person as the voice at `into`. */
 export const mergeVoice = (at: number, into: number) => addVoiceEdit('history.mergeVoices', { kind: 'merge', at, into });
@@ -121,13 +209,18 @@ export const correctTurn = ({ start, end }: Span, as: number | 'new' | null) => 
 
 export const splitTurn = (at: number) => addVoiceEdit('history.splitTurn', { kind: 'split', at });
 
+/** Ekavian or as spoken, for the voice talking at `at`. */
+export const setVoiceSpeech = (at: number, ekavian: boolean) => addVoiceEdit('history.voiceSpeech', { kind: 'speech', at, ekavian });
+
+/** Ekavian or as spoken, for everyone whose voice has no choice of its own. */
+export const setSpeech = (speech: Speech) => editVoices('history.speech', (d) => void (d.speech = speech));
+
 /** Back to the voices as they were found, with nobody said to be anywhere, in any clip. */
-export function forgetVoiceEdits(): void {
-  projectStore.getState().edit('history.forgetVoiceEdits', (d) => {
+export const forgetVoiceEdits = () =>
+  editVoices('history.forgetVoiceEdits', (d) => {
     d.voices.edits = [];
     d.voices.picks = [];
   });
-}
 
 /** Puts `next` in the place of the pick `old`; either can be null. */
 export function pickSpeaker(old: SpeakerPick | null, next: SpeakerPick | null): void {
