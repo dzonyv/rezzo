@@ -79,9 +79,12 @@ export function Home() {
                 <a href={REPOSITORY.url} target="_blank" rel="noreferrer">
                   {REPOSITORY.name}
                 </a>
-                <a href={`${REPOSITORY.url}/issues/new`} target="_blank" rel="noreferrer">
+                <a href={`${REPOSITORY.url}/issues/new/choose`} target="_blank" rel="noreferrer">
                   {t('home.report')}
                 </a>
+                <button type="button" className="link" title={t('home.logHelp')} onClick={() => void window.rezzo.invoke('app:log-folder')}>
+                  {t('home.log')}
+                </button>
                 <button type="button" className="link" onClick={() => void window.rezzo.invoke('app:licenses')}>
                   {t('home.licenses')}
                 </button>

@@ -1,4 +1,5 @@
 import { BrowserWindow, ipcMain, type IpcMainInvokeEvent } from 'electron';
+import { errorText, log } from './log.ts';
 import type { EventApi, EventChannel, InvokeArgs, InvokeChannel, InvokeResult } from '../shared/api.ts';
 
 /** URL prefix of our own pages; set once the window knows where it loads from. */
@@ -32,8 +33,19 @@ export function handle<C extends InvokeChannel>(
     assertTrusted(event);
     const window = BrowserWindow.fromWebContents(event.sender);
     if (!window) throw new Error('IPC from a page without a window');
-    return handler({ window }, ...(args as InvokeArgs<C>));
+    try {
+      const result = handler({ window }, ...(args as InvokeArgs<C>));
+      return result instanceof Promise ? result.catch((e: unknown) => failed(channel, e)) : result;
+    } catch (e) {
+      return failed(channel, e);
+    }
   });
+}
+
+/** Writes a handler's error to the log and passes it on to the page. */
+function failed(channel: string, e: unknown): never {
+  log('error', channel, errorText(e));
+  throw e;
 }
 
 /** Sends an event to every window. */

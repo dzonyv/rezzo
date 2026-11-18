@@ -243,6 +243,8 @@ export interface InvokeApi {
 
   /** Opens the third-party licenses that ship with this copy of the app. */
   'app:licenses': () => void;
+  /** Opens the folder with the log of what went wrong (main/log.ts), for a bug report. */
+  'app:log-folder': () => void;
 
   /** How much disk the cache and downloaded tools take. */
   'storage:usage': () => StorageUsage;
@@ -340,6 +342,7 @@ export const INVOKE_CHANNELS = {
   'cover:save': true,
   'cover:reveal': true,
   'app:licenses': true,
+  'app:log-folder': true,
   'storage:usage': true,
   'storage:clear': true,
   'storage:reveal': true,

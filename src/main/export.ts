@@ -26,6 +26,7 @@ import { librarySoundPath } from './sounds.ts';
 import { getSettings, rememberExportDir } from './settings.ts';
 import { callWorker } from './worker-host.ts';
 import { safeFileName } from '../node/files.ts';
+import { logFailure } from './log.ts';
 
 /** One export at a time. */
 let running: AbortController | undefined;
@@ -165,6 +166,7 @@ export async function startExport(win: BrowserWindow, sourceArg: unknown, clipAr
     return { ok: true, path: out, seconds: (performance.now() - started) / 1000, encoder };
   } catch (e) {
     if (abort.signal.aborted) return { ok: false, error: 'cancelled' };
+    logFailure('export', e);
     return { ok: false, error: 'failed', detail: e instanceof Error ? e.message : String(e) };
   } finally {
     sender.off('destroyed', gone);

@@ -110,6 +110,30 @@ describe('app', () => {
         }),
     );
     await closesOnItsOwn(launched);
+    expect(await readFile(path.join(userData, 'logs', 'rezzo.log'), 'utf8')).toMatch(/error \[page\] gone: crashed/);
+  });
+
+  it('writes what went wrong to a log, and the Log button opens its folder', async () => {
+    const launched = await launch();
+    const page = await launched.firstWindow();
+    await page.locator('h1').waitFor();
+    const { version } = JSON.parse(await readFile('package.json', 'utf8')) as { version: string };
+    const logged = () => readFile(path.join(userData, 'logs', 'rezzo.log'), 'utf8').catch(() => '');
+    expect(await logged()).toContain(`info  [app] Rezzo ${version}, Electron`);
+    await expect.poll(logged).toMatch(/info  \[gpu\] .+/);
+
+    // The page's errors, a message of two lines indented under its first, and a handler that fails.
+    await page.evaluate(() => console.error('Something broke\non two lines'));
+    await expect.poll(logged).toMatch(/error \[page\] Something broke\n {4}on two lines/);
+    await page.evaluate(() => (globalThis as PageGlobal).rezzo.invoke('fonts:read', 'missing.ttf').catch(() => undefined));
+    await expect.poll(logged).toMatch(/error \[fonts:read\]/);
+
+    await launched.evaluate(({ shell }) => {
+      (globalThis as { paths?: string[] }).paths = [];
+      shell.openPath = async (file: string) => ((globalThis as { paths?: string[] }).paths!.push(file), '');
+    });
+    await page.getByRole('button', { name: 'Log', exact: true }).click();
+    await expect.poll(() => launched.evaluate(() => (globalThis as { paths?: string[] }).paths?.[0] ?? '')).toBe(path.join(userData, 'logs'));
   });
 
   it('closes while the page reloads', async () => {

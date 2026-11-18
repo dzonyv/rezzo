@@ -17,6 +17,8 @@
     "madeBy": "Napravio",
     "links": "O Rezzu",
     "report": "Prijavi problem",
+    "log": "Log",
+    "logHelp": "Otvara folder sa logom onoga što nije pošlo kako treba. Priloži rezzo.log kad prijavljuješ problem.",
     "licenses": "Licence"
   },
   "editor": {

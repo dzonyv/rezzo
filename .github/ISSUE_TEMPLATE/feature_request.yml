@@ -1,0 +1,16 @@
+name: An idea
+description: Something Rezzo could do, or do better.
+labels: [enhancement]
+body:
+  - type: textarea
+    id: idea
+    attributes:
+      label: What you'd like
+      description: What you're trying to make, and what gets in the way now. The problem matters more than the exact solution.
+    validations:
+      required: true
+  - type: textarea
+    id: elsewhere
+    attributes:
+      label: Seen it somewhere else?
+      description: If another editor does this well, which one and how.

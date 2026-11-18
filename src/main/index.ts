@@ -21,6 +21,7 @@ import { cancelTranscription, startTranscription, transcriptionStatus } from './
 import { analysisModels, loadAnalysis, saveAnalysis } from './analysis.ts';
 import { cancelVoices, startVoices } from './voices.ts';
 import { stopWorker } from './worker-host.ts';
+import { errorText, log, logStart, revealLog } from './log.ts';
 import { projectSchema } from '../shared/project.ts';
 
 /**
@@ -39,6 +40,12 @@ async function openLicenses(): Promise<void> {
 // Tests run the app against a throwaway profile.
 const userDataOverride = process.env['REZZO_USER_DATA'];
 if (userDataOverride) app.setPath('userData', userDataOverride);
+
+// Written down before Electron deals with it as usual (its dialog, or a rejection turned into one).
+process.on('uncaughtExceptionMonitor', (e) => log('error', 'main', errorText(e)));
+app.on('child-process-gone', (_event, d) => {
+  if (d.reason !== 'clean-exit') log('error', 'app', `${d.type} process gone: ${d.reason} (exit code ${d.exitCode})`);
+});
 
 registerMediaScheme();
 
@@ -109,6 +116,7 @@ function registerHandlers(): void {
   handle('cover:reveal', () => revealCover());
 
   handle('app:licenses', () => openLicenses());
+  handle('app:log-folder', () => revealLog());
   handle('storage:usage', () => storageUsage());
   handle('storage:clear', (_ctx, what) => clearStorage(what));
   handle('storage:reveal', () => revealStorage());
@@ -149,6 +157,8 @@ function createWindow(): void {
     },
   });
   win.once('ready-to-show', () => win.show());
+  // In development electron-vite serves the page; in a build it's a file.
+  const devUrl = process.env['ELECTRON_RENDERER_URL'];
 
   // Closing goes through the renderer first: it may have unsaved work to ask about.
   win.on('close', (event) => {
@@ -157,7 +167,16 @@ function createWindow(): void {
     win.webContents.send('app:close-requested', null);
   });
   // Nobody hears a request after a crash, or from a reloaded page until it says so.
-  win.webContents.on('render-process-gone', () => closeListening.delete(win));
+  win.webContents.on('render-process-gone', (_event, d) => {
+    closeListening.delete(win);
+    log('error', 'page', `gone: ${d.reason} (exit code ${d.exitCode})`);
+  });
+  // The page's warnings and errors, uncaught ones included, go to the log; in development to the terminal too.
+  win.webContents.on('console-message', ({ level, message, sourceId, lineNumber }) => {
+    if (level !== 'warning' && level !== 'error') return;
+    log(level === 'error' ? 'error' : 'warn', 'page', sourceId ? `${message} (${path.basename(sourceId)}:${lineNumber})` : message);
+    if (devUrl) console.log(`[renderer ${level}] ${message}`);
+  });
   win.webContents.on('did-navigate', () => closeListening.delete(win));
 
   // The app never navigates; links to the web open in the default browser.
@@ -167,12 +186,7 @@ function createWindow(): void {
     return { action: 'deny' };
   });
 
-  // In development electron-vite serves the page; in a build it's a file.
-  const devUrl = process.env['ELECTRON_RENDERER_URL'];
   if (devUrl) {
-    win.webContents.on('console-message', ({ level, message }) => {
-      if (level === 'warning' || level === 'error') console.log(`[renderer ${level}] ${message}`);
-    });
     trustPagesFrom(devUrl);
     void win.loadURL(devUrl);
   } else {
@@ -183,6 +197,7 @@ function createWindow(): void {
 }
 
 app.whenReady().then(() => {
+  logStart();
   handleMediaProtocol();
   registerHandlers();
   createWindow();
