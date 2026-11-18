@@ -100,7 +100,8 @@
     "coverFraming": "cover framing",
     "coverInVideo": "cover in the video",
     "addCutout": "add cutout",
-    "cutoutStyle": "cutout outline or glow"
+    "cutoutStyle": "cutout outline or glow",
+    "coverTemplate": "Cover template"
   },
   "files": {
     "project": "Rezzo project",
@@ -870,7 +871,22 @@
     "inVideo": "Put the cover on the video's first frames",
     "inVideoHelp": "For platforms that only let you pick a frame of the video, such as YouTube Shorts: the cover takes the place of the first tenth of a second, and the sound plays on. The preview shows the clip as it was.",
     "effects": "Effects",
-    "effectsHelp": "For the picture under your title. Pressing one the cover already has selects it."
+    "effectsHelp": "For the picture under your title. Pressing one the cover already has selects it.",
+    "templates": "Templates",
+    "templateNames": {
+      "classic": "Classic",
+      "behind": "Behind the people",
+      "fade": "Dark fade",
+      "glow": "Glow"
+    },
+    "templatesHelp": "A template puts its titles, cutout and effects on the cover in place of these. Your titles keep their words, and images stay. Save the cover as it is to use its look on other clips: the look and place of its titles go with it, not their words.",
+    "templateName": "Template name",
+    "saveTemplate": "Save as template",
+    "templateSaved": "Saved the template “{{name}}”.",
+    "templateSaveFailed": "The template couldn't be saved.",
+    "deleteTemplate": "Delete the template “{{name}}”",
+    "templateNameTaken": "“{{name}}” is the name of a template that comes with the app. Pick another.",
+    "templateEmpty": "Put a title, the cutout or an effect on the cover to save it as a template."
   },
   "safeZones": {
     "label": "Safe zones",

@@ -3,7 +3,8 @@ import type { AssetFile } from '../../../shared/assets.ts';
 import { defaultVideoLayer } from '../../../shared/framing.ts';
 import { newProject, projectSchema, videoLayerOf, type Project } from '../../../shared/project.ts';
 import { DEFAULT_CUTOUT_STYLE } from '../../../shared/cutout.ts';
-import { addCoverCutout, addCoverEffect, addCoverImage, addCoverText, followClipFraming, setCoverInVideo, setCoverTime, setCutoutStyle, stepCoverTime } from './cover.ts';
+import { BUILT_IN_TEMPLATES } from '../../../shared/cover-template.ts';
+import { addCoverCutout, addCoverEffect, applyCoverTemplate, addCoverImage, addCoverText, followClipFraming, setCoverInVideo, setCoverTime, setCutoutStyle, stepCoverTime } from './cover.ts';
 import { setFraming, setLayout } from './framing.ts';
 import { addEffectLayer, addImageLayer, deleteLayer, duplicateLayer, reorderLayer, setEffectColor, setEffectParam, setIntensity, setText, setTransform } from './layers.ts';
 import { projectStore } from './store.ts';
@@ -193,4 +194,21 @@ it('gives a gradient on the clip a colour, and no other effect one', () => {
   expect(layers.find((l) => l.id === gradient)).toMatchObject({ color: '#000000' });
   expect(layers.find((l) => l.id === blur)).not.toHaveProperty('color');
   valid();
+});
+
+describe('cover templates', () => {
+  it('put their layers on in one undo step, the title keeping its words and images staying', () => {
+    const title = addCoverText(CLIP, 'Ona laže');
+    const logo = addCoverImage(CLIP, FILE, SIZE);
+    addCoverEffect(CLIP, 'blur');
+    const fade = BUILT_IN_TEMPLATES.find((b) => b.id === 'fade')!.template;
+    applyCoverTemplate(CLIP, fade, 'Tvoj naslov');
+    expect(cover().layers.map((l) => (l.kind === 'effect' ? l.effect : l.kind))).toEqual(['gradient', 'text', 'image']);
+    expect(cover().layers[1]).toMatchObject({ text: 'Ona laže', transform: [{ t: cover().time }] });
+    expect(cover().layers[1]!.id).not.toBe(title);
+    expect(cover().layers[2]!.id).toBe(logo);
+    valid();
+    state().undo();
+    expect(cover().layers.map((l) => l.kind)).toEqual(['effect', 'text', 'image']);
+  });
 });

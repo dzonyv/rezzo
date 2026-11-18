@@ -1,5 +1,6 @@
 import { z } from 'zod';
 import { captionStyleSchema, DEFAULT_CAPTION_STYLE, savedStyleSchema } from './caption-style.ts';
+import { savedTemplateSchema } from './cover-template.ts';
 import { customFontSchema } from './fonts.ts';
 import { replacementSchema } from './replacements.ts';
 import { PLATFORMS } from './safe-zones.ts';
@@ -28,6 +29,8 @@ export const settingsSchema = z.object({
   replacements: z.array(replacementSchema).max(1000),
   /** Caption styles the user saved, for every project. */
   captionStyles: z.array(savedStyleSchema).max(100),
+  /** Cover templates the user saved, for every project. */
+  coverTemplates: z.array(savedTemplateSchema).max(100),
   /** The style new clips get. */
   defaultCaptionStyle: captionStyleSchema,
   /** Fonts the user added; only the main process adds them, after checking the file. */
@@ -48,6 +51,7 @@ export function defaultSettings(uiLanguage: UiLanguage): Settings {
     exportDir: null,
     replacements: [],
     captionStyles: [],
+    coverTemplates: [],
     defaultCaptionStyle: DEFAULT_CAPTION_STYLE,
     fonts: [],
     clipDock: DEFAULT_CLIP_DOCK,

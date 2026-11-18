@@ -7,6 +7,7 @@
 import type { Draft } from 'immer';
 import type { AssetFile } from '../../../shared/assets.ts';
 import { coverOf, keptTime, NO_MOTION } from '../../../shared/cover.ts';
+import { applyTemplate, type CoverTemplate } from '../../../shared/cover-template.ts';
 import { DEFAULT_CUTOUT_STYLE, type CutoutStyle } from '../../../shared/cutout.ts';
 import type { EffectName } from '../../../shared/effects.ts';
 import type { Size } from '../../../shared/framing.ts';
@@ -139,6 +140,17 @@ export function addCoverEffect(clipId: string, effect: EffectName): string | nul
     cover.layers.splice(above < 0 ? cover.layers.length : above, 0, layer);
   });
   return layer.id;
+}
+
+/**
+ * Puts a template on the cover (shared/cover-template.ts): its titles,
+ * cutout and effects take the place of the cover's, the titles keeping
+ * their words; `placeholder` is what a title with no words says.
+ */
+export function applyCoverTemplate(clipId: string, template: CoverTemplate, placeholder: string): void {
+  editCover(clipId, 'history.coverTemplate', (cover, clip) => {
+    cover.layers = applyTemplate(cover, clip, template, placeholder);
+  });
 }
 
 /** Changes the cutout's outline or glow; sliders and colour pickers call it inside a gesture. */

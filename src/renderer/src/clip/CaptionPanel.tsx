@@ -1,4 +1,3 @@
-import { useState } from 'react';
 import { useTranslation } from 'react-i18next';
 import {
   BUILT_IN_STYLES, CAPTION_MODES, ENTRANCES, HIGHLIGHTS, MAX_ACTIVE_SCALE, MAX_CAPTION_SIZE, MAX_LINE_CHARS, MIN_CAPTION_SIZE, MIN_LINE_CHARS,
@@ -15,6 +14,7 @@ import {
 import { projectStore, type EditLabel } from '../project/store.ts';
 import { setSettings, useSettings } from '../settings.ts';
 import { notify } from '../ui/prompts.ts';
+import { DeleteIcon, NameAndSave, withNamed } from './saved-items.tsx';
 import { ColorInput, FontPicker } from './style-inputs.tsx';
 
 const STYLE: EditLabel = 'history.captionStyle';
@@ -67,7 +67,6 @@ function StyleSample({ style }: { style: CaptionStyle }) {
 export function CaptionPanel({ clipId, layer, track, time, rate }: Props) {
   const { t } = useTranslation();
   const saved = useSettings((s) => s.captionStyles) ?? [];
-  const [name, setName] = useState('');
 
   if (!layer) {
     return (
@@ -91,15 +90,14 @@ export function CaptionPanel({ clipId, layer, track, time, rate }: Props) {
   };
 
 
-  const saveStyle = async () => {
-    const n = name.trim();
-    if (!n) return;
+  const saveStyle = async (n: string) => {
     try {
-      await setSettings({ captionStyles: [...saved.filter((s) => s.name !== n), { name: n, style }] });
-      setName('');
+      await setSettings({ captionStyles: withNamed(saved, { name: n, style }) });
       notify('info', t('captions.saved', { name: n }));
+      return true;
     } catch {
       notify('error', t('captions.saveFailed'));
+      return false;
     }
   };
   const makeDefault = async () => {
@@ -156,9 +154,7 @@ export function CaptionPanel({ clipId, layer, track, time, rate }: Props) {
               title={t('captions.deleteStyle', { name: s.name })}
               onClick={() => void setSettings({ captionStyles: saved.filter((x) => x.name !== s.name) }).catch(() => notify('error', t('captions.saveFailed')))}
             >
-              <svg width="10" height="10" viewBox="0 0 12 12" aria-hidden="true">
-                <path d="M3 3l6 6M9 3l-6 6" fill="none" stroke="currentColor" strokeWidth="1.6" />
-              </svg>
+              <DeleteIcon />
             </button>
           </div>
         ))}
@@ -251,22 +247,11 @@ export function CaptionPanel({ clipId, layer, track, time, rate }: Props) {
       </div>
       <p className="dim hint">{t('captions.positionHelp')}</p>
 
-      <div className="caption-row">
-        <input
-          aria-label={t('captions.styleName')}
-          placeholder={t('captions.styleName')}
-          maxLength={60}
-          value={name}
-          onChange={(e) => setName(e.target.value)}
-          onKeyDown={(e) => e.key === 'Enter' && void saveStyle()}
-        />
-        <button type="button" disabled={!name.trim()} onClick={() => void saveStyle()}>
-          {t('captions.save')}
-        </button>
+      <NameAndSave label={t('captions.styleName')} button={t('captions.save')} onSave={saveStyle}>
         <button type="button" onClick={() => void makeDefault()}>
           {t('captions.makeDefault')}
         </button>
-      </div>
+      </NameAndSave>
     </section>
   );
 }

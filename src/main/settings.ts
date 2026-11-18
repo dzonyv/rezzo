@@ -2,6 +2,7 @@
 import { app } from 'electron';
 import { readFile } from 'node:fs/promises';
 import path from 'node:path';
+import { z } from 'zod';
 import { defaultSettings, defaultUiLanguage, settingsPatchSchema, settingsSchema, type Settings } from '../shared/settings.ts';
 import { writeFileAtomic } from '../node/files.ts';
 
@@ -47,15 +48,23 @@ function save(patch: Partial<Settings>): Promise<Settings> {
   return mine;
 }
 
+/** A stored list with the items its schema refuses taken out; anything else as it is. */
+function validItems(schema: z.ZodType, value: unknown): unknown {
+  if (!(schema instanceof z.ZodArray) || !Array.isArray(value)) return value;
+  const item = schema.element as z.ZodType;
+  return value.filter((v) => item.safeParse(v).success);
+}
+
 async function load(): Promise<Settings> {
   const defaults = defaultSettings(defaultUiLanguage(app.getLocale()));
   try {
     const stored = JSON.parse(await readFile(settingsFile(), 'utf8'));
     // Each setting stands alone: an unknown or damaged one falls back to its
-    // default without taking the others with it.
+    // default without taking the others with it. In a list (saved styles,
+    // templates, fonts) it's each item: one that no longer passes is dropped.
     const settings: Record<string, unknown> = { ...defaults };
     for (const [key, schema] of Object.entries(settingsSchema.shape)) {
-      const parsed = schema.safeParse(stored?.[key]);
+      const parsed = schema.safeParse(validItems(schema, stored?.[key]));
       if (parsed.success) settings[key] = parsed.data;
     }
     return settings as Settings;
