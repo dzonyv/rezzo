@@ -120,7 +120,7 @@ describe('app', () => {
     const { version } = JSON.parse(await readFile('package.json', 'utf8')) as { version: string };
     const logged = () => readFile(path.join(userData, 'logs', 'rezzo.log'), 'utf8').catch(() => '');
     expect(await logged()).toContain(`info  [app] Rezzo ${version}, Electron`);
-    await expect.poll(logged).toMatch(/info  \[gpu\] .+/);
+    await expect.poll(logged).toMatch(/info {2}\[gpu\] .+/);
 
     // The page's errors, a message of two lines indented under its first, and a handler that fails.
     await page.evaluate(() => console.error('Something broke\non two lines'));

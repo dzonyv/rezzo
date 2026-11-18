@@ -43,8 +43,14 @@ if (userDataOverride) app.setPath('userData', userDataOverride);
 
 // Written down before Electron deals with it as usual (its dialog, or a rejection turned into one).
 process.on('uncaughtExceptionMonitor', (e) => log('error', 'main', errorText(e)));
+// Electron only warns about these in a console nobody sees; Node's warning is kept.
+process.on('unhandledRejection', (reason) => {
+  log('error', 'main', `unhandled rejection: ${errorText(reason)}`);
+  console.warn('Unhandled rejection in the main process:', reason);
+});
+// The media worker is a utility process too; worker-host.ts logs it, knowing when it was stopped on purpose.
 app.on('child-process-gone', (_event, d) => {
-  if (d.reason !== 'clean-exit') log('error', 'app', `${d.type} process gone: ${d.reason} (exit code ${d.exitCode})`);
+  if (d.reason !== 'clean-exit' && d.type !== 'Utility') log('error', 'app', `${d.type} process gone: ${d.reason} (exit code ${d.exitCode})`);
 });
 
 registerMediaScheme();
