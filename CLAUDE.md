@@ -29,7 +29,7 @@ Windows 11, NVIDIA GTX 1660 6 GB (Turing NVENC: H.264/HEVC, no AV1), Ryzen 7 570
 
 - **Electron + React + TypeScript.**
 - **FFmpeg is bundled** with the app (not expected on the system). It handles decoding, cutting, audio and muxing the final file. Export encodes with **NVENC**, falling back to a software encoder.
-- **whisper.cpp with CUDA** for transcription with per-word timestamps. Whisper is always given `sr`. In a small check it kept Croatian and Bosnian ijekavian as spoken; if users report ekavian in their transcripts, test longer Croatian or Bosnian audio before changing it.
+- **whisper.cpp with CUDA** for transcription with per-word timestamps. Whisper is always given `sr`. In a small check it kept Croatian and Bosnian ijekavian as spoken; if users report ekavian in their transcripts, test longer Croatian or Bosnian audio before changing it. It does write some ekavian speech as ijekavian, which Rezzo turns back after transcription from a dictionary-made word list, per voice (`src/shared/ekavian.ts`).
 - **MediaPipe** (JS/WASM, in Electron) for faces and lip movement. **No Python.**
 - **Everything is a layer on the timeline with keyframes:** video with framing, captions, images, video effects.
 - **One WebGL renderer** draws both the preview and the export, so the export looks exactly like the preview.

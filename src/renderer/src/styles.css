@@ -980,6 +980,18 @@ button.link:hover {
   margin-top: 8px;
 }
 
+.speech-row {
+  display: flex;
+  gap: 8px;
+  align-items: center;
+  justify-content: space-between;
+  margin-top: 8px;
+}
+
+.voice-speech button {
+  padding: 3px 8px;
+}
+
 .voice-chip {
   width: 10px;
   height: 10px;
@@ -1297,6 +1309,12 @@ button.icon {
   text-underline-offset: 4px;
 }
 
+/* Turned ekavian: hovering shows how Whisper wrote it. */
+.w.turned {
+  text-decoration: underline dotted var(--warning);
+  text-underline-offset: 4px;
+}
+
 .w.hit {
   background: rgb(255 255 255 / 0.16);
 }
@@ -1577,6 +1595,16 @@ button.icon {
 
 .clip-drawer .voices-panel {
   margin: 0;
+}
+
+.clip-drawer .voice-list li {
+  flex-wrap: wrap;
+}
+
+.clip-drawer .voice-list input {
+  flex: 1 1 72px;
+  width: auto;
+  min-width: 72px;
 }
 
 /* The drawer's own title already names these. */
@@ -3919,13 +3947,15 @@ input.switch:checked::after {
 }
 
 .workspace.episode .voice-list li {
-  gap: 8px;
+  flex-wrap: wrap;
+  gap: 6px 8px;
 }
 
+/* In a narrow window "Same person as" goes under the name rather than squeezing it. */
 .workspace.episode .voice-list input {
-  flex: 1;
+  flex: 1 1 72px;
   width: auto;
-  min-width: 0;
+  min-width: 72px;
   padding: 6px 9px;
 }
 
@@ -3939,7 +3969,8 @@ input.switch:checked::after {
   font-size: 12px;
 }
 
-.workspace.episode .voices-panel label {
+.workspace.episode .voices-panel label,
+.workspace.episode .speech-row {
   justify-content: space-between;
   margin-top: 10px;
   font-size: 12.5px;

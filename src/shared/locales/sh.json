@@ -84,6 +84,8 @@
     "correctTurn": "ispravka poteza",
     "splitTurn": "deljenje poteza",
     "forgetVoiceEdits": "poništavanje svih ispravki glasova",
+    "speech": "promena pisanja transkripta",
+    "voiceSpeech": "promena pisanja glasa",
     "pickSpeaker": "izbor ko govori",
     "autoFrame": "automatski kadar",
     "cutPauses": "uklanjanje pauza",
@@ -203,7 +205,8 @@
     "next": "Sledeći rezultat (Enter)",
     "empty": "Transkript će se pojaviti ovde.",
     "editWord": "Ispravi reč",
-    "editHelp": "Enter: gotovo · Tab: sledeća reč · Ctrl+↓: sledeća nesigurna reč · Ctrl+Space: preslušaj · Esc: odustani"
+    "editHelp": "Enter: gotovo · Tab: sledeća reč · Ctrl+↓: sledeća nesigurna reč · Ctrl+Space: preslušaj · Esc: odustani",
+    "spoken": "Whisper je napisao „{{word}}”. Dvoklik za ispravku."
   },
   "player": {
     "preparing": "Ovaj video ne može da se pusti direktno, pa Rezzo pravi kopiju za pregled: {{percent}}%",
@@ -747,7 +750,16 @@
     "newVoice": "Novi glas",
     "nobody": "Niko",
     "split": "Podeli ovde",
-    "wholeVoice": "Ceo ovaj glas je"
+    "wholeVoice": "Ceo ovaj glas je",
+    "speech": "Govor",
+    "speechHelp": "Whisper ponekad napiše ekavski govor ijekavski (gdje umesto gde). Ekavica vraća te reči u ekavicu, a Kako je rečeno ih ostavlja kako ih je Whisper napisao.",
+    "ekavian": "Ekavica",
+    "asSpoken": "Kako je rečeno",
+    "voiceEkavian": "e",
+    "voiceAsSpoken": "ije",
+    "voiceSpeech": "Kako se piše {{voice}}",
+    "voiceEkavianHelp": "Ekavica: Rezzo prebacuje ijekavske reči ove osobe u ekavicu",
+    "voiceAsSpokenHelp": "Kako je rečeno: reči ove osobe ostaju kako ih je Whisper napisao"
   },
   "analysis": {
     "cut": "Rez kamere",

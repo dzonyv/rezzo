@@ -17,6 +17,7 @@ export const CHANGELOG: Release[] = [
     changes: {
       en: [
         'Transcription with a time for every word, always in Latin script.',
+        'Words Whisper writes ijekavian for ekavian speech turned back to ekavian, with a choice for each person.',
         'Clips made by selecting words in the transcript, framed on one person, two stacked, or the whole picture.',
         'Word-by-word captions with styles and your own fonts.',
         'Layers over the picture: images, videos with green screen, Lottie animations and effects.',
@@ -28,6 +29,7 @@ export const CHANGELOG: Release[] = [
       ],
       sh: [
         'Transkripcija sa vremenom svake reči, uvek na latinici.',
+        'Reči koje Whisper napiše ijekavski za ekavski govor vraćaju se u ekavicu, uz izbor za svaku osobu.',
         'Klipovi se prave izborom reči u transkriptu, sa kadrom na jednoj osobi, dve jednu iznad druge ili celom slikom.',
         'Titlovi reč po reč, sa stilovima i tvojim fontovima.',
         'Slojevi preko slike: slike, video sa zelenim platnom, Lottie animacije i efekti.',

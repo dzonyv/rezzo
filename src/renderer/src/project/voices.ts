@@ -3,13 +3,25 @@
  * transcript, and again when the transcript, its words or the number of
  * people change. The result comes from the cache, not the project.
  */
+import type { Draft } from 'immer';
 import { useMemo } from 'react';
 import { useStore } from 'zustand';
 import { createStore } from 'zustand/vanilla';
 import type { VoicesResult } from '../../../shared/api.ts';
-import type { Project } from '../../../shared/project.ts';
-import { heardVoices, type EpisodeVoices, type HeardVoices, type SpeakerCount, type SpeakerPick, type Span, type VoiceEdit } from '../../../shared/voices.ts';
+import { writeSpeech, type EkavianTable, type Speech } from '../../../shared/ekavian.ts';
+import type { Project, Word } from '../../../shared/project.ts';
+import {
+  heardVoices,
+  voiceAt,
+  type EpisodeVoices,
+  type HeardVoices,
+  type SpeakerCount,
+  type SpeakerPick,
+  type Span,
+  type VoiceEdit,
+} from '../../../shared/voices.ts';
 import type { VoicesProgress } from '../../../shared/worker-api.ts';
+import { loadEkavian } from '../ekavian/table.ts';
 import { projectStore, useProject, type EditLabel } from './store.ts';
 
 export interface VoicesState {
@@ -106,9 +118,38 @@ export function useHeardVoices(): HeardVoices | null {
   return useMemo(() => (found ? heardVoices(found, edits ?? []) : null), [found, edits]);
 }
 
-function addVoiceEdit(label: EditLabel, edit: VoiceEdit): void {
-  projectStore.getState().edit(label, (d) => void d.voices.edits.push(edit));
+/** Whether a word is to be ekavian: its voice's choice, or the project's for a word nobody's voice covers. */
+export function ekavianChooser(speech: Speech, heard: HeardVoices | null): (word: Word) => boolean {
+  const fallback = speech === 'ekavian';
+  if (!heard) return () => fallback;
+  const own = new Map(heard.voices.map((v) => [v.id, v.ekavian]));
+  return (word) => {
+    const voice = voiceAt(heard.turns, (word.start + word.end) / 2);
+    return (voice === null ? null : own.get(voice)) ?? fallback;
+  };
 }
+
+/** Writes the transcript's words the way the project's choices in `draft` now say. */
+function rewriteWords(draft: Draft<Project>, table: EkavianTable): void {
+  if (!draft.transcript) return;
+  const found = voicesStore.getState().voices;
+  const heard = found ? heardVoices(found, draft.voices.edits) : null;
+  writeSpeech(draft.transcript.segments, ekavianChooser(draft.speech, heard), table);
+}
+
+/**
+ * Makes an edit to the voices. Any of them can change whose a word is, or
+ * whether it's ekavian, so the words are rewritten in the same undo step.
+ */
+async function editVoices(label: EditLabel, recipe: (draft: Draft<Project>) => void): Promise<void> {
+  const table = await loadEkavian();
+  projectStore.getState().edit(label, (d) => {
+    recipe(d);
+    rewriteWords(d, table);
+  });
+}
+
+const addVoiceEdit = (label: EditLabel, edit: VoiceEdit) => editVoices(label, (d) => void d.voices.edits.push(edit));
 
 /** Names the voice talking at `at`; an empty name takes it away. */
 export const nameVoice = (at: number, name: string) => addVoiceEdit('history.nameVoice', { kind: 'name', at, name });
@@ -121,13 +162,18 @@ export const correctTurn = ({ start, end }: Span, as: number | 'new' | null) => 
 
 export const splitTurn = (at: number) => addVoiceEdit('history.splitTurn', { kind: 'split', at });
 
+/** Ekavian or as spoken, for the voice talking at `at`. */
+export const setVoiceSpeech = (at: number, ekavian: boolean) => addVoiceEdit('history.voiceSpeech', { kind: 'speech', at, ekavian });
+
+/** Ekavian or as spoken, for everyone whose voice has no choice of its own. */
+export const setSpeech = (speech: Speech) => editVoices('history.speech', (d) => void (d.speech = speech));
+
 /** Back to the voices as they were found, with nobody said to be anywhere, in any clip. */
-export function forgetVoiceEdits(): void {
-  projectStore.getState().edit('history.forgetVoiceEdits', (d) => {
+export const forgetVoiceEdits = () =>
+  editVoices('history.forgetVoiceEdits', (d) => {
     d.voices.edits = [];
     d.voices.picks = [];
   });
-}
 
 /** Puts `next` in the place of the pick `old`; either can be null. */
 export function pickSpeaker(old: SpeakerPick | null, next: SpeakerPick | null): void {

@@ -482,6 +482,7 @@ const SegmentRow = memo(function SegmentRow({
   editing: number;
   onFinish: ((index: number, f: Finish) => void) | undefined;
 }) {
+  const { t } = useTranslation();
   return (
     <>
       <span className="segment-meta">
@@ -507,7 +508,8 @@ const SegmentRow = memo(function SegmentRow({
           return (
             <span
               key={index}
-              className={wordClass(index === active, hits, index, w.p < UNSURE, selection, marks[index]!)}
+              className={wordClass(index === active, hits, index, w.p < UNSURE, selection, marks[index]!, w.spoken !== undefined)}
+              title={w.spoken === undefined ? undefined : t('transcript.spoken', { word: w.spoken })}
               data-time={w.start}
               data-word={index}
             >
@@ -535,6 +537,7 @@ function wordClass(
   unsure: boolean,
   selection: { first: number; last: number } | null,
   mark: number,
+  turned: boolean,
 ): string {
   const classes = ['w'];
   if (mark === 1) classes.push('in-clip');
@@ -545,5 +548,6 @@ function wordClass(
   if (hits?.any.has(index)) classes.push('hit');
   if (hits?.current.has(index)) classes.push('current');
   if (unsure) classes.push('unsure');
+  if (turned) classes.push('turned');
   return classes.join(' ');
 }

@@ -64,6 +64,8 @@ export const voiceEditSchema = z.discriminatedUnion('kind', [
   z.object({ kind: z.literal('turn'), start: seconds, end: seconds, as: z.union([seconds, z.literal('new'), z.null()]) }),
   /** The turn around `at` is really two. */
   z.object({ kind: z.literal('split'), at: seconds }),
+  /** The voice at `at` speaks ekavian (its words are turned ekavian) or not (they stay as Whisper wrote them). */
+  z.object({ kind: z.literal('speech'), at: seconds, ekavian: z.boolean() }),
 ]);
 export type VoiceEdit = z.infer<typeof voiceEditSchema>;
 
@@ -257,6 +259,8 @@ export interface HeardVoice {
   id: number;
   /** What the user calls it, if they have. */
   name: string | null;
+  /** Whether its words are turned ekavian, if the user said; otherwise the project's choice holds. */
+  ekavian: boolean | null;
   /** Seconds it talks. */
   seconds: number;
   /** A moment it talks at, for corrections to name it by. */
@@ -281,6 +285,7 @@ export function heardVoices(found: Pick<EpisodeVoices, 'voices' | 'turns'>, edit
   let turns: VoiceTurn[] = found.turns;
   let unused = found.voices;
   const names = new Map<number, string>();
+  const speech = new Map<number, boolean>();
   const voiceNear = (t: number) => turnNear(turns, t)?.voice ?? null;
 
   for (const edit of edits) {
@@ -289,6 +294,9 @@ export function heardVoices(found: Pick<EpisodeVoices, 'voices' | 'turns'>, edit
       if (voice === null) continue;
       if (edit.name) names.set(voice, edit.name);
       else names.delete(voice);
+    } else if (edit.kind === 'speech') {
+      const voice = voiceNear(edit.at);
+      if (voice !== null) speech.set(voice, edit.ekavian);
     } else if (edit.kind === 'merge') {
       const from = voiceNear(edit.at);
       const into = voiceNear(edit.into);
@@ -297,6 +305,9 @@ export function heardVoices(found: Pick<EpisodeVoices, 'voices' | 'turns'>, edit
       const name = names.get(from);
       if (name !== undefined && !names.has(into)) names.set(into, name);
       names.delete(from);
+      const ekavian = speech.get(from);
+      if (ekavian !== undefined && !speech.has(into)) speech.set(into, ekavian);
+      speech.delete(from);
     } else if (edit.kind === 'split') {
       turns = turns.flatMap((t) => (t.start < edit.at && edit.at < t.end ? [{ ...t, end: edit.at }, { ...t, start: edit.at }] : [t]));
     } else {
@@ -310,7 +321,7 @@ export function heardVoices(found: Pick<EpisodeVoices, 'voices' | 'turns'>, edit
   const voices = new Map<number, HeardVoice & { longest: number }>();
   for (const turn of turns) {
     const length = turn.end - turn.start;
-    const voice = voices.get(turn.voice) ?? { id: turn.voice, name: names.get(turn.voice) ?? null, seconds: 0, at: turn.start, longest: 0 };
+    const voice = voices.get(turn.voice) ?? { id: turn.voice, name: names.get(turn.voice) ?? null, ekavian: speech.get(turn.voice) ?? null, seconds: 0, at: turn.start, longest: 0 };
     voice.seconds += length;
     if (length > voice.longest) {
       voice.longest = length;

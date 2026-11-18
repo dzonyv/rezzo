@@ -232,7 +232,7 @@ describe('projects', () => {
   /** Leaves a crash copy of a project called "Lost work" behind. */
   async function crashWithUnsavedWork(page: Page): Promise<void> {
     await page.evaluate(async (format) => {
-      const project = { format: format as typeof PROJECT_FORMAT, id: '0b6f2a52-9d0c-4f39-8f39-7f0e2c9b1a11', name: 'Lost work', source: null, transcript: null, clips: [], assets: [], voices: { count: 'auto' as const, edits: [], picks: [] } };
+      const project = { format: format as typeof PROJECT_FORMAT, id: '0b6f2a52-9d0c-4f39-8f39-7f0e2c9b1a11', name: 'Lost work', source: null, transcript: null, clips: [], assets: [], voices: { count: 'auto' as const, edits: [], picks: [] }, speech: 'ekavian' as const };
       await (globalThis as PageGlobal).rezzo.invoke('project:autosave', project, null);
     }, PROJECT_FORMAT);
     await stop();

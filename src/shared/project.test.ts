@@ -28,6 +28,8 @@ const sample: Project = {
     segments: [{ start: 0.2, end: 1.4, words: [{ text: 'Dobro', start: 0.2, end: 0.6, p: 0.98 }, { text: 'veče.', start: 0.62, end: 1.4, p: 0.91 }] }],
   },
   clips: [],
+  // As every project from before format 21 comes out.
+  speech: 'asSpoken',
 };
 // Off, as every clip from before format 13 comes out: the upgrades below compare with it.
 sample.clips.push({ ...clipFromWords(sample.transcript!.segments[0]!.words, sample.source!, '0b6f2a52-9d0c-4f39-8f39-7f0e2c9b1a11'), evenLoudness: false });
@@ -48,7 +50,7 @@ describe('project files', () => {
 
   it('starts empty', () => {
     const p = newProject('x');
-    expect(p).toMatchObject({ format: PROJECT_FORMAT, name: 'x', source: null, transcript: null, clips: [] });
+    expect(p).toMatchObject({ format: PROJECT_FORMAT, name: 'x', source: null, transcript: null, clips: [], speech: 'ekavian' });
     expect(p.id).toMatch(/^[0-9a-f-]{36}$/);
   });
 
@@ -547,6 +549,18 @@ describe('project files', () => {
       const p = withCover({ time: 0.5, video: null, layers: [cutout(), title()], inVideo: true });
       expect(parseProject(JSON.stringify({ ...p, format: 19 }))).toEqual(p);
     });
+  });
+
+  it('upgrades a format 20 file with its transcript left as Whisper wrote it', () => {
+    const { speech: _, ...old } = sample;
+    expect(parseProject(JSON.stringify({ ...old, format: 20 }))).toEqual(sample);
+  });
+
+  it('keeps how Whisper wrote a word that was turned ekavian', () => {
+    const p = structuredClone(sample);
+    p.speech = 'ekavian';
+    p.transcript!.segments[0]!.words[0] = { text: 'Gde', spoken: 'Gdje', start: 0.2, end: 0.6, p: 0.98 };
+    expect(parseProject(serializeProject(p))).toEqual(p);
   });
 
   it('rejects a layer whose file is not in the project', () => {

@@ -5,8 +5,10 @@
 import i18n from 'i18next';
 import { useStore } from 'zustand';
 import { createStore } from 'zustand/vanilla';
+import { writeSpeech } from '../../../shared/ekavian.ts';
 import { applyReplacements } from '../../../shared/replacements.ts';
 import type { TranscribeProgress } from '../../../shared/worker-api.ts';
+import { loadEkavian } from '../ekavian/table.ts';
 import { notify } from '../ui/prompts.ts';
 import { projectStore } from './store.ts';
 
@@ -37,8 +39,13 @@ export async function startTranscription(): Promise<void> {
       // The replacement list fixes what Whisper always gets wrong before anyone sees it.
       const { replacements } = await window.rezzo.invoke('settings:get');
       applyReplacements(result.transcript.segments, replacements);
+      const table = await loadEkavian();
       if (projectStore.getState().project?.id === project.id) {
-        projectStore.getState().replace((d) => void (d.transcript = result.transcript));
+        projectStore.getState().replace((d) => {
+          // The voices aren't told apart yet, so everyone gets the project's choice.
+          writeSpeech(result.transcript.segments, () => d.speech === 'ekavian', table);
+          d.transcript = result.transcript;
+        });
       }
     } else if (result.error === 'download-failed' || result.error === 'whisper-failed') {
       notify('error', i18n.t(`errors.transcribe.${result.error}`, { detail: result.detail }));
