@@ -86,6 +86,7 @@
     "forgetVoiceEdits": "poništavanje svih ispravki glasova",
     "speech": "promena pisanja transkripta",
     "voiceSpeech": "promena pisanja glasa",
+    "matchVoices": "usklađivanje reči sa glasovima",
     "pickSpeaker": "izbor ko govori",
     "autoFrame": "automatski kadar",
     "cutPauses": "uklanjanje pauza",

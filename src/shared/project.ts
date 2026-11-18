@@ -81,6 +81,8 @@ export const wordSchema = z.object({
   pageBreak: z.literal(true).optional(),
   /** How Whisper wrote it, when Rezzo turned it ekavian (see ekavian.ts). */
   spoken: z.string().min(1).optional(),
+  /** Written by the user (a correction, or the replacement list), so Rezzo leaves its spelling alone. */
+  typed: z.literal(true).optional(),
 });
 export type Word = z.infer<typeof wordSchema>;
 

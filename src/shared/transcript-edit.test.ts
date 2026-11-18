@@ -13,16 +13,19 @@ const sample = (): Segment[] => [
 const texts = (segments: Segment[]) => segments.map((s) => s.words.map((x) => x.text));
 
 describe('setWordText', () => {
-  it('replaces the text and marks the word certain', () => {
+  it('replaces the text and marks the word certain, and typed', () => {
     const s = sample();
     expect(setWordText(s, { segment: 1, word: 1 }, 'fudbal')).toBe(1);
-    expect(s[1]!.words[1]).toEqual(w('fudbal', 3.4, 3.8, 1));
+    expect(s[1]!.words[1]).toEqual({ ...w('fudbal', 3.4, 3.8, 1), typed: true });
   });
 
   it('splits at spaces and shares the time by length', () => {
     const s = sample();
     expect(setWordText(s, { segment: 0, word: 0 }, ' Dobro  veče ')).toBe(2);
-    expect(s[0]!.words.slice(0, 2)).toEqual([w('Dobro', 1, 1.556, 1), w('veče', 1.556, 2, 1)]);
+    expect(s[0]!.words.slice(0, 2)).toEqual([
+      { ...w('Dobro', 1, 1.556, 1), typed: true },
+      { ...w('veče', 1.556, 2, 1), typed: true },
+    ]);
     expect(s[0]).toMatchObject({ start: 1, end: 2.5 });
   });
 
@@ -71,7 +74,14 @@ describe('mergeWithNext', () => {
   it('joins two words into one spanning both', () => {
     const s = sample();
     expect(mergeWithNext(s, { segment: 1, word: 1 })).toBe(true);
-    expect(s[1]!.words).toEqual([w('Igrali', 3, 3.4), w('futbalski.', 3.4, 4, 1)]);
+    expect(s[1]!.words).toEqual([w('Igrali', 3, 3.4), { ...w('futbalski.', 3.4, 4, 1), typed: true }]);
+  });
+
+  it('forgets how Whisper wrote the first half of a joined word', () => {
+    const s = sample();
+    s[1]!.words[1]!.spoken = 'futbaal';
+    mergeWithNext(s, { segment: 1, word: 1 });
+    expect(s[1]!.words[1]!.spoken).toBeUndefined();
   });
 
   it('pulls the next segment\'s first word across the break', () => {

@@ -7,7 +7,7 @@
  * it.
  *
  * A word that was turned remembers how Whisper wrote it (`spoken`), so it
- * can go back. Words the user typed (p = 1, see transcript-edit.ts) are
+ * can go back. Words the user typed (`typed`, see transcript-edit.ts) are
  * never turned, either way.
  */
 import type { Project, Segment, Word } from './project.ts';
@@ -69,32 +69,56 @@ export function ekavianOf(text: string, table: EkavianTable): string | null {
   return to ? before + withCaseOf(word, to) + after : null;
 }
 
-/** Typed by the user, so left as it is. */
-const typed = (word: Word) => word.p === 1;
+/** Whether a voice's words are ekavian: its own choice, or the project's when it has none. */
+export const isEkavian = (own: boolean | null | undefined, speech: Speech): boolean => own ?? speech === 'ekavian';
+
+/** What a word becomes if it is to be ekavian (or not), or null when it stays as it is. */
+function rewritten(word: Word, ekavian: boolean, table: EkavianTable): Pick<Word, 'text' | 'spoken'> | null {
+  if (ekavian && word.spoken === undefined && !word.typed) {
+    const text = ekavianOf(word.text, table);
+    return text === null ? null : { text, spoken: word.text };
+  }
+  if (!ekavian && word.spoken !== undefined) return { text: word.spoken, spoken: undefined };
+  return null;
+}
+
+/** A word's text once it's written ekavian (or not). */
+export const textAfter = (word: Word, ekavian: boolean, table: EkavianTable): string => rewritten(word, ekavian, table)?.text ?? word.text;
 
 /**
  * Writes each word the way `ekavianFor` says it should be, in place, and
  * returns how many changed: ekavian (remembering how Whisper wrote it) or
- * back as Whisper wrote it. Only the words that change are touched, so on
- * an Immer draft it's a small undo step.
+ * back as Whisper wrote it.
+ *
+ * The words are read from `read` (the same transcript, not a draft, by
+ * default `segments` itself) and only the ones that change are written to
+ * `segments`: on an Immer draft of an hour-long transcript that's a small
+ * undo step, and nothing is drafted when nothing changes.
  */
-export function writeSpeech(segments: Segment[], ekavianFor: (word: Word) => boolean, table: EkavianTable): number {
+export function writeSpeech(
+  segments: Segment[],
+  ekavianFor: (word: Word) => boolean,
+  table: EkavianTable,
+  read: readonly Segment[] = segments,
+): number {
   let changed = 0;
-  for (const segment of segments) {
-    for (const word of segment.words) {
-      const ekavian = ekavianFor(word);
-      if (ekavian && word.spoken === undefined && !typed(word)) {
-        const text = ekavianOf(word.text, table);
-        if (text === null) continue;
-        word.spoken = word.text;
-        word.text = text;
-        changed++;
-      } else if (!ekavian && word.spoken !== undefined) {
-        word.text = word.spoken;
-        delete word.spoken;
-        changed++;
-      }
-    }
-  }
+  read.forEach((segment, s) =>
+    segment.words.forEach((word, w) => {
+      const next = rewritten(word, ekavianFor(word), table);
+      if (!next) return;
+      const target = segments[s]!.words[w]!;
+      target.text = next.text;
+      if (next.spoken === undefined) delete target.spoken;
+      else target.spoken = next.spoken;
+      changed++;
+    }),
+  );
+  return changed;
+}
+
+/** How many words `writeSpeech` would change, without changing them. */
+export function speechChanges(segments: readonly Segment[], ekavianFor: (word: Word) => boolean, table: EkavianTable): number {
+  let changed = 0;
+  for (const segment of segments) for (const word of segment.words) if (rewritten(word, ekavianFor(word), table)) changed++;
   return changed;
 }

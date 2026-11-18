@@ -58,7 +58,8 @@ export function splitTime(word: Pick<Word, 'start' | 'end'>, texts: readonly str
  * Gives a word new text. Spaces split it into several words; empty text
  * deletes it (and its segment, if it was the only word); a caption page
  * that started at it starts at the next word instead. Corrected words
- * count as certain (p = 1). Returns how many words now stand in its place.
+ * count as certain (p = 1) and are marked as typed (see ekavian.ts).
+ * Returns how many words now stand in its place.
  */
 export function setWordText(segments: Segment[], at: WordRef, text: string): number {
   const segment = segments[at.segment];
@@ -73,7 +74,7 @@ export function setWordText(segments: Segment[], at: WordRef, text: string): num
   }
   if (texts.length === 1 && texts[0] === word.text) return 1;
   const times = splitTime(word, texts);
-  const words: Word[] = texts.map((t, i) => ({ text: t, ...times[i]!, p: 1 }));
+  const words: Word[] = texts.map((t, i) => ({ text: t, ...times[i]!, p: 1, typed: true }));
   // A caption page that started at the word still starts there.
   if (word.pageBreak) words[0]!.pageBreak = true;
   segment.words.splice(at.word, 1, ...words);
@@ -105,7 +106,9 @@ export function mergeWithNext(segments: Segment[], at: WordRef): boolean {
   if (!next) return false;
   const a = wordOf(segments, at);
   const b = wordOf(segments, next);
-  Object.assign(a, { text: a.text + b.text, end: Math.max(a.end, b.end), p: 1 });
+  Object.assign(a, { text: a.text + b.text, end: Math.max(a.end, b.end), p: 1, typed: true });
+  // How Whisper wrote the first half isn't how it wrote the whole word.
+  delete a.spoken;
   removeWord(segments, next);
   fit(segments[at.segment]!);
   return true;

@@ -1,5 +1,5 @@
 import { describe, expect, it } from 'vitest';
-import { decodeTable, ekavianOf, encodeTable, writeSpeech } from './ekavian.ts';
+import { decodeTable, ekavianOf, encodeTable, isEkavian, speechChanges, writeSpeech } from './ekavian.ts';
 import type { Segment } from './project.ts';
 
 const table = new Map([
@@ -48,8 +48,27 @@ describe('ekavian', () => {
 
   it('goes word by word, and never touches a word the user typed', () => {
     const segments = [segment('gdje', 'gdje', 'gdje')];
-    segments[0]!.words[2]!.p = 1;
+    // Whisper can be sure of a word too (p rounds to 1): only `typed` keeps it.
+    segments[0]!.words[0]!.p = 1;
+    segments[0]!.words[2]!.typed = true;
     writeSpeech(segments, (w) => w.start === 0 || w.start === 2, table);
     expect(segments[0]!.words.map((w) => w.text)).toEqual(['gde', 'gdje', 'gdje']);
+  });
+
+  it('counts the changes without making them, and writes only those from a separate copy', () => {
+    const read = [segment('Gdje', 'su', 'vještine?')];
+    expect(speechChanges(read, () => true, table)).toBe(2);
+    expect(read[0]!.words[0]!.text).toBe('Gdje');
+    const target = structuredClone(read);
+    expect(writeSpeech(target, () => true, table, read)).toBe(2);
+    expect(target[0]!.words.map((w) => w.text)).toEqual(['Gde', 'su', 'veštine?']);
+    expect(read[0]!.words[0]!.text).toBe('Gdje');
+  });
+
+  it("takes a voice's own choice over the project's", () => {
+    expect(isEkavian(null, 'ekavian')).toBe(true);
+    expect(isEkavian(false, 'ekavian')).toBe(false);
+    expect(isEkavian(true, 'asSpoken')).toBe(true);
+    expect(isEkavian(undefined, 'asSpoken')).toBe(false);
   });
 });

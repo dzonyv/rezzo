@@ -3,7 +3,7 @@ import { useTranslation } from 'react-i18next';
 import type { Project } from '../../../shared/project.ts';
 import { MAX_SPEAKERS, type HeardVoice, type SpeakerCount } from '../../../shared/voices.ts';
 import { formatDuration } from '../format.ts';
-import type { Speech } from '../../../shared/ekavian.ts';
+import { isEkavian, type Speech } from '../../../shared/ekavian.ts';
 import { forgetVoiceEdits, mergeVoice, nameVoice, retryVoices, setSpeakerCount, setSpeech, setVoiceSpeech, useHeardVoices, useVoices } from '../project/voices.ts';
 import { voiceColor, voiceLabel } from '../voice-colors.ts';
 
@@ -44,7 +44,7 @@ export function VoicesPanel({ project }: { project: Project }) {
               key={voice.id}
               voice={voice}
               others={heard.voices.filter((v) => v.id !== voice.id)}
-              ekavian={voice.ekavian ?? project.speech === 'ekavian'}
+              ekavian={isEkavian(voice.ekavian, project.speech)}
             />
           ))}
         </ul>

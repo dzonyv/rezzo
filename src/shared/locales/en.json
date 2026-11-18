@@ -86,6 +86,7 @@
     "forgetVoiceEdits": "undo all voice corrections",
     "speech": "change how the transcript is written",
     "voiceSpeech": "change how a voice is written",
+    "matchVoices": "match the words to the voices",
     "pickSpeaker": "say who talks",
     "autoFrame": "auto frame",
     "cutPauses": "remove pauses",
