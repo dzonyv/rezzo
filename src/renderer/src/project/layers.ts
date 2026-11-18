@@ -8,7 +8,7 @@
 import { current, type Draft } from 'immer';
 import type { Asset, AssetFile, AudioInfo, VideoInfo } from '../../../shared/assets.ts';
 import { DEFAULT_CHROMA_KEY, type ChromaKey } from '../../../shared/chroma-key.ts';
-import { defaultParams, EFFECTS, type EffectName, type ParamDef } from '../../../shared/effects.ts';
+import { defaultColor, defaultParams, EFFECTS, type EffectName, type ParamDef } from '../../../shared/effects.ts';
 import { editAt, OUTPUT, removeKey, setKey, valueAt, type Size } from '../../../shared/framing.ts';
 import { fps, frameAt, timeOfFrame, workingFrameRate } from '../../../shared/frames.ts';
 import { lottieSeconds, type LottieInfo } from '../../../shared/lottie.ts';
@@ -235,7 +235,8 @@ export function deleteLayer(clipId: string, layerId: string): void {
  * A copy of the layer right above it; returns the copy's id. The sounds
  * that go with a layer are copied along with it, for the copy. A copy of
  * such a sound stands on its own: the part it went with already has one.
- * A layer that isn't copied (a cutout) gives its own id back.
+ * A layer that isn't copied gives its own id back: a cutout, or an effect
+ * on a cover, which has one of each.
  */
 export function duplicateLayer(clipId: string, layerId: string): string {
   const id = crypto.randomUUID();
@@ -244,8 +245,8 @@ export function duplicateLayer(clipId: string, layerId: string): string {
     const layers = listOf(clip, layerId);
     const i = layers?.findIndex((l) => l.id === layerId) ?? -1;
     const layer = layers?.[i];
-    // A cover has one cutout: a second would only draw the same people again.
-    if (!layers || !layer || !isTimed(layer) || layer.kind === 'cutout') return;
+    // A cover has one cutout (a second would only draw the same people again) and one effect of each kind.
+    if (!layers || !layer || !isTimed(layer) || layer.kind === 'cutout' || (layer.kind === 'effect' && layers !== clip.layers)) return;
     // A plain copy of the draft: structuredClone can't copy Immer's proxy.
     const copy: Layer = { ...structuredClone(current(layer)), id };
     if (copy.kind === 'sound') copy.follows = null;
@@ -478,7 +479,7 @@ export function addEffectLayer(clipId: string, effect: EffectName, time: number)
   const clip = store().project?.clips.find((c) => c.id === clipId);
   if (!clip) return null;
   const { start, end } = newLayerTime(clip, time, EFFECTS[effect].seconds);
-  const layer: EffectLayer = { id: crypto.randomUUID(), kind: 'effect', effect, start, end, intensity: [{ t: start, value: 1, ease: 'cut' }], params: defaultParams(effect) };
+  const layer = newEffectLayer(effect, start, end, start);
   editClip(clipId, 'history.addEffect', (c) => insertLayer(c, layer));
   return layer.id;
 }
@@ -488,6 +489,28 @@ export function setIntensity(clipId: string, layerId: string, time: number, valu
   editLayer(clipId, layerId, 'history.effectIntensity', (layer) => {
     if (layer.kind !== 'effect') return;
     layer.intensity = editAt(layer.intensity, insideLayer(layer, time), Math.min(1, Math.max(0, value)), sourceRate());
+  });
+}
+
+/** A new effect from `start` to `end` at full intensity (one key at `at`), with the settings and colour its kind starts with. */
+export function newEffectLayer(effect: EffectName, start: number, end: number, at: number): EffectLayer {
+  const color = defaultColor(effect);
+  return {
+    id: crypto.randomUUID(),
+    kind: 'effect',
+    effect,
+    start,
+    end,
+    intensity: [{ t: at, value: 1, ease: 'cut' }],
+    params: defaultParams(effect),
+    ...(color === undefined ? {} : { color }),
+  };
+}
+
+/** Changes the colour of an effect that has one; the colour picker calls it inside a gesture. */
+export function setEffectColor(clipId: string, layerId: string, color: string): void {
+  editLayer(clipId, layerId, 'history.effectColor', (layer) => {
+    if (layer.kind === 'effect' && layer.color !== undefined) layer.color = color;
   });
 }
 

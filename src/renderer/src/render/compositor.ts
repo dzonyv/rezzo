@@ -296,6 +296,26 @@ void main() {
   o = vec4(mix(at(gl_FragCoord.xy / uSize), uColor, uAmount), 1.0);
 }`;
 
+/**
+ * uColor mixed in from one edge: uParams.x of it at the edge, none
+ * uParams.y (a share of the picture) in. uParams.z turns the edge
+ * clockwise from the bottom (radians); comp's row 0 is the top.
+ */
+const GRADIENT = `${EFFECT_HEADER}
+uniform vec3 uColor;
+uniform vec3 uParams;
+void main() {
+  vec2 uv = gl_FragCoord.xy / uSize;
+  // Towards the edge the colour comes from, on screen: down at 0, then left, up, right.
+  vec2 d = vec2(-sin(uParams.z), cos(uParams.z));
+  // How far from that edge, 0 there and 1 at the far corner, whichever way it's turned;
+  // in pixels, so 45 degrees on the tall picture is 45 degrees to the eye.
+  float reach = 0.5 * dot(abs(d), uSize);
+  float away = (reach - dot(gl_FragCoord.xy - 0.5 * uSize, d)) / (2.0 * reach);
+  float a = uParams.x * (1.0 - smoothstep(0.0, uParams.y, away));
+  o = vec4(mix(at(uv), uColor, a), 1.0);
+}`;
+
 /** uGrade: brightness, contrast, saturation, temperature; each -1..1, 0 changes nothing. */
 const GRADE = `${EFFECT_HEADER}
 uniform vec4 uGrade;
@@ -352,7 +372,7 @@ void main() {
   o = vec4(clamp(c + n * 0.35 * uAmount, 0.0, 1.0), 1.0);
 }`;
 
-const EFFECT_SOURCES = { camera: CAMERA, tint: TINT, grade: GRADE, blurMix: BLUR_MIX, vignette: VIGNETTE, glitch: GLITCH, grain: GRAIN };
+const EFFECT_SOURCES = { camera: CAMERA, tint: TINT, gradient: GRADIENT, grade: GRADE, blurMix: BLUR_MIX, vignette: VIGNETTE, glitch: GLITCH, grain: GRAIN };
 type EffectProgram = keyof typeof EFFECT_SOURCES;
 
 const DISPLAY = `${HEADER}
@@ -848,6 +868,9 @@ export class Compositor {
         break;
       case 'tint':
         this.pass(this.effectProgram('tint'), into, { ...base, uColor: effect.color, uAmount: effect.amount });
+        break;
+      case 'gradient':
+        this.pass(this.effectProgram('gradient'), into, { ...base, uColor: effect.color, uParams: [effect.amount, effect.reach, effect.angle] });
         break;
       case 'grade':
         this.pass(this.effectProgram('grade'), into, { ...base, uGrade: [effect.brightness, effect.contrast, effect.saturation, effect.temperature] });

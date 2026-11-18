@@ -1,8 +1,8 @@
 import { describe, expect, it } from 'vitest';
-import { defaultParams, EFFECT_GROUPS, EFFECT_NAMES, EFFECTS, effectPassAt, paramsValid, type EffectName, type EffectTiming } from './effects.ts';
+import { colorValid, defaultColor, defaultParams, EFFECT_GROUPS, EFFECT_NAMES, EFFECTS, effectPassAt, paramsValid, STILL_EFFECTS, type EffectName, type EffectTiming } from './effects.ts';
 
 function effect(name: EffectName, patch: Partial<EffectTiming> = {}): EffectTiming {
-  return { effect: name, start: 2, end: 4, intensity: [{ t: 2, value: 1, ease: 'cut' }], params: defaultParams(name), ...patch };
+  return { effect: name, start: 2, end: 4, intensity: [{ t: 2, value: 1, ease: 'cut' }], params: defaultParams(name), color: defaultColor(name), ...patch };
 }
 
 describe('effect library', () => {
@@ -20,11 +20,31 @@ describe('effect library', () => {
     expect(paramsValid('shake', { amount: 0.5 })).toBe(false);
     expect(paramsValid('flash', { amount: 0.5 })).toBe(false);
   });
+
+  it('gives a colour to the effects that take one, and only to them', () => {
+    expect(defaultColor('gradient')).toBe('#000000');
+    expect(defaultColor('blur')).toBeUndefined();
+    expect(colorValid({ effect: 'gradient', color: '#ff0000' })).toBe(true);
+    expect(colorValid({ effect: 'gradient', color: undefined })).toBe(false);
+    expect(colorValid({ effect: 'blur', color: '#ff0000' })).toBe(false);
+  });
+
+  it('offers a cover the effects that work on a still picture: no camera moves, flashes or fades', () => {
+    expect(STILL_EFFECTS).toContain('gradient');
+    expect(STILL_EFFECTS).toContain('blur');
+    for (const name of STILL_EFFECTS) expect(['camera', 'flash']).not.toContain(EFFECTS[name].group);
+  });
 });
 
 describe('effect passes', () => {
   it('gives the same pass for the same moment', () => {
     for (const name of EFFECT_NAMES) expect(effectPassAt(effect(name), 2.7)).toEqual(effectPassAt(effect(name), 2.7));
+  });
+
+  it('mixes in the gradient colour from the edge it is turned to', () => {
+    const pass = effectPassAt(effect('gradient', { color: '#ff8000', params: { reach: 0.4, angle: 90 }, intensity: [{ t: 2, value: 0.8, ease: 'cut' }] }), 3);
+    expect(pass).toMatchObject({ pass: 'gradient', color: [1, 128 / 255, 0], amount: 0.8, reach: 0.4 });
+    expect((pass as { angle: number }).angle).toBeCloseTo(Math.PI / 2);
   });
 
   it('does nothing at intensity 0', () => {

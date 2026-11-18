@@ -3,7 +3,7 @@ import { DEFAULT_CAPTION_STYLE } from './caption-style.ts';
 import { newCaptionLayer } from './captions.ts';
 import { clipFromWords } from './clips.ts';
 import { DEFAULT_CHROMA_KEY } from './chroma-key.ts';
-import { defaultParams } from './effects.ts';
+import { defaultColor, defaultParams, type EffectName } from './effects.ts';
 import { defaultVideoLayer } from './framing.ts';
 import { DEFAULT_MOTION } from './motion.ts';
 import { DEFAULT_CUTOUT_STYLE, MAX_CUTOUT_OUTLINE } from './cutout.ts';
@@ -508,6 +508,44 @@ describe('project files', () => {
     it('upgrades a format 18 file, which had no cutouts, as it is', () => {
       const p = withCover({ time: 0.5, video: null, layers: [title()], inVideo: true });
       expect(parseProject(JSON.stringify({ ...p, format: 18 }))).toEqual(p);
+    });
+
+    const effect = (name: EffectName) => {
+      const color = defaultColor(name);
+      return {
+        id: crypto.randomUUID(), kind: 'effect' as const, effect: name, start: 0, end: 2,
+        intensity: [{ t: 0.5, value: 0.7, ease: 'cut' as const }], params: defaultParams(name), ...(color ? { color } : {}),
+      };
+    };
+    const coverWith = (...layers: object[]) => JSON.stringify(withCover({ time: 0.5, video: null, layers: layers as never, inVideo: false }));
+
+    it('round-trips effects on a cover, a gradient with its colour among them', () => {
+      const p = withCover({ time: 0.5, video: null, layers: [effect('blur'), { ...effect('gradient'), color: '#102030' }, cutout(), title()], inVideo: false });
+      expect(parseProject(serializeProject(p))).toEqual(p);
+    });
+
+    it('rejects an effect on a cover that moves, plays out over time, or has a key too many', () => {
+      expect(code(() => parseProject(coverWith(effect('zoomPunch'))))).toBe('invalid');
+      expect(code(() => parseProject(coverWith(effect('fadeIn'))))).toBe('invalid');
+      const keyed = effect('blur');
+      keyed.intensity.push({ t: 1, value: 0, ease: 'cut' });
+      expect(code(() => parseProject(coverWith(keyed)))).toBe('invalid');
+      expect(code(() => parseProject(coverWith({ ...effect('blur'), params: { amount: 2 } })))).toBe('invalid');
+    });
+
+    it('wants a colour on a gradient and none on other effects, on a cover or a clip', () => {
+      const { color: _, ...plain } = effect('gradient');
+      expect(code(() => parseProject(coverWith(plain)))).toBe('invalid');
+      expect(code(() => parseProject(coverWith({ ...effect('blur'), color: '#ffffff' })))).toBe('invalid');
+      const onClip = { ...sample, clips: [{ ...sample.clips[0]!, layers: [...sample.clips[0]!.layers, plain] }] };
+      expect(code(() => parseProject(JSON.stringify(onClip)))).toBe('invalid');
+      const fine = { ...sample, clips: [{ ...sample.clips[0]!, layers: [...sample.clips[0]!.layers, effect('gradient')] }] };
+      expect(parseProject(JSON.stringify(fine))).toEqual(fine);
+    });
+
+    it('upgrades a format 19 file, which had no effects on covers, as it is', () => {
+      const p = withCover({ time: 0.5, video: null, layers: [cutout(), title()], inVideo: true });
+      expect(parseProject(JSON.stringify({ ...p, format: 19 }))).toEqual(p);
     });
   });
 

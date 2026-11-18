@@ -13,7 +13,7 @@ import { assetSchema, type Asset } from './assets.ts';
 import { captionStyleSchema } from './caption-style.ts';
 import { chromaKeySchema } from './chroma-key.ts';
 import { cutoutStyleSchema } from './cutout.ts';
-import { EFFECT_NAMES, paramsValid } from './effects.ts';
+import { colorValid, EFFECT_NAMES, paramsValid, STILL_EFFECTS } from './effects.ts';
 import { fps, frameAt, timeOfFrame, workingFrameRate } from './frames.ts';
 import { motionSchema, transformSchema } from './motion.ts';
 import { MAX_DUCK_DB, MIN_DUCK_DB } from './ducking.ts';
@@ -22,7 +22,7 @@ import { MAX_TEXT_CHARS, textStyleSchema } from './text-style.ts';
 import { speakerCountSchema, speakerPickSchema, voiceEditSchema } from './voices.ts';
 
 /** Bumped when the file format changes in a way older files need migrating for. */
-export const PROJECT_FORMAT = 19;
+export const PROJECT_FORMAT = 20;
 export const PROJECT_EXTENSION = 'rezzo';
 
 /**
@@ -275,7 +275,8 @@ export type LottieLayer = z.infer<typeof lottieLayerSchema>;
 /**
  * An effect from the library (shared/effects.ts) from `start` to `end`. It
  * changes everything drawn under it, as much as `intensity` (0..1, with
- * keyframes) says; `params` are the effect's own settings.
+ * keyframes) says; `params` are the effect's own settings, and `color`
+ * its colour, for an effect that has one (the gradient).
  */
 export const effectLayerSchema = z.object({
   id: z.uuid(),
@@ -285,6 +286,7 @@ export const effectLayerSchema = z.object({
   end: seconds,
   intensity: animated(unit),
   params: z.record(z.string(), z.number().finite()),
+  color: z.string().regex(/^#[0-9a-f]{6}$/i).optional(),
 });
 export type EffectLayer = z.infer<typeof effectLayerSchema>;
 
@@ -390,17 +392,23 @@ export const soundAssetId = (layer: SoundLayer): string | null => ('assetId' in 
 /** The kind of asset each file layer shows. */
 export const ASSET_KIND_OF = { image: 'image', overlay: 'video', lottie: 'lottie' } as const satisfies Record<FileLayer['kind'], Asset['kind']>;
 
+/** An effect has its own settings, each in range, and a colour if its kind has one. */
+const effectValid = (l: EffectLayer): boolean => paramsValid(l.effect, l.params) && colorValid(l);
+
 /**
  * A layer on a clip's cover: an image or text, with the same settings as
- * on the timeline but placed with one key, since the cover is one moment,
- * or the people cut out. Its start, end and motion aren't used.
+ * on the timeline but placed with one key, since the cover is one moment;
+ * the people cut out; or an effect that suits a still picture
+ * (STILL_EFFECTS), with one key on its intensity. Its start, end and
+ * motion aren't used.
  */
 export const coverLayerSchema = z
-  .discriminatedUnion('kind', [imageLayerSchema, textLayerSchema, cutoutLayerSchema])
-  .refine((l) => l.kind === 'cutout' || l.transform.length === 1, 'a cover layer is placed with one key');
-export type CoverLayer = ImageLayer | TextLayer | CutoutLayer;
+  .discriminatedUnion('kind', [imageLayerSchema, textLayerSchema, cutoutLayerSchema, effectLayerSchema])
+  .refine((l) => l.kind === 'cutout' || (l.kind === 'effect' ? l.intensity : l.transform).length === 1, 'a cover layer has one key')
+  .refine((l) => l.kind !== 'effect' || (STILL_EFFECTS.includes(l.effect) && effectValid(l)), 'an effect on a cover suits a still picture and has its own settings');
+export type CoverLayer = ImageLayer | TextLayer | CutoutLayer | EffectLayer;
 /** Cover layers placed over the picture: an image or text. */
-export type PlacedCoverLayer = Exclude<CoverLayer, CutoutLayer>;
+export type PlacedCoverLayer = Exclude<CoverLayer, CutoutLayer | EffectLayer>;
 
 /**
  * The clip's cover picture (shared/cover.ts): the clip's video held at
@@ -438,7 +446,7 @@ export const clipSchema = z
   .refine((c) => c.layers.every((l) => l.kind !== 'cutout'), 'only a cover has a cutout')
   .refine((c) => new Set(allLayers(c).map((l) => l.id)).size === allLayers(c).length, "layer ids are unique, the cover's included")
   .refine((c) => c.layers.every((l) => !isTimed(l) || l.end > l.start), 'a layer ends after it starts')
-  .refine((c) => c.layers.every((l) => l.kind !== 'effect' || paramsValid(l.effect, l.params)), "an effect has its own settings, each in range")
+  .refine((c) => c.layers.every((l) => l.kind !== 'effect' || effectValid(l)), "an effect has its own settings, each in range, and a colour if it takes one")
   .refine(followsValid, 'a sound goes with the entrance or exit of a layer in its clip placed over the picture, and only one sound with each')
   .refine((c) => c.end - c.start <= MAX_CLIP_SECONDS + 1e-6, `a clip is at most ${MAX_CLIP_SECONDS} s long`);
 export type Clip = z.infer<typeof clipSchema>;
@@ -580,6 +588,8 @@ const MIGRATIONS: Record<number, (old: Record<string, unknown>) => Record<string
   17: (old) => ({ ...old, clips: Array.isArray(old.clips) ? old.clips.map(withCoverOutOfVideo) : old.clips }),
   // Format 19 added cutouts on covers. Nothing to change, as for 16.
   18: (old) => old,
+  // Format 20 added effects on covers and the gradient. Nothing to change, as for 16.
+  19: (old) => old,
 };
 
 /** A clip from before format 18, its cover (if it has one) kept out of the exported video. */

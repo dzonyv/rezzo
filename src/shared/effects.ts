@@ -5,6 +5,7 @@
  * shader pass needs at a moment; it's pure, so the preview and the export
  * get exactly the same pass for the same frame.
  */
+import { rgbOf } from './chroma-key.ts';
 import { clamp01, easeOutCubic, noise, smoothstep } from './easing.ts';
 import { valueAt } from './framing.ts';
 import type { Animated } from './project.ts';
@@ -12,8 +13,8 @@ import type { Animated } from './project.ts';
 export const EFFECT_GROUPS = ['camera', 'flash', 'color', 'stylized'] as const;
 export type EffectGroup = (typeof EFFECT_GROUPS)[number];
 
-/** How a setting is shown: a share (percent), a zoom factor, seconds, times per second or pixels. */
-export type ParamUnit = 'percent' | 'times' | 'seconds' | 'perSecond' | 'pixels';
+/** How a setting is shown: a share (percent), a zoom factor, seconds, times per second, pixels or degrees. */
+export type ParamUnit = 'percent' | 'times' | 'seconds' | 'perSecond' | 'pixels' | 'degrees';
 
 export interface ParamDef {
   min: number;
@@ -29,6 +30,15 @@ interface EffectDef {
   /** How long a new effect of this kind lasts. */
   seconds: number;
   params: Record<string, ParamDef>;
+  /** The colour a new effect of this kind starts with ("#rrggbb"); effects without one have no colour. */
+  color?: string;
+  /**
+   * It can go on a cover: it changes how a picture looks rather than moving
+   * or fading it, which only makes sense while the clip plays. Glitch and
+   * grain take their noise from the moment, so a cover moved a frame gets
+   * different noise, as a frame of the clip would.
+   */
+  still?: true;
 }
 
 const amount = (value: number, min = 0): ParamDef => ({ min, max: 1, step: 0.01, value, unit: 'percent' });
@@ -52,19 +62,40 @@ export const EFFECTS = {
   flash: { group: 'flash', seconds: 0.4, params: {} },
   fadeOut: { group: 'flash', seconds: 1, params: {} },
   fadeIn: { group: 'flash', seconds: 1, params: {} },
-  brightness: { group: 'color', seconds: 3, params: { amount: amount(0.3, -1) } },
-  contrast: { group: 'color', seconds: 3, params: { amount: amount(0.3, -1) } },
-  saturation: { group: 'color', seconds: 3, params: { amount: amount(0.5, -1) } },
-  temperature: { group: 'color', seconds: 3, params: { amount: amount(0.5, -1) } },
-  blackWhite: { group: 'color', seconds: 3, params: {} },
-  blur: { group: 'stylized', seconds: 3, params: { amount: amount(0.5) } },
-  vignette: { group: 'stylized', seconds: 3, params: { size: amount(0.5) } },
-  glitch: { group: 'stylized', seconds: 1, params: { amount: amount(0.5), speed } },
-  grain: { group: 'stylized', seconds: 3, params: { amount: amount(0.4), size: { min: 1, max: 4, step: 0.1, value: 1.5, unit: 'pixels' } } },
+  brightness: { group: 'color', seconds: 3, still: true, params: { amount: amount(0.3, -1) } },
+  contrast: { group: 'color', seconds: 3, still: true, params: { amount: amount(0.3, -1) } },
+  saturation: { group: 'color', seconds: 3, still: true, params: { amount: amount(0.5, -1) } },
+  temperature: { group: 'color', seconds: 3, still: true, params: { amount: amount(0.5, -1) } },
+  blackWhite: { group: 'color', seconds: 3, still: true, params: {} },
+  blur: { group: 'stylized', seconds: 3, still: true, params: { amount: amount(0.5) } },
+  vignette: { group: 'stylized', seconds: 3, still: true, params: { size: amount(0.5) } },
+  /**
+   * A colour coming in from one edge and fading out across the picture, so
+   * text over it reads: how far in it reaches, and which edge, turned
+   * clockwise from the bottom. Its intensity is how strong it is at the edge.
+   */
+  gradient: {
+    group: 'stylized',
+    seconds: 3,
+    still: true,
+    color: '#000000',
+    params: {
+      reach: amount(0.5, 0.1),
+      angle: { min: 0, max: 345, step: 15, value: 0, unit: 'degrees' },
+    },
+  },
+  glitch: { group: 'stylized', seconds: 1, still: true, params: { amount: amount(0.5), speed } },
+  grain: { group: 'stylized', seconds: 3, still: true, params: { amount: amount(0.4), size: { min: 1, max: 4, step: 0.1, value: 1.5, unit: 'pixels' } } },
 } as const satisfies Record<string, EffectDef>;
 
 export type EffectName = keyof typeof EFFECTS;
 export const EFFECT_NAMES = Object.keys(EFFECTS) as [EffectName, ...EffectName[]];
+
+/** The effects a cover can have (EffectDef.still), in the library's order. */
+export const STILL_EFFECTS = EFFECT_NAMES.filter((name) => (EFFECTS[name] as EffectDef).still === true);
+
+/** The colour a new effect of this kind starts with, or undefined when it has none. */
+export const defaultColor = (effect: EffectName): string | undefined => (EFFECTS[effect] as EffectDef).color;
 
 /** A new effect's settings. */
 export function defaultParams(effect: EffectName): Record<string, number> {
@@ -89,18 +120,27 @@ export interface EffectTiming {
   end: number;
   intensity: Animated<number>;
   params: Record<string, number>;
+  /** Only an effect with a colour (EffectDef.color) has one. */
+  color?: string | undefined;
 }
+
+/** Whether the effect has a colour exactly when its kind does. */
+export const colorValid = (layer: Pick<EffectTiming, 'effect' | 'color'>): boolean => (layer.color === undefined) === (defaultColor(layer.effect) === undefined);
 
 /**
  * One shader pass over everything drawn so far:
  * - camera: zoom about the centre, then a shift (share of the output) and a turn (radians, clockwise),
  * - tint: mix towards a colour (RGB 0..1),
  * - grade: brightness, contrast, saturation and temperature, each -1..1, 0 for no change,
+ * - gradient: a colour mixed in from one edge, `amount` of it there, gone
+ *   `reach` (share of the picture) in; `angle` (radians, clockwise) turns
+ *   the edge from the bottom,
  * - blur, vignette, glitch, grain: their strength 0..1 and settings; `seed` changes the noise.
  */
 export type EffectPass =
   | { pass: 'camera'; zoom: number; x: number; y: number; rotation: number }
   | { pass: 'tint'; color: [number, number, number]; amount: number }
+  | { pass: 'gradient'; color: [number, number, number]; amount: number; reach: number; angle: number }
   | { pass: 'grade'; brightness: number; contrast: number; saturation: number; temperature: number }
   | { pass: 'blur'; amount: number }
   | { pass: 'vignette'; amount: number; size: number }
@@ -163,6 +203,8 @@ export function effectPassAt(layer: EffectTiming, t: number): EffectPass | null 
       return nonzero(param('amount') * k, (amount) => ({ pass: 'blur', amount }));
     case 'vignette':
       return { pass: 'vignette', amount: k, size: param('size') };
+    case 'gradient':
+      return { pass: 'gradient', color: rgbOf(layer.color ?? defaultColor('gradient')!), amount: k, reach: param('reach'), angle: (param('angle') * Math.PI) / 180 };
     case 'glitch':
       return nonzero(param('amount') * k, (amount) => ({ pass: 'glitch', amount, seed: Math.floor(since * param('speed')) }));
     case 'grain':
