@@ -2,10 +2,13 @@ import { CHANGELOG } from '../shared/changelog.ts';
 
 /**
  * The text of a GitHub release: what the version brought, from the
- * changelog in both interface languages, how to get past SmartScreen while
- * the installer isn't signed, and the installer's SHA-256 to check it by.
+ * changelog in both interface languages, and where to read how to install
+ * it. How to install lives in the README only, so it's changed in one
+ * place (when the installer gets signed, say). The checksum is in
+ * SHA256SUMS.txt next to the installer, not here: a rebuild replaces that
+ * file but leaves this text as it was.
  */
-export function releaseNotes(version: string, installer: string, sha256: string): string {
+export function releaseNotes(version: string, installer: string): string {
   const release = CHANGELOG.find((r) => r.version === version);
   if (!release) throw new Error(`No changelog entry for ${version}: add one to src/shared/changelog.ts`);
   const list = (lines: string[]) => lines.map((line) => `- ${line}`).join('\n');
@@ -20,11 +23,7 @@ export function releaseNotes(version: string, installer: string, sha256: string)
     '',
     '## Installing',
     '',
-    `Download \`${installer}\` and run it. It installs for your user and doesn't need administrator rights.`,
-    '',
-    'The installer isn\'t signed yet, so Windows SmartScreen warns you the first time. Click "More info", then "Run anyway".',
-    '',
-    `SHA-256: \`${sha256}\``,
+    `Download \`${installer}\` and run it. The [README](https://github.com/dzonyv/rezzo#download) says what to do when Windows warns you about it. \`SHA256SUMS.txt\` has its SHA-256.`,
     '',
   ].join('\n');
 }

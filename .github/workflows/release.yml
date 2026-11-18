@@ -23,6 +23,9 @@ jobs:
         shell: bash
     steps:
       - uses: actions/checkout@v4
+        with:
+          # Otherwise the token that can write releases sits in .git/config, where any install script can read it.
+          persist-credentials: false
       - uses: actions/setup-node@v4
         with:
           node-version: 24
@@ -38,10 +41,9 @@ jobs:
       - run: npm ci
       # npm doesn't always run Electron's install script; this fetches the binary if it's missing.
       - run: node node_modules/electron/install.js
-      # The same checks as CI, so a tag on an untested commit doesn't become a release.
+      # CI tested the commit on main; these are quick, and the packaged e2e below tests what ships.
       - run: npm run check
       - run: npm run fetch-tools
-      - run: npm run test:e2e
       # electron-builder publishes on its own when it sees a tag in CI; the release is made below instead.
       - run: npm run dist -- --publish never
       - run: npm run test:e2e:packaged
@@ -50,14 +52,17 @@ jobs:
           GH_TOKEN: ${{ github.token }}
         run: |
           installer="Rezzo-Setup-$VERSION.exe"
-          sha=$(sha256sum "release/$installer" | cut -d' ' -f1)
-          echo "$sha  $installer" > release/SHA256SUMS.txt
-          node scripts/release-notes.mts "$VERSION" "$installer" "$sha" > release/notes.md
+          (cd release && sha256sum "$installer" | sed 's/ \*/  /' > SHA256SUMS.txt)
           # The list, not `gh release view`: a draft isn't attached to its tag yet.
-          if gh release list --json tagName --jq '.[].tagName' | grep -qx "$GITHUB_REF_NAME"; then
-            # A rerun: replace the files, keep whatever was written in the release by hand.
+          draft=$(gh release list --limit 1000 --json tagName,isDraft --jq "[.[] | select(.tagName == \"$GITHUB_REF_NAME\")][0].isDraft // empty")
+          if [ "$draft" = "false" ]; then
+            echo "::error::$GITHUB_REF_NAME is already published; its installer stays as people downloaded it. Bump the version instead."
+            exit 1
+          elif [ "$draft" = "true" ]; then
+            # A rerun: replace the files, keep whatever was written in the draft by hand.
             gh release upload "$GITHUB_REF_NAME" "release/$installer" release/SHA256SUMS.txt --clobber
           else
+            node scripts/release-notes.mts "$VERSION" "$installer" > release/notes.md
             gh release create "$GITHUB_REF_NAME" "release/$installer" release/SHA256SUMS.txt \
               --draft --verify-tag --title "Rezzo $VERSION" --notes-file release/notes.md
           fi

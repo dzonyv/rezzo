@@ -34,7 +34,9 @@ desktop.ini
 *.mts
 # ...but not TypeScript config modules
 !*.config.mts
-!scripts/*.mts
+# ...nor the scripts, by name, so a video dropped in scripts/ stays ignored
+!scripts/fetch-tools.mts
+!scripts/release-notes.mts
 *.wav
 *.mp3
 *.m4a
