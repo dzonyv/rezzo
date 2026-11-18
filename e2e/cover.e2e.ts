@@ -2,8 +2,8 @@
  * Covers: the Cover tool turning the editor to the cover, framing it on
  * its own and picking its moment, a title on it that the clip doesn't
  * get, the saved project, and the PNG and JPG drawn as the preview is;
- * the cutout, effects on the cover, the cover on the exported video's
- * first frames, and the safe zones.
+ * the cutout, effects and templates on the cover, the cover on the
+ * exported video's first frames, and the safe zones.
  */
 import { execFile } from 'node:child_process';
 import { mkdir, mkdtemp, readFile, rm, stat, writeFile } from 'node:fs/promises';
@@ -389,5 +389,33 @@ describe('covers', () => {
 
     await pickView(page, 'No safe zones');
     await expect.poll(() => page.locator('.view-menu .dot').count()).toBe(0);
+  });
+
+  it('puts a template on the cover, keeping the words of its titles, and saves the cover as a template of your own', async () => {
+    await openTool(page, 'Cover');
+    await page.keyboard.press('Escape');
+    const templates = page.locator('.clip-drawer .cover-template-list');
+    const kinds = async () => (await saved()).clips[0]!.cover!.layers.map((l) => (l.kind === 'effect' ? l.effect : l.kind));
+    const before = (await saved()).clips[0]!.cover!.layers.filter((l) => l.kind === 'text').map((l) => l.text);
+
+    await templates.getByRole('button', { name: 'Behind the people' }).click();
+    // Its title and the cutout in place of what was there; the titles past its one stay over it.
+    expect(await kinds()).toEqual(['text', 'cutout', 'text', 'text']);
+    const after = (await saved()).clips[0]!.cover!.layers.filter((l) => l.kind === 'text');
+    expect(after.map((l) => l.text)).toEqual(before);
+    expect(after[0]).toMatchObject({ style: { color: '#ffd400' } });
+
+    await page.getByRole('textbox', { name: 'Template name' }).fill('Moj izgled');
+    await page.getByRole('button', { name: 'Save as template' }).click();
+    await page.getByText('Saved the template “Moj izgled”.').waitFor();
+
+    await templates.getByRole('button', { name: 'Dark fade' }).click();
+    expect(await kinds()).toEqual(['gradient', 'text', 'text', 'text']);
+    await templates.getByRole('button', { name: 'Moj izgled', exact: true }).click();
+    expect(await kinds()).toEqual(['text', 'cutout', 'text', 'text']);
+    expect((await saved()).clips[0]!.cover!.layers.filter((l) => l.kind === 'text').map((l) => l.text)).toEqual(before);
+
+    await templates.getByRole('button', { name: 'Delete the template “Moj izgled”' }).click();
+    await expect.poll(() => templates.getByRole('button', { name: 'Moj izgled', exact: true }).count()).toBe(0);
   });
 });

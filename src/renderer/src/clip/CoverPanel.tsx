@@ -15,6 +15,7 @@ import { addCoverImageFile } from '../project/assets.ts';
 import type { FramingTarget } from '../project/framing.ts';
 import { addCoverCutout, addCoverEffect, addCoverText, followClipFraming, setCoverInVideo, setCoverTime, stepCoverTime } from '../project/cover.ts';
 import { projectStore, type EditLabel } from '../project/store.ts';
+import { CoverTemplates } from './CoverTemplates.tsx';
 import { CutoutPanel } from './CutoutPanel.tsx';
 import { EffectPanel } from './EffectPanel.tsx';
 import { propertyFor, ZoomSlider } from './FramingOverlay.tsx';
@@ -94,6 +95,7 @@ export function CoverPanel({ clip, shown, selectedId, assets, rate, half, source
       ) : (
         <>
           <p className="dim hint">{t('cover.hint')}</p>
+          <CoverTemplates clipId={clip.id} cover={cover} />
           <SuggestedFrames clip={clip} rate={rate} ready={ready} />
           <section className="cover-framing">
             <h3>{t('cover.framing')}</h3>

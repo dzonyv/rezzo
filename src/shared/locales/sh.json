@@ -100,7 +100,8 @@
     "coverFraming": "kadar naslovne",
     "coverInVideo": "naslovna u videu",
     "addCutout": "dodavanje isečene osobe",
-    "cutoutStyle": "obrub ili sjaj isečene osobe"
+    "cutoutStyle": "obrub ili sjaj isečene osobe",
+    "coverTemplate": "Šablon naslovne"
   },
   "files": {
     "project": "Rezzo projekat",
@@ -870,7 +871,20 @@
     "inVideo": "Stavi naslovnu na prve frejmove videa",
     "inVideoHelp": "Za platforme koje daju samo da izabereš frejm iz videa, kao YouTube Shorts: naslovna zauzme prvu desetinku sekunde, a zvuk ide dalje. Pregled prikazuje klip kakav je bio.",
     "effects": "Efekti",
-    "effectsHelp": "Za sliku ispod naslova. Ako naslovna već ima taj efekat, pritisak ga bira."
+    "effectsHelp": "Za sliku ispod naslova. Ako naslovna već ima taj efekat, pritisak ga bira.",
+    "templates": "Šabloni",
+    "templateNames": {
+      "classic": "Klasičan",
+      "behind": "Iza ljudi",
+      "fade": "Tamni prelaz",
+      "glow": "Sjaj"
+    },
+    "templatesHelp": "Šablon stavlja na naslovnu svoje naslove, izrezane ljude i efekte umesto ovih. Tvoji naslovi zadržavaju svoje reči, a slike ostaju. Sačuvaj naslovnu kakva je da njen izgled koristiš na drugim klipovima.",
+    "templateName": "Naziv šablona",
+    "saveTemplate": "Sačuvaj kao šablon",
+    "templateSaved": "Šablon „{{name}}“ je sačuvan.",
+    "templateSaveFailed": "Šablon nije mogao da se sačuva.",
+    "deleteTemplate": "Obriši šablon „{{name}}“"
   },
   "safeZones": {
     "label": "Bezbedne zone",
