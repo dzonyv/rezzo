@@ -1,0 +1,54 @@
+---
+import DownloadMeta from '../components/DownloadMeta.astro';
+import Slab from '../components/Slab.astro';
+import Base from '../layouts/Base.astro';
+import type { Lang } from '../i18n.ts';
+import { latestRelease, repoUrl } from '../release.ts';
+import { text } from '../text/index.ts';
+
+interface Props {
+  lang: Lang;
+}
+
+const { lang } = Astro.props;
+const t = text[lang].download;
+const c = text[lang].common;
+const release = await latestRelease();
+---
+
+<Base lang={lang} page="preuzmi" title={t.title} description={t.description}>
+  <div class="download-box">
+    <Slab labelledby="naslov">
+      <Fragment slot="top">
+        <div>
+          <h1 id="naslov" class="display">{t.h1}</h1>
+          <p class="slab-lead">{t.lead}</p>
+          <DownloadMeta lang={lang} />
+        </div>
+        <a class="button dark" href={release.url}>{c.downloadButton}</a>
+      </Fragment>
+      <Fragment slot="bottom">
+        <p>{t.checksum}</p>
+        <a href={`${repoUrl}/releases`}>{t.allReleases}</a>
+      </Fragment>
+    </Slab>
+  </div>
+
+  <div class="wrap narrow prose">
+    <h2 class="display">{t.needsTitle}</h2>
+    <ul>{t.needs.map((n) => <li>{n}</li>)}</ul>
+
+    <h2 class="display">{t.installTitle}</h2>
+    <ol>{t.install.map((n) => <li>{n}</li>)}</ol>
+
+    <h2 class="display">{t.removeTitle}</h2>
+    <p>{t.remove}</p>
+
+    <h2 class="display">{t.buildTitle}</h2>
+    <p>{t.build}</p>
+    <pre><code>npm install
+npm run fetch-tools
+npm run dev</code></pre>
+    <p><a href={`${repoUrl}#readme`}>{t.readme}</a></p>
+  </div>
+</Base>

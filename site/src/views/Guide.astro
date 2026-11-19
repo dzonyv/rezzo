@@ -1,0 +1,43 @@
+---
+import Shot from '../components/Shot.astro';
+import Base from '../layouts/Base.astro';
+import type { Lang } from '../i18n.ts';
+import { text } from '../text/index.ts';
+
+interface Props {
+  lang: Lang;
+}
+
+const { lang } = Astro.props;
+const t = text[lang].guide;
+const c = text[lang].common;
+const alt = { clip: c.editorAlt, episode: c.episodeAlt };
+---
+
+<Base lang={lang} page="uputstvo" title={t.title} description={t.description}>
+  <div class="wrap narrow page-head">
+    <h1 class="display">{t.h1}</h1>
+    <p class="lead">{t.lead}</p>
+    <ol class="toc">
+      {
+        t.sections.map((s) => (
+          <li>
+            <a href={`#${s.id}`}>{s.title}</a>
+          </li>
+        ))
+      }
+    </ol>
+  </div>
+
+  <div class="wrap narrow prose">
+    {
+      t.sections.map((s) => (
+        <section id={s.id} aria-labelledby={`${s.id}-naslov`}>
+          <h2 id={`${s.id}-naslov`} class="display">{s.title}</h2>
+          {s.text.map((p) => <p>{p}</p>)}
+          {s.image && <Shot which={s.image as 'clip' | 'episode'} alt={alt[s.image as 'clip' | 'episode']} />}
+        </section>
+      ))
+    }
+  </div>
+</Base>

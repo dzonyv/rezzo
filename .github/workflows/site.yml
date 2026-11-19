@@ -1,0 +1,71 @@
+# Builds the website in site/ and publishes it to GitHub Pages at
+# https://dzonyv.github.io/rezzo/. Pull requests only build it and check
+# its weight budget.
+name: Site
+
+on:
+  push:
+    branches: [main]
+    paths:
+      - site/**
+      - docs/screenshots/**
+      - src/shared/changelog.ts
+      - package.json
+      - .github/workflows/site.yml
+  pull_request:
+    paths:
+      - site/**
+      - docs/screenshots/**
+      - src/shared/changelog.ts
+      - package.json
+      - .github/workflows/site.yml
+  # The download button and version come from the newest published release.
+  release:
+    types: [published]
+  workflow_dispatch:
+
+permissions:
+  contents: read
+
+jobs:
+  build:
+    runs-on: ubuntu-latest
+    defaults:
+      run:
+        working-directory: site
+    steps:
+      - uses: actions/checkout@v4
+        with:
+          persist-credentials: false
+      - uses: actions/setup-node@v4
+        with:
+          node-version: 24
+          cache: npm
+          cache-dependency-path: site/package-lock.json
+      - run: npm ci
+      - run: npm run build
+        env:
+          GITHUB_TOKEN: ${{ github.token }}
+      - run: npm run budget
+      - if: github.event_name != 'pull_request'
+        uses: actions/upload-pages-artifact@v3
+        with:
+          path: site/dist
+
+  deploy:
+    if: github.event_name != 'pull_request'
+    needs: build
+    runs-on: ubuntu-latest
+    permissions:
+      pages: write
+      id-token: write
+    # One deploy at a time; a newer one waits instead of cancelling a deploy halfway.
+    concurrency:
+      group: pages
+      cancel-in-progress: false
+    environment:
+      name: github-pages
+      url: ${{ steps.deployment.outputs.page_url }}
+    steps:
+      - id: deployment
+        uses: actions/deploy-pages@v4

@@ -1,0 +1,48 @@
+---
+import Base from '../layouts/Base.astro';
+import { asset, type Lang } from '../i18n.ts';
+import { repoUrl } from '../release.ts';
+import { text } from '../text/index.ts';
+
+interface Props {
+  lang: Lang;
+}
+
+const { lang } = Astro.props;
+const t = text[lang].licenses;
+const fonts = [
+  ['Onest', 'onest'],
+  ['Unbounded', 'unbounded'],
+  ['DM Mono', 'dm-mono'],
+];
+---
+
+<Base lang={lang} page="licence" title={t.title} description={t.description}>
+  <div class="wrap narrow page-head">
+    <h1 class="display">{t.h1}</h1>
+  </div>
+  <div class="wrap narrow prose">
+    <h2 class="display">{t.appTitle}</h2>
+    <p>{t.app}</p>
+    <p><a href={`${repoUrl}/blob/main/LICENSE`}>{t.appLink}</a></p>
+
+    <h2 class="display">{t.bundledTitle}</h2>
+    <ul>{t.bundled.map((b) => <li>{b}</li>)}</ul>
+    <p><a href={`${repoUrl}/blob/main/THIRD_PARTY_NOTICES.md`}>{t.bundledLink}</a></p>
+
+    <h2 class="display">{t.siteTitle}</h2>
+    <p>{t.siteFonts}</p>
+    <ul>
+      {
+        fonts.map(([name, file]) => (
+          <li>
+            <a href={asset(`fonts/${file}-OFL.txt`)}>{name}</a>
+          </li>
+        ))
+      }
+    </ul>
+    <p>{t.siteShots}</p>
+    <p><a href={`${repoUrl}/blob/main/docs/screenshots/CREDITS.md`}>{t.siteShotsLink}</a></p>
+    <p>{t.siteBuilt}</p>
+  </div>
+</Base>

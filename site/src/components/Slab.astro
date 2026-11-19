@@ -1,0 +1,17 @@
+---
+// The yellow slab from the app's home screen and icon: one shape cut by a
+// shallow line, the lower part shifted right. Fill the two parts with the
+// "top" and "bottom" slots.
+interface Props {
+  class?: string;
+  labelledby?: string;
+  id?: string;
+}
+
+const { class: className, labelledby, id } = Astro.props;
+---
+
+<section class:list={['wrap', 'slab', className]} aria-labelledby={labelledby} id={id}>
+  <div class="slab-top"><slot name="top" /></div>
+  <div class="slab-bottom"><slot name="bottom" /></div>
+</section>

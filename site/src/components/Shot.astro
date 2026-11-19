@@ -1,0 +1,32 @@
+---
+import { Picture } from 'astro:assets';
+import clip from '../../../docs/screenshots/clip.png';
+import episode from '../../../docs/screenshots/episode.png';
+
+interface Props {
+  which: 'clip' | 'episode';
+  alt: string;
+  caption?: string;
+  /** The first big picture on the page loads right away; the rest wait until they're near. */
+  eager?: boolean;
+}
+
+const { which, alt, caption, eager = false } = Astro.props;
+const src = which === 'clip' ? clip : episode;
+// WebP only: for these flat UI screenshots it came out smaller than AVIF at the same look.
+---
+
+<figure class="shot">
+  <Picture
+    src={src}
+    alt={alt}
+    formats={['webp']}
+    fallbackFormat="jpg"
+    widths={[640, 960, 1424]}
+    sizes="(min-width: 1280px) 1232px, calc(100vw - 48px)"
+    quality={70}
+    loading={eager ? 'eager' : 'lazy'}
+    fetchpriority={eager ? 'high' : undefined}
+  />
+  {caption && <figcaption>{caption}</figcaption>}
+</figure>

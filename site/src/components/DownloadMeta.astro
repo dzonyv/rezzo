@@ -1,0 +1,18 @@
+---
+import type { Lang } from '../i18n.ts';
+import { latestRelease } from '../release.ts';
+import { text } from '../text/index.ts';
+
+interface Props {
+  lang: Lang;
+}
+
+const t = text[Astro.props.lang].common;
+const release = await latestRelease();
+const parts = [t.version(release.version)];
+if (release.size !== null) parts.push(t.megabytes(Math.round(release.size / 1e6)));
+parts.push('Windows');
+if (!release.published) parts.push(t.notPublished);
+---
+
+<p class="meta">{parts.join(' · ')}</p>
