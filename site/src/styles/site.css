@@ -1057,6 +1057,20 @@ p {
   text-decoration: none;
 }
 
+/* The SignPath statement on the code signing policy page. */
+.page-head + .prose > p:first-child {
+  margin-top: 28px;
+}
+
+.prose .statement {
+  margin: 20px 0 4px;
+  padding: 16px 20px;
+  border-radius: 12px;
+  background: var(--surface);
+  color: var(--text);
+  font-weight: 600;
+}
+
 /* Footer */
 
 .foot {

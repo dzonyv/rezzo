@@ -20,6 +20,8 @@ export const sr = {
     report: 'Prijavi problem',
     changes: 'Izmene',
     licenses: 'Licence',
+    // SignPath asks for these exact words, in English, on every page that links here.
+    signing: 'Code signing policy',
     credit:
       'Slike ekrana prikazuju kadrove iz filma Tears of Steel, (CC) Blender Foundation | mango.blender.org, pod licencom CC BY 3.0.',
     downloadButton: 'Preuzmi instalater',
@@ -170,6 +172,7 @@ export const sr = {
     buildTitle: 'Sam iz koda',
     build: 'Treba ti Windows i Node 24. Ova tri koraka pokreću program iz koda, a ostalo piše u README fajlu.',
     readme: 'README na GitHubu',
+    signingText: 'Instalater još nije potpisan. Kako će se potpisivati, ko to odobrava i šta program šalje na mrežu:',
   },
 
   guide: {
@@ -280,6 +283,33 @@ export const sr = {
       'Slike ekrana prikazuju kadrove iz filma Tears of Steel, (CC) Blender Foundation | mango.blender.org, pod licencom CC BY 3.0. Transkript na njima je naš prevod engleskih titlova filma.',
     siteShotsLink: 'Odakle su slike',
     siteBuilt: 'Sajt je napravljen sa Astrom (MIT), a njegov kod je u istom repou kao program.',
+  },
+
+  signing: {
+    title: 'Code signing policy | Rezzo',
+    description: 'Kako se potpisuje Rezzo instalater, ko odobrava potpisivanje i šta program šalje na mrežu.',
+    h1: 'Code signing policy',
+    lead: 'Pravila po kojima se potpisuje Rezzo: šta se potpisuje, ko to odobrava i šta program šalje na mrežu.',
+    status:
+      'Instalateri još nisu potpisani. Potpisivanje preko SignPath Foundation je u pripremi, i od prvog potpisanog izdanja važi ovo:',
+    whatTitle: 'Šta se potpisuje',
+    what: [
+      'Potpisuje se samo ono što GitHub Actions izgradi iz koda u ovom repou: instalater i sam program. Svako izdanje pre potpisivanja ručno odobri odobravalac.',
+      'Uz program idu i tuđi otvoreni programi, kao FFmpeg i Electron. Oni ostaju onakvi kakve su objavili njihovi autori, a spisak je na strani Licence.',
+    ],
+    rolesTitle: 'Uloge',
+    roles: [
+      { role: 'Autori i recenzenti', who: 'Nikola', note: 'Izmene drugih ljudi stižu kao pull request i on ih pregleda pre spajanja.' },
+      { role: 'Odobravalac', who: 'Nikola', note: 'Odobrava potpisivanje svakog izdanja.' },
+    ],
+    privacyTitle: 'Privatnost',
+    privacy: [
+      'Rezzo ne šalje nikakve podatke drugim sistemima na mreži, osim kad to korisnik ili osoba koja ga instalira i koristi izričito zatraži.',
+      'Jedino što program sam preuzima su alati za transkripciju, kad prvi put pritisneš Transkribuj: whisper.cpp sa GitHuba i model za govor sa Hugging Facea. Za ta preuzimanja važe pravila privatnosti tih servisa. Video, transkript i klipovi ostaju na tvom računaru.',
+    ],
+    privacyEnglish: 'Na engleskom, kako SignPath traži:',
+    githubPrivacy: 'Pravila privatnosti GitHuba',
+    hfPrivacy: 'Pravila privatnosti Hugging Facea',
   },
 
   notFound: {

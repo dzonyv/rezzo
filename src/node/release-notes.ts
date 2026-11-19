@@ -18,7 +18,13 @@ export interface InstallerFacts {
  *
  * The checksum is in SHA256SUMS.txt next to the installer, not here: a
  * rebuild replaces that file but leaves this text as it was.
+ *
+ * Both parts end with a link to the code signing policy, which SignPath
+ * Foundation asks for on every release page.
  */
+const signingPolicy = '[Code signing policy](https://dzonyv.github.io/rezzo/en/potpisivanje/)';
+const signingPolicySh = '[Code signing policy](https://dzonyv.github.io/rezzo/potpisivanje/)';
+
 export function releaseNotes(version: string, { installer, signed }: InstallerFacts): string {
   const release = CHANGELOG.find((r) => r.version === version);
   if (!release) throw new Error(`No changelog entry for ${version}: add one to src/shared/changelog.ts`);
@@ -34,6 +40,8 @@ export function releaseNotes(version: string, { installer, signed }: InstallerFa
     `Download \`${installer}\` and run it. It installs for your user and doesn't need administrator rights. \`SHA256SUMS.txt\` has its SHA-256, to check the download by.`,
     '',
     ...unsigned("The installer isn't signed yet, so Windows SmartScreen warns you the first time. The [README](https://github.com/dzonyv/rezzo#download) says what to click."),
+    signingPolicy,
+    '',
     '## Šta donosi',
     '',
     list(release.changes.sh),
@@ -46,5 +54,6 @@ export function releaseNotes(version: string, { installer, signed }: InstallerFa
     ...unsigned(
       'Instaler još nije potpisan, pa Windows SmartScreen prvi put upozori na njega. Klikni na link ispod teksta upozorenja („More info” na engleskom Windowsu), pa na dugme koje se pojavi dole desno („Run anyway”).',
     ),
+    signingPolicySh,
   ].join('\n');
 }

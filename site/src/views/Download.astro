@@ -2,7 +2,7 @@
 import DownloadMeta from '../components/DownloadMeta.astro';
 import Slab from '../components/Slab.astro';
 import Base from '../layouts/Base.astro';
-import type { Lang } from '../i18n.ts';
+import { href, type Lang } from '../i18n.ts';
 import { latestRelease, repoUrl } from '../release.ts';
 import { text } from '../text/index.ts';
 
@@ -50,5 +50,8 @@ const release = await latestRelease();
 npm run fetch-tools
 npm run dev</code></pre>
     <p><a href={`${repoUrl}#readme`}>{t.readme}</a></p>
+
+    <h2 class="display">{c.signing}</h2>
+    <p>{t.signingText} <a href={href(lang, 'potpisivanje')}>{c.signing}</a></p>
   </div>
 </Base>
