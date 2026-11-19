@@ -129,11 +129,12 @@ export const sr = {
         q: 'Radi li na Macu ili Linuxu?',
         a: 'Još ne. Za sada samo Windows, a macOS i Linux su na planu.',
       },
-      {
-        q: 'Zašto Windows upozorava kad pokrenem instalater?',
-        a: 'Instalater još nije potpisan, pa SmartScreen upozori prvi put. Klikni „More info“, pa „Run anyway“.',
-      },
     ],
+    // Shown last among the questions while the installer isn't signed (src/signing.ts).
+    faqUnsigned: {
+      q: 'Zašto Windows upozorava kad pokrenem instalater?',
+      a: 'Instalater još nije potpisan, pa SmartScreen upozori prvi put. Klikni „More info“, pa „Run anyway“.',
+    },
     downloadId: 'preuzmi',
     downloadTitle: 'Preuzmi Rezzo',
     downloadNotes: [
@@ -147,7 +148,8 @@ export const sr = {
 
   download: {
     title: 'Preuzmi Rezzo za Windows',
-    description:
+    description: 'Instalater za Windows i šta ti treba od računara. Rezzo je besplatan i nema watermark.',
+    descriptionUnsigned:
       'Instalater za Windows, šta ti treba od računara i kako da prođeš upozorenje SmartScreena. Rezzo je besplatan i nema watermark.',
     h1: 'Preuzmi Rezzo',
     lead: 'Jedan instalater za Windows. Nema naloga, probnog perioda ni plaćene verzije.',
@@ -162,17 +164,20 @@ export const sr = {
     installTitle: 'Instalacija',
     install: [
       'Preuzmi instalater i pokreni ga.',
-      'Windows SmartScreen upozori prvi put jer instalater još nije potpisan. Klikni „More info“, pa „Run anyway“.',
       'Rezzo se instalira za tvoj nalog i ne traži administratorska prava.',
       'Prvi put kad pritisneš Transkribuj, Rezzo preuzme whisper.cpp i model za govor u %LOCALAPPDATA%\\Rezzo.',
     ],
+    // The second step while the installer isn't signed.
+    installUnsigned:
+      'Windows SmartScreen upozori prvi put jer instalater još nije potpisan. Klikni „More info“, pa „Run anyway“.',
     removeTitle: 'Uklanjanje',
     remove:
       'Deinstalacija ostavlja model u %LOCALAPPDATA%\\Rezzo, pa ga ponovna instalacija ne preuzima iznova. „Prostor na disku“ na početnom ekranu pokazuje šta Rezzo tu drži i briše to.',
     buildTitle: 'Sam iz koda',
     build: 'Treba ti Windows i Node 24. Ova tri koraka pokreću program iz koda, a ostalo piše u README fajlu.',
     readme: 'README na GitHubu',
-    signingText: 'Instalater još nije potpisan. Kako će se potpisivati, ko to odobrava i šta program šalje na mrežu:',
+    signingText: 'Instalater je potpisan. Kako se potpisuje, ko to odobrava i šta program šalje na mrežu:',
+    signingTextUnsigned: 'Instalater još nije potpisan. Kako će se potpisivati, ko to odobrava i šta program šalje na mrežu:',
   },
 
   guide: {
@@ -290,7 +295,8 @@ export const sr = {
     description: 'Kako se potpisuje Rezzo instalater, ko odobrava potpisivanje i šta program šalje na mrežu.',
     h1: 'Code signing policy',
     lead: 'Pravila po kojima se potpisuje Rezzo: šta se potpisuje, ko to odobrava i šta program šalje na mrežu.',
-    status:
+    status: 'Instalateri se potpisuju preko SignPath Foundation, po ovim pravilima:',
+    statusUnsigned:
       'Instalateri još nisu potpisani. Potpisivanje preko SignPath Foundation je u pripremi, i od prvog potpisanog izdanja važi ovo:',
     whatTitle: 'Šta se potpisuje',
     what: [
@@ -299,10 +305,12 @@ export const sr = {
     ],
     rolesTitle: 'Uloge',
     roles: [
-      { role: 'Autori i recenzenti', who: 'Nikola', note: 'Izmene drugih ljudi stižu kao pull request i on ih pregleda pre spajanja.' },
-      { role: 'Odobravalac', who: 'Nikola', note: 'Odobrava potpisivanje svakog izdanja.' },
+      { role: 'Autori i recenzenti', who: 'Nikola', handle: 'dzonyv', note: 'Izmene drugih ljudi stižu kao pull request i on ih pregleda pre spajanja.' },
+      { role: 'Odobravalac', who: 'Nikola', handle: 'dzonyv', note: 'Odobrava potpisivanje svakog izdanja.' },
     ],
     privacyTitle: 'Privatnost',
+    // On the English page SignPath's own sentence (src/signing.ts) comes first;
+    // here it is translated, and quoted under the paragraphs with this label.
     privacy: [
       'Rezzo ne šalje nikakve podatke drugim sistemima na mreži, osim kad to korisnik ili osoba koja ga instalira i koristi izričito zatraži.',
       'Jedino što program sam preuzima su alati za transkripciju, kad prvi put pritisneš Transkribuj: whisper.cpp sa GitHuba i model za govor sa Hugging Facea. Za ta preuzimanja važe pravila privatnosti tih servisa. Video, transkript i klipovi ostaju na tvom računaru.',

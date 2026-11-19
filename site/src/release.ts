@@ -34,11 +34,6 @@ async function load(): Promise<ReleaseInfo> {
   };
   if (process.env.GITHUB_TOKEN) headers.Authorization = `Bearer ${process.env.GITHUB_TOKEN}`;
   try {
-    const res = await fetch(`https://api.github.com/repos/${repo}/releases?per_page=50`, { headers });
-    if (!res.ok) {
-      console.warn(`[release] couldn't list releases (${res.status}); using package.json ${pkg.version}`);
-      return fallback;
-    }
     type Release = {
       tag_name: string;
       draft: boolean;
@@ -46,8 +41,21 @@ async function load(): Promise<ReleaseInfo> {
       published_at: string | null;
       assets: { name: string; size: number; browser_download_url: string }[];
     };
+    // Every page of releases, following GitHub's Link header; model-file
+    // releases add up, so the newest installer may not be on the first page.
+    const releases: Release[] = [];
+    let next: string | undefined = `https://api.github.com/repos/${repo}/releases?per_page=100`;
+    while (next) {
+      const res: Response = await fetch(next, { headers });
+      if (!res.ok) {
+        console.warn(`[release] couldn't list releases (${res.status}); using package.json ${pkg.version}`);
+        return fallback;
+      }
+      releases.push(...((await res.json()) as Release[]));
+      next = res.headers.get('link')?.match(/<([^>]+)>;\s*rel="next"/)?.[1];
+    }
     const installerOf = (r: Release) => r.assets.find((a) => /^Rezzo-Setup-.+\.exe$/.test(a.name));
-    const newest = ((await res.json()) as Release[])
+    const newest = releases
       .filter((r) => !r.draft && !r.prerelease && r.published_at && installerOf(r))
       .sort((a, b) => Date.parse(b.published_at!) - Date.parse(a.published_at!))[0];
     const installer = newest && installerOf(newest);

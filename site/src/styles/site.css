@@ -1058,7 +1058,7 @@ p {
 }
 
 /* The SignPath statement on the code signing policy page. */
-.page-head + .prose > p:first-child {
+.prose .signing-status {
   margin-top: 28px;
 }
 

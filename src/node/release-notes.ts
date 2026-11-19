@@ -1,4 +1,9 @@
 import { CHANGELOG } from '../shared/changelog.ts';
+import { websiteUrl } from '../shared/website.ts';
+
+// SignPath Foundation asks for a link to the code signing policy on every release page.
+const signingPolicy = `[Code signing policy](${websiteUrl('en/potpisivanje/')})`;
+const signingPolicySh = `[Code signing policy](${websiteUrl('potpisivanje/')})`;
 
 export interface InstallerFacts {
   /** The installer's file name, as attached to the release. */
@@ -19,12 +24,8 @@ export interface InstallerFacts {
  * The checksum is in SHA256SUMS.txt next to the installer, not here: a
  * rebuild replaces that file but leaves this text as it was.
  *
- * Both parts end with a link to the code signing policy, which SignPath
- * Foundation asks for on every release page.
+ * Both parts end with a link to the code signing policy.
  */
-const signingPolicy = '[Code signing policy](https://dzonyv.github.io/rezzo/en/potpisivanje/)';
-const signingPolicySh = '[Code signing policy](https://dzonyv.github.io/rezzo/potpisivanje/)';
-
 export function releaseNotes(version: string, { installer, signed }: InstallerFacts): string {
   const release = CHANGELOG.find((r) => r.version === version);
   if (!release) throw new Error(`No changelog entry for ${version}: add one to src/shared/changelog.ts`);
