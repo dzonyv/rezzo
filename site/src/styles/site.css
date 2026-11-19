@@ -1093,21 +1093,20 @@ p {
   margin-top: 0;
 }
 
-/* The 404 page: the number cut like the icon's R. */
+/* The 404 page: the number cut like the icon's R, centred, and little else. */
 .lost {
   display: flex;
-  flex-wrap: wrap;
+  flex-direction: column;
   align-items: center;
-  gap: 24px 64px;
-  padding-block: clamp(32px, 6vw, 72px) 0;
+  text-align: center;
+  padding-block: clamp(40px, 8vw, 96px) 0;
 }
 
 .cut-404 {
-  flex: 1 1 360px;
   display: grid;
   font-family: var(--font-display);
   font-weight: 800;
-  font-size: clamp(7rem, 22vw, 17rem);
+  font-size: clamp(7rem, 30vw, 20rem);
   line-height: 1;
   letter-spacing: -0.04em;
   color: var(--accent);
@@ -1126,44 +1125,16 @@ p {
   translate: 0.05em 0;
 }
 
-.lost-text {
-  flex: 1 1 380px;
-  min-width: 0;
-}
-
 .lost h1 {
-  font-size: clamp(1.9rem, 4vw, 3rem);
-}
-
-.lost .lead {
-  margin-top: 16px;
-  max-width: 560px;
-  color: var(--text-soft);
-}
-
-.lost-links {
-  margin-top: 28px;
-  display: flex;
-  flex-wrap: wrap;
-  align-items: center;
-  gap: 12px 24px;
-  font-weight: 600;
+  margin-top: clamp(16px, 3vw, 32px);
+  font-size: clamp(1.6rem, 3.6vw, 2.5rem);
 }
 
 .lost-en {
-  margin-top: 40px;
-  padding-top: 20px;
-  border-top: 1px solid var(--line);
-  color: var(--text-dim);
-  font-size: 1rem;
-}
-
-.lost-en h2 {
-  font-size: 1.15rem;
-  color: var(--text);
-  margin-bottom: 6px;
-}
-
-.lost-en p + p {
   margin-top: 8px;
+  color: var(--text-dim);
+}
+
+.lost .button {
+  margin-top: 32px;
 }

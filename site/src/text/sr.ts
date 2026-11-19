@@ -285,9 +285,7 @@ export const sr = {
   notFound: {
     title: 'Strana ne postoji | Rezzo',
     description: 'Ova strana ne postoji.',
-    kicker: 'Greška 404',
-    h1: 'Ova strana je isečena',
-    text: 'Adresa je možda pogrešno ukucana, ili je strana premeštena. Kao i svaki rez u Rezzu, i ovaj se vraća jednim klikom.',
+    h1: 'Strana nije pronađena',
     back: 'Na početnu',
   },
 };

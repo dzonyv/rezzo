@@ -4,10 +4,9 @@ import { href } from '../i18n.ts';
 import { text } from '../text/index.ts';
 
 // GitHub Pages serves one 404 page for every missing address, so it says
-// the same thing in both languages, Serbian first. The big 404 is cut the
-// way the icon's R is: a shallow line through it, the lower part shifted.
+// it in Serbian with the English under it. The big 404 is cut the way the
+// icon's R is: a shallow line through it, the lower part shifted.
 const t = text.sr.notFound;
-const nav = text.sr.common.nav;
 const o = text.en.notFound;
 ---
 
@@ -17,20 +16,8 @@ const o = text.en.notFound;
       <span class="cut-top">404</span>
       <span class="cut-bottom">404</span>
     </div>
-    <div class="lost-text">
-      <p class="kicker">{t.kicker}</p>
-      <h1 id="naslov" class="display">{t.h1}</h1>
-      <p class="lead">{t.text}</p>
-      <p class="lost-links">
-        <a class="button" href={href('sr', '')}>{t.back}</a>
-        <a href={href('sr', 'uputstvo')}>{nav.guide}</a>
-        <a href={href('sr', 'preuzmi')}>{nav.download}</a>
-      </p>
-      <div class="lost-en" lang="en">
-        <h2>{o.h1}</h2>
-        <p>{o.text}</p>
-        <p><a href={href('en', '')}>{o.back}</a></p>
-      </div>
-    </div>
+    <h1 id="naslov" class="display">{t.h1}</h1>
+    <p class="lost-en" lang="en">{o.h1}</p>
+    <a class="button" href={href('sr', '')}>{t.back}</a>
   </section>
 </Base>
