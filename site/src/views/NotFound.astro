@@ -1,0 +1,23 @@
+---
+import Base from '../layouts/Base.astro';
+import { href } from '../i18n.ts';
+import { text } from '../text/index.ts';
+
+// GitHub Pages serves one 404 page for every missing address, so it says
+// it in Serbian with the English under it. The big 404 is cut the way the
+// icon's R is: a shallow line through it, the lower part shifted.
+const t = text.sr.notFound;
+const o = text.en.notFound;
+---
+
+<Base lang="sr" page="404" title={t.title} description={t.description}>
+  <section class="wrap lost" aria-labelledby="naslov">
+    <div class="cut-404" aria-hidden="true">
+      <span class="cut-top">404</span>
+      <span class="cut-bottom">404</span>
+    </div>
+    <h1 id="naslov" class="display">{t.h1}</h1>
+    <p class="lost-en" lang="en">{o.h1}</p>
+    <a class="button" href={href('sr', '')}>{t.back}</a>
+  </section>
+</Base>

@@ -4,4 +4,6 @@ The pictures in these screenshots are frames from *Tears of Steel*, (CC) Blender
 
 The transcript is our Serbian translation of the film's English subtitles (`TOS-en.srt` from https://download.blender.org/demo/movies/ToS/subtitles/), typed into the project with the same times and each line's words spread evenly over its time. The film has no Serbian subtitles of its own. Like the film, the translation is under CC BY 3.0. The film is in English, which Rezzo doesn't transcribe, so these screenshots don't show a real transcription.
 
+`clip-follow.png` is made the same way, from the film's 6:23 to 6:33. The website shows these screenshots too, with the same credit in its footer and on its licenses page.
+
 The screenshots contain no sound, so the soundtrack's own license (CC BY-ND 3.0) doesn't apply here.

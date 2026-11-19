@@ -1,0 +1,34 @@
+---
+// The language switch in the header: SR and EN, the current one in yellow
+// with a yellow line under it, the other a link to the same page in that
+// language. The line has a view-transition name (site.css), so following
+// the link slides it across to the other code, with no JavaScript.
+import { href, htmlLang, langs, type Lang, type Page } from '../i18n.ts';
+import { text } from '../text/index.ts';
+
+interface Props {
+  lang: Lang;
+  page: Page;
+}
+
+const { lang, page } = Astro.props;
+const t = text[lang].common;
+const target = page === '404' ? '' : page;
+---
+
+<span class="lang-switch">
+  {
+    langs.map((l) =>
+      l === lang ? (
+        <span class="code current" aria-current="true" lang={htmlLang[l]}>
+          {l.toUpperCase()}
+          <span class="mark" aria-hidden="true"></span>
+        </span>
+      ) : (
+        <a class="code" href={href(l, target)} hreflang={htmlLang[l]} aria-label={t.otherLangLabel}>
+          {l.toUpperCase()}
+        </a>
+      ),
+    )
+  }
+</span>

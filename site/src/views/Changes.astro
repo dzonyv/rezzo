@@ -1,0 +1,38 @@
+---
+import { CHANGELOG } from '../../../src/shared/changelog.ts';
+import Base from '../layouts/Base.astro';
+import type { Lang } from '../i18n.ts';
+import { text } from '../text/index.ts';
+
+interface Props {
+  lang: Lang;
+}
+
+const { lang } = Astro.props;
+const t = text[lang].changes;
+// The app calls its Serbian `sh`.
+const appLang = lang === 'sr' ? 'sh' : 'en';
+---
+
+<Base lang={lang} page="izmene" title={t.title} description={t.description}>
+  <div class="wrap narrow page-head">
+    <h1 class="display">{t.h1}</h1>
+    <p class="lead">{t.lead}</p>
+  </div>
+  <div class="wrap narrow prose">
+    {
+      CHANGELOG.map((release) => (
+        <section aria-labelledby={`v${release.version}`}>
+          <h2 id={`v${release.version}`} class="display">
+            {t.version(release.version)}
+          </h2>
+          <ul>
+            {release.changes[appLang].map((change) => (
+              <li>{change}</li>
+            ))}
+          </ul>
+        </section>
+      ))
+    }
+  </div>
+</Base>

@@ -1,0 +1,133 @@
+---
+import ClipAnimation from '../components/ClipAnimation.astro';
+import DownloadMeta from '../components/DownloadMeta.astro';
+import Shot from '../components/Shot.astro';
+import Slab from '../components/Slab.astro';
+import Base from '../layouts/Base.astro';
+import { absolute, asset, href, htmlLang, type Lang } from '../i18n.ts';
+import { latestRelease, repoUrl } from '../release.ts';
+import { text } from '../text/index.ts';
+
+interface Props {
+  lang: Lang;
+}
+
+const { lang } = Astro.props;
+const t = text[lang].home;
+const c = text[lang].common;
+const release = await latestRelease();
+
+const jsonLd = {
+  '@context': 'https://schema.org',
+  '@type': 'SoftwareApplication',
+  name: 'Rezzo',
+  description: t.description,
+  url: absolute(href(lang, '')),
+  image: absolute(asset(`og-${lang}.png`)),
+  inLanguage: htmlLang[lang],
+  operatingSystem: 'Windows 10, Windows 11',
+  applicationCategory: 'MultimediaApplication',
+  softwareVersion: release.version,
+  downloadUrl: release.url,
+  license: 'https://www.gnu.org/licenses/gpl-3.0.html',
+  isAccessibleForFree: true,
+  offers: { '@type': 'Offer', price: '0', priceCurrency: 'EUR' },
+  author: { '@type': 'Person', name: 'Nikola', url: 'https://github.com/dzonyv' },
+  sameAs: repoUrl,
+};
+---
+
+<Base lang={lang} page="" title={t.title} description={t.description} jsonLd={jsonLd} bodyClass="home">
+  <Slab class="hero" labelledby="naslov">
+    <Fragment slot="top">
+      <div class="hero-text">
+        <p class="kicker">{t.kicker}</p>
+        <h1 id="naslov" class="display">{t.h1}</h1>
+        <p class="lead">{t.lead}</p>
+      </div>
+      <figure class="phone">
+        <div class="phone-frame">
+          <ClipAnimation lang={lang} />
+        </div>
+        <figcaption>{t.clipCaption}</figcaption>
+      </figure>
+    </Fragment>
+    <Fragment slot="bottom">
+      <a class="button dark" href={href(lang, '', t.downloadId)}>{c.downloadForWindows}</a>
+      <ul class="none" aria-label={t.noneLabel}>
+        {t.none.map((item) => <li>{item}</li>)}
+      </ul>
+    </Fragment>
+  </Slab>
+
+  <div class="wrap section">
+    <Shot which="follow" alt={c.followAlt} caption={t.editorCaption} eager />
+  </div>
+
+  <section class="wrap section" id={t.howId} aria-labelledby="kako">
+    <h2 id="kako" class="display">{t.howTitle}</h2>
+    <ol class="steps">
+      {
+        t.steps.map((step) => (
+          <li>
+            <h3>{step.title}</h3>
+            <p>{step.text}</p>
+          </li>
+        ))
+      }
+    </ol>
+  </section>
+
+  <section class="wrap section" id={t.featuresId} aria-labelledby="ume">
+    <h2 id="ume" class="display">{t.featuresTitle}</h2>
+    <div class="cards">
+      {
+        t.features.map((f) => (
+          <article class="card">
+            <h3>{f.title}</h3>
+            <p>{f.text}</p>
+          </article>
+        ))
+      }
+    </div>
+    <Shot which="episode" alt={c.episodeAlt} caption={t.episodeCaption} />
+  </section>
+
+  <section class="wrap section why" aria-labelledby="zasto">
+    <h2 id="zasto" class="display">{t.whyTitle}</h2>
+    <div class="why-box">
+      {t.why.map((p) => <p>{p}</p>)}
+      <p class="signature">— {t.signature}</p>
+    </div>
+  </section>
+
+  <section class="wrap section faq" id={t.faqId} aria-labelledby="pitanja-naslov">
+    <h2 id="pitanja-naslov" class="display">{t.faqTitle}</h2>
+    {
+      t.faq.map((item) => (
+        <details>
+          <summary>{item.q}</summary>
+          <p>{item.a}</p>
+        </details>
+      ))
+    }
+  </section>
+
+  <div class="section get">
+    <Slab id={t.downloadId} labelledby="preuzmi-naslov">
+      <Fragment slot="top">
+        <div>
+          <h2 id="preuzmi-naslov" class="display">{t.downloadTitle}</h2>
+          <DownloadMeta lang={lang} />
+        </div>
+        <a class="button dark" href={release.url}>{c.downloadButton}</a>
+      </Fragment>
+      <Fragment slot="bottom">
+        <ul class="notes">
+          {t.downloadNotes.map((n) => <li>{n}</li>)}
+        </ul>
+        <a class="more" href={href(lang, 'preuzmi')}>{t.downloadMore}</a>
+      </Fragment>
+    </Slab>
+  </div>
+</Base>
