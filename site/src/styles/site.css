@@ -549,7 +549,7 @@ p {
   gap: 0.6cqw 1.6cqw;
 }
 
-.w {
+.clip-anim .w {
   padding: 0.2cqw 1.4cqw;
   border-radius: 1.4cqw;
   color: #fff;
@@ -562,23 +562,23 @@ p {
   animation-iteration-count: infinite;
 }
 
-.w0 {
+.clip-anim .w0 {
   animation-name: word-of-three;
 }
 
-.w1 {
+.clip-anim .w1 {
   animation-name: word-of-two;
 }
 
-.w2 {
+.clip-anim .w2 {
   animation-name: word-of-one;
 }
 
-.d1 { animation-delay: 1s; }
-.d2 { animation-delay: 2s; }
-.d3 { animation-delay: 3s; }
-.d4 { animation-delay: 4s; }
-.d5 { animation-delay: 5s; }
+.clip-anim .d1 { animation-delay: 1s; }
+.clip-anim .d2 { animation-delay: 2s; }
+.clip-anim .d3 { animation-delay: 3s; }
+.clip-anim .d4 { animation-delay: 4s; }
+.clip-anim .d5 { animation-delay: 5s; }
 
 /* The clip's progress along the bottom. */
 .scrub {
@@ -666,13 +666,13 @@ p {
     opacity: 0;
   }
 
-  .d0,
-  .d1,
-  .d2 {
+  .clip-anim .d0,
+  .clip-anim .d1,
+  .clip-anim .d2 {
     opacity: 1;
   }
 
-  .d0 {
+  .clip-anim .d0 {
     background: var(--accent);
     color: var(--ink);
     text-shadow: none;
@@ -750,7 +750,7 @@ p {
   left: 0;
   width: 2px;
   background: var(--accent);
-  animation: scrub 1.6s cubic-bezier(0.5, 0, 0.5, 1) infinite alternate;
+  animation: scrub 1.6s cubic-bezier(0.5, 0, 0.5, 1) 14 alternate;
 }
 
 .shot-frame::after {
@@ -763,7 +763,7 @@ p {
   margin-left: -13px;
   border-radius: 6px;
   background: var(--accent);
-  animation: scrub 1.6s cubic-bezier(0.5, 0, 0.5, 1) infinite alternate;
+  animation: scrub 1.6s cubic-bezier(0.5, 0, 0.5, 1) 14 alternate;
 }
 
 .shot img {

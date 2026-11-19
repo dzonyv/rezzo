@@ -10,8 +10,10 @@ import { readFile } from 'node:fs/promises';
 import { extname, join } from 'node:path';
 import { fileURLToPath } from 'node:url';
 import { chromium } from 'playwright-core';
+import { base as configBase } from '../site.config.mjs';
 
 const site = new URL('../', import.meta.url);
+const base = configBase.endsWith('/') ? configBase : `${configBase}/`;
 const dist = fileURLToPath(new URL('dist/', site));
 const font = async (name) => (await readFile(new URL(`public/fonts/${name}.woff2`, site))).toString('base64');
 const [onest, unbounded, mono] = await Promise.all([font('onest'), font('unbounded'), font('dm-mono')]);
@@ -22,17 +24,17 @@ const icon = (await readFile(new URL('public/favicon.svg', site), 'utf8'))
   .replaceAll('stroke="#12110e"', 'stroke="#ffd400"');
 
 const cards = {
-  sr: { page: '/rezzo/', kicker: 'Besplatno · open source · Windows', title: 'Besplatan program za klipove iz podkasta', none: 'Bez watermarka · bez pretplate' },
-  en: { page: '/rezzo/en/', kicker: 'Free · open source · Windows', title: 'A free app for clips from podcasts', none: 'No watermark · no subscription' },
+  sr: { page: base, kicker: 'Besplatno · open source · Windows', title: 'Besplatan program za klipove iz podkasta', none: 'Bez watermarka · bez pretplate' },
+  en: { page: `${base}en/`, kicker: 'Free · open source · Windows', title: 'A free app for clips from podcasts', none: 'No watermark · no subscription' },
 };
 const types = { '.html': 'text/html', '.css': 'text/css', '.woff2': 'font/woff2', '.svg': 'image/svg+xml', '.png': 'image/png', '.webp': 'image/webp', '.jpg': 'image/jpeg' };
 
 const browser = await chromium.launch({ channel: 'msedge' });
 // Reduced motion holds the drawn clip on its first moment.
 const context = await browser.newContext({ reducedMotion: 'reduce', deviceScaleFactor: 2 });
-// Serve dist/ under a made-up host, the way GitHub Pages serves it under /rezzo/.
+// Serve dist/ under a made-up host, at the base path, the way GitHub Pages serves it.
 await context.route('http://site.test/**', async (route) => {
-  let path = new URL(route.request().url()).pathname.replace(/^\/rezzo\//, '');
+  let path = new URL(route.request().url()).pathname.slice(base.length);
   if (path === '' || path.endsWith('/')) path += 'index.html';
   try {
     const body = await readFile(join(dist, decodeURIComponent(path)));

@@ -3,6 +3,7 @@ import { Picture } from 'astro:assets';
 import clipFollow from '../../../docs/screenshots/clip-follow.png';
 import clip from '../../../docs/screenshots/clip.png';
 import episode from '../../../docs/screenshots/episode.png';
+import { wideSizes } from '../sizes.ts';
 
 const sources = { clip, follow: clipFollow, episode };
 
@@ -12,9 +13,11 @@ interface Props {
   caption?: string;
   /** The first big picture on the page loads right away; the rest wait until they're near. */
   eager?: boolean;
+  /** How wide it shows, for picking a file. The default fits a full-width .wrap. */
+  sizes?: string;
 }
 
-const { which, alt, caption, eager = false } = Astro.props;
+const { which, alt, caption, eager = false, sizes = wideSizes } = Astro.props;
 const src = sources[which];
 // WebP only: for these flat UI screenshots it came out smaller than AVIF at the same look.
 ---
@@ -27,7 +30,7 @@ const src = sources[which];
     formats={['webp']}
     fallbackFormat="jpg"
     widths={[640, 960, 1424]}
-    sizes="(min-width: 1280px) 1232px, calc(100vw - 48px)"
+    sizes={sizes}
     quality={70}
     loading={eager ? 'eager' : 'lazy'}
     fetchpriority={eager ? 'high' : undefined}

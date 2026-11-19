@@ -10,6 +10,7 @@ import { readFileSync, readdirSync, statSync } from 'node:fs';
 import { join, relative } from 'node:path';
 import { fileURLToPath } from 'node:url';
 import { gzipSync } from 'node:zlib';
+import { base as configBase } from '../site.config.mjs';
 
 const KB = 1024;
 const limits = {
@@ -23,7 +24,7 @@ const limits = {
   page: 700 * KB,
   firstScreenRequests: 12,
 };
-const base = '/rezzo/';
+const base = configBase.endsWith('/') ? configBase : `${configBase}/`;
 const dist = fileURLToPath(new URL('../dist/', import.meta.url));
 
 const pages = walk(dist).filter((f) => f.endsWith('.html'));
@@ -48,7 +49,14 @@ for (const page of pages) {
   const inlineJs = [...html.matchAll(/<script(?![^>]*application\/ld\+json)[^>]*>([\s\S]*?)<\/script>/g)].map((m) => m[1]).join('');
   sizes.js = scripts.reduce((sum, src) => sum + gzipSync(readFileSync(file(src))).length, 0) + (inlineJs.trim() ? gzipSync(inlineJs).length : 0);
 
-  const fonts = attrs(html, /<link[^>]+rel="preload"[^>]+as="font"[^>]*>/g, 'href');
+  // Every font the page can load: the preloaded ones, and any url() in an
+  // @font-face rule, inline or in a stylesheet (counting each file once).
+  const allCss = inlineCss + stylesheets.map((href) => readFileSync(file(href), 'utf8')).join('');
+  const faceUrls = [...allCss.matchAll(/@font-face\s*\{[^}]*\}/g)].flatMap((m) =>
+    [...m[0].matchAll(/url\(\s*['"]?([^'")]+)['"]?\s*\)/g)].map((u) => u[1]),
+  );
+  const preloaded = attrs(html, /<link[^>]+rel="preload"[^>]+as="font"[^>]*>/g, 'href');
+  const fonts = [...new Set([...preloaded, ...faceUrls.filter((u) => !u.startsWith('data:'))])];
   sizes.fonts = fonts.reduce((sum, href) => sum + size(href), 0);
 
   const images = findImages(html);

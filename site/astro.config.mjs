@@ -1,11 +1,11 @@
 import { fileURLToPath } from 'node:url';
 import { defineConfig } from 'astro/config';
+import { base, site } from './site.config.mjs';
 
-// Published to GitHub Pages as a project site: https://dzonyv.github.io/rezzo/.
-// With a domain of its own later, `site` becomes that domain and `base` goes.
+// Published to GitHub Pages as a project site; site.config.mjs says where.
 export default defineConfig({
-  site: 'https://dzonyv.github.io',
-  base: '/rezzo',
+  site,
+  base,
   trailingSlash: 'always',
   build: { format: 'directory' },
   vite: {

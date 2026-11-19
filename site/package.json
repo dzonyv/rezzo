@@ -11,6 +11,7 @@
     "dev": "astro dev",
     "build": "astro build",
     "preview": "astro preview",
+    "check": "astro check",
     "budget": "node scripts/check-budget.mjs",
     "make-assets": "node scripts/make-assets.mjs",
     "make-og": "node scripts/make-og.mjs"
@@ -20,6 +21,8 @@
     "sharp": "0.35.5"
   },
   "devDependencies": {
-    "subset-font": "2.9.0"
+    "@astrojs/check": "0.9.12",
+    "subset-font": "2.9.0",
+    "typescript": "6.0.3"
   }
 }

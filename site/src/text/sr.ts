@@ -187,7 +187,7 @@ export const sr = {
           'Dok video ide, pretražuješ transkript (Ctrl+F) i ispravljaš pogrešne reči jednu za drugom sa tastature. Reči koje model greši svaki put idu u Zamene, pa su u svakom sledećem transkriptu već ispravljene.',
           'Rezzo razlikuje glasove u epizodi i boji ih u traci na dnu ekrana. Ako je jedna osoba dobila dva glasa, spojiš ih u kartici Glasovi.',
         ],
-        image: 'episode',
+        image: 'episode' as const,
       },
       {
         id: 'klip',
@@ -204,7 +204,7 @@ export const sr = {
           'Na širokom kadru Rezzo sam ne zna ko priča. Uključi Prikaži ljude i klikni na onoga ko govori. Taj jedan klik mu kaže gde taj glas sedi do kraja epizode.',
           'Sve što Automatski kadar uradi su obični keyframe-ovi, pa svaki možeš da pomeriš ili obrišeš.',
         ],
-        image: 'clip',
+        image: 'clip' as const,
       },
       {
         id: 'titlovi',
@@ -213,7 +213,7 @@ export const sr = {
           'Svaki klip dobija titlove koji se pojavljuju reč po reč i označavaju reč koja se izgovara. Ima nekoliko gotovih stilova, a font, boje, obrub, veličinu i broj reči u redu menjaš sam i čuvaš kao svoj stil.',
           'Poppins, Montserrat i Anton dolaze uz program, a možeš da dodaš bilo koji TTF ili OTF font.',
         ],
-        image: 'follow',
+        image: 'follow' as const,
       },
       {
         id: 'pauze',

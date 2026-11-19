@@ -1,6 +1,7 @@
 # Builds the website in site/ and publishes it to GitHub Pages at
 # https://dzonyv.github.io/rezzo/. Pull requests only build it and check
-# its weight budget.
+# it. Only main is ever deployed: Pages' environment accepts the default
+# branch, and the site on main is the newest one.
 name: Site
 
 on:
@@ -19,7 +20,8 @@ on:
       - src/shared/changelog.ts
       - package.json
       - .github/workflows/site.yml
-  # The download button and version come from the newest published release.
+  # The download button and version come from the newest published release,
+  # so publishing one rebuilds the site, from main (see `rebuild` below).
   release:
     types: [published]
   workflow_dispatch:
@@ -28,7 +30,21 @@ permissions:
   contents: read
 
 jobs:
+  # A release event runs on the tag, which Pages won't deploy and which may
+  # hold an older site. Start this workflow again on main instead. A
+  # workflow_dispatch made with GITHUB_TOKEN does start a run.
+  rebuild:
+    if: github.event_name == 'release'
+    runs-on: ubuntu-latest
+    permissions:
+      actions: write
+    steps:
+      - env:
+          GH_TOKEN: ${{ github.token }}
+        run: gh workflow run site.yml --repo "$GITHUB_REPOSITORY" --ref "${{ github.event.repository.default_branch }}"
+
   build:
+    if: github.event_name != 'release'
     runs-on: ubuntu-latest
     defaults:
       run:
@@ -43,17 +59,18 @@ jobs:
           cache: npm
           cache-dependency-path: site/package-lock.json
       - run: npm ci
+      - run: npm run check
       - run: npm run build
         env:
           GITHUB_TOKEN: ${{ github.token }}
       - run: npm run budget
-      - if: github.event_name != 'pull_request'
+      - if: github.event_name != 'pull_request' && github.ref == format('refs/heads/{0}', github.event.repository.default_branch)
         uses: actions/upload-pages-artifact@v3
         with:
           path: site/dist
 
   deploy:
-    if: github.event_name != 'pull_request'
+    if: github.event_name != 'pull_request' && github.ref == format('refs/heads/{0}', github.event.repository.default_branch)
     needs: build
     runs-on: ubuntu-latest
     permissions:

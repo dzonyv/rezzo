@@ -12,7 +12,8 @@ interface Props {
 }
 
 const t = text[Astro.props.lang].home;
-const words = [...t.captionLines[0], ...t.captionLines[1]];
+const [first = [], second = []] = t.captionLines;
+const words = [...first, ...second];
 ---
 
 <div class="clip-anim" role="img" aria-label={t.clipAlt}>

@@ -1,5 +1,6 @@
 ---
 import Shot from '../components/Shot.astro';
+import { narrowSizes } from '../sizes.ts';
 import Base from '../layouts/Base.astro';
 import type { Lang } from '../i18n.ts';
 import { text } from '../text/index.ts';
@@ -12,7 +13,6 @@ const { lang } = Astro.props;
 const t = text[lang].guide;
 const c = text[lang].common;
 const alt = { clip: c.editorAlt, follow: c.followAlt, episode: c.episodeAlt };
-type Image = keyof typeof alt;
 ---
 
 <Base lang={lang} page="uputstvo" title={t.title} description={t.description}>
@@ -36,7 +36,7 @@ type Image = keyof typeof alt;
         <section id={s.id} aria-labelledby={`${s.id}-naslov`}>
           <h2 id={`${s.id}-naslov`} class="display">{s.title}</h2>
           {s.text.map((p) => <p>{p}</p>)}
-          {s.image && <Shot which={s.image as Image} alt={alt[s.image as Image]} />}
+          {s.image && <Shot which={s.image} alt={alt[s.image]} sizes={narrowSizes} />}
         </section>
       ))
     }
