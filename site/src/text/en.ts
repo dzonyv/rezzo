@@ -41,8 +41,13 @@ export const en: Text = {
     kicker: 'Free · open source · Windows',
     h1: 'A free app for clips from podcasts',
     lead: 'Rezzo writes the episode down as a transcript. You pick the sentences, and it cuts a 9:16 clip, keeps whoever is talking in frame and adds captions word by word.',
-    clipAlt: 'A finished vertical clip: two people stacked, with a caption between them',
+    clipAlt:
+      'A drawn vertical clip: two people stacked, the frame moving closer to whoever is talking, and the caption between them appearing word by word',
     clipCaption: '1080×1920, no watermark',
+    captionLines: [
+      ['A', 'whole', 'episode'],
+      ['into', 'vertical', 'clips'],
+    ],
     noneLabel: "What Rezzo doesn't have",
     none: ['Watermark: none', 'Subscription: none', 'Paid version: none'],
     editorCaption: 'The clip editor. What you see in the preview is what ends up in the file.',
@@ -96,7 +101,7 @@ export const en: Text = {
       'I post podcast clips on social media, and the work is the same every time: find a good moment, crop a wide shot down to 9:16, keep whoever is talking in frame, add captions.',
       'The apps that handle this well either stamp a watermark on the video or put the useful parts behind a monthly subscription. Rezzo does the same job for free, and every feature is in the free version because there is no other version.',
     ],
-    signature: 'Nikola, who made it. The code is on',
+    signature: 'The author',
     faqId: 'questions',
     faqTitle: 'Questions',
     faq: [

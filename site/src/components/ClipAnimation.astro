@@ -1,0 +1,36 @@
+---
+// A drawn vertical clip that plays on its own, in CSS only: two people in
+// the Split layout, the one talking framed a little closer, and captions
+// appearing word by word with the spoken word marked, as in the app. One
+// loop is six seconds; the first speaker has the first three words, the
+// second the next three. With reduced motion it holds the first moment.
+import type { Lang } from '../i18n.ts';
+import { text } from '../text/index.ts';
+
+interface Props {
+  lang: Lang;
+}
+
+const t = text[Astro.props.lang].home;
+const words = [...t.captionLines[0], ...t.captionLines[1]];
+---
+
+<div class="clip-anim" role="img" aria-label={t.clipAlt}>
+  <div class="spk spk-a" aria-hidden="true">
+    <span class="person"><span class="mic"></span></span>
+    <span class="bars"><i></i><i></i><i></i></span>
+  </div>
+  <div class="spk spk-b" aria-hidden="true">
+    <span class="person"><span class="mic"></span></span>
+    <span class="bars"><i></i><i></i><i></i></span>
+  </div>
+  <p class="cap" aria-hidden="true">
+    <span class="cap-line">
+      {words.slice(0, 3).map((w, i) => <span class={`w w${i} d${i}`}>{w}</span>)}
+    </span>
+    <span class="cap-line">
+      {words.slice(3).map((w, i) => <span class={`w w${i} d${i + 3}`}>{w}</span>)}
+    </span>
+  </p>
+  <span class="scrub" aria-hidden="true"><span></span></span>
+</div>

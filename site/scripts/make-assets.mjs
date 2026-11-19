@@ -1,5 +1,4 @@
-﻿// Makes the site's fonts, icons and the vertical clip picture from files
-// already in the repo. Run it again when one of those changes:
+// Makes the site's fonts and icons from files already in the repo. Run it again when one of those changes:
 //
 //   npm run make-assets
 //
@@ -46,14 +45,6 @@ await sharp(fileURLToPath(new URL('resources/icon.png', repo)))
   .resize(180, 180)
   .png()
   .toFile(fileURLToPath(new URL('public/apple-touch-icon.png', site)));
-
-// The 9:16 preview cut out of the clip editor screenshot. A frame from a
-// real exported clip would be sharper; this stands in until there is one.
-await mkdir(new URL('src/assets/', site), { recursive: true });
-await sharp(fileURLToPath(new URL('docs/screenshots/clip.png', repo)))
-  .extract({ left: 770, top: 99, width: 186, height: 331 })
-  .png()
-  .toFile(fileURLToPath(new URL('src/assets/clip-vertical.png', site)));
 
 function range(from, to) {
   let s = '';

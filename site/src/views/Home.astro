@@ -1,6 +1,5 @@
 ---
-import { Picture } from 'astro:assets';
-import clipVertical from '../assets/clip-vertical.png';
+import ClipAnimation from '../components/ClipAnimation.astro';
 import DownloadMeta from '../components/DownloadMeta.astro';
 import Shot from '../components/Shot.astro';
 import Slab from '../components/Slab.astro';
@@ -48,7 +47,7 @@ const jsonLd = {
       </div>
       <figure class="phone">
         <div class="phone-frame">
-          <Picture src={clipVertical} alt={t.clipAlt} formats={['avif', 'webp']} fallbackFormat="jpg" quality={80} loading="eager" />
+          <ClipAnimation lang={lang} />
         </div>
         <figcaption>{t.clipCaption}</figcaption>
       </figure>
@@ -98,7 +97,7 @@ const jsonLd = {
     <h2 id="zasto" class="display">{t.whyTitle}</h2>
     <div class="why-box">
       {t.why.map((p) => <p>{p}</p>)}
-      <p class="signature">{t.signature} <a href={repoUrl}>GitHub</a>.</p>
+      <p class="signature">— {t.signature}</p>
     </div>
   </section>
 

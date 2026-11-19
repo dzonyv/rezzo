@@ -312,8 +312,8 @@ p {
 }
 
 .phone-frame {
-  width: 160px;
-  aspect-ratio: 186 / 331;
+  width: 170px;
+  aspect-ratio: 9 / 16;
   overflow: hidden;
   border: 7px solid var(--bg);
   border-radius: 24px;
@@ -328,10 +328,309 @@ p {
   }
 }
 
-.phone-frame img {
-  width: 100%;
+/*
+ * The drawn clip (ClipAnimation.astro). Sizes are in cqw, so it scales with
+ * the phone. One loop is 6 s: speaker A talks for the first half, B for the
+ * second, and each caption word gets one second. steps(1, end) holds every
+ * keyframe until the next one, so words switch like the app's captions
+ * instead of fading.
+ */
+.clip-anim {
+  container-type: inline-size;
+  position: relative;
   height: 100%;
-  object-fit: cover;
+  display: grid;
+  grid-template-rows: 1fr 1fr;
+  gap: 0.8cqw;
+  background: var(--bg);
+}
+
+.spk {
+  position: relative;
+  overflow: hidden;
+}
+
+.spk-a {
+  background: #3a3226;
+  --voice: #ffae73;
+}
+
+.spk-b {
+  background: #262b33;
+  --voice: #8db8ff;
+}
+
+/* Head and shoulders. */
+.person {
+  position: absolute;
+  inset: 0;
+  transform-origin: 50% 70%;
+}
+
+.person::before,
+.person::after {
+  content: '';
+  position: absolute;
+  left: 50%;
+  translate: -50% 0;
+  background: var(--voice);
+}
+
+.person::before {
+  top: 22cqw;
+  width: 26cqw;
+  height: 30cqw;
+  border-radius: 50%;
+}
+
+.person::after {
+  bottom: -6cqw;
+  width: 66cqw;
+  height: 34cqw;
+  border-radius: 30cqw 30cqw 0 0;
+  opacity: 0.85;
+}
+
+/* A podcast microphone on a stand in front of each of them. */
+.mic {
+  position: absolute;
+  z-index: 1;
+  bottom: 0;
+  left: 18cqw;
+  width: 11cqw;
+  height: 40cqw;
+}
+
+.spk-b .mic {
+  left: auto;
+  right: 18cqw;
+}
+
+.mic::before {
+  content: '';
+  position: absolute;
+  top: 0;
+  left: 0;
+  width: 11cqw;
+  height: 19cqw;
+  border-radius: 6cqw;
+  background:
+    repeating-linear-gradient(#5a554a 0 1cqw, #2f2c25 1cqw 2cqw);
+  box-shadow: 0 0 0 1cqw #1a1813;
+}
+
+.mic::after {
+  content: '';
+  position: absolute;
+  top: 19cqw;
+  left: 4.5cqw;
+  width: 2cqw;
+  bottom: 0;
+  background: #1a1813;
+}
+
+.spk-a .person {
+  animation: closer-first 6s ease-in-out infinite;
+}
+
+.spk-b .person {
+  animation: closer-second 6s ease-in-out infinite;
+}
+
+/* The sound bars show who is talking. */
+.bars {
+  position: absolute;
+  top: 6cqw;
+  right: 6cqw;
+  display: flex;
+  align-items: flex-end;
+  gap: 1.2cqw;
+  height: 8cqw;
+}
+
+.bars i {
+  width: 1.8cqw;
+  height: 100%;
+  border-radius: 1cqw;
+  background: var(--accent);
+  transform-origin: bottom;
+  animation: bar 0.7s ease-in-out infinite alternate;
+}
+
+.bars i:nth-child(2) {
+  animation-delay: -0.25s;
+}
+
+.bars i:nth-child(3) {
+  animation-delay: -0.5s;
+}
+
+.spk-a .bars {
+  animation: on-first 6s steps(1, end) infinite;
+}
+
+.spk-b .bars {
+  animation: on-second 6s steps(1, end) infinite;
+}
+
+/* Captions on the line between the two, as Split puts them. */
+.cap {
+  position: absolute;
+  left: 5cqw;
+  right: 5cqw;
+  top: 50%;
+  translate: 0 -50%;
+  display: grid;
+  justify-items: center;
+  font-weight: 700;
+  font-size: 7.5cqw;
+  line-height: 1.3;
+  text-transform: uppercase;
+  text-align: center;
+}
+
+.cap-line {
+  grid-area: 1 / 1;
+  align-self: center;
+  display: flex;
+  flex-wrap: wrap;
+  align-items: center;
+  justify-content: center;
+  gap: 0.6cqw 1.6cqw;
+}
+
+.w {
+  padding: 0.2cqw 1.4cqw;
+  border-radius: 1.4cqw;
+  color: #fff;
+  text-shadow:
+    0 0 1.2cqw #000,
+    0 0.4cqw 0.4cqw #000;
+  opacity: 0;
+  animation-duration: 6s;
+  animation-timing-function: steps(1, end);
+  animation-iteration-count: infinite;
+}
+
+.w0 {
+  animation-name: word-of-three;
+}
+
+.w1 {
+  animation-name: word-of-two;
+}
+
+.w2 {
+  animation-name: word-of-one;
+}
+
+.d1 { animation-delay: 1s; }
+.d2 { animation-delay: 2s; }
+.d3 { animation-delay: 3s; }
+.d4 { animation-delay: 4s; }
+.d5 { animation-delay: 5s; }
+
+/* The clip's progress along the bottom. */
+.scrub {
+  position: absolute;
+  left: 6cqw;
+  right: 6cqw;
+  bottom: 4cqw;
+  height: 1.2cqw;
+  border-radius: 1cqw;
+  background: rgb(255 255 255 / 0.25);
+  overflow: hidden;
+}
+
+.scrub span {
+  display: block;
+  height: 100%;
+  background: var(--accent);
+  transform-origin: left;
+  animation: progress 6s linear infinite;
+}
+
+/* A word is marked for its own second, then stays until its speaker is done. */
+@keyframes word-of-three {
+  0% { opacity: 1; background: var(--accent); color: var(--ink); text-shadow: none; }
+  16.667% { opacity: 1; background: transparent; color: #fff; text-shadow: 0 0 1.2cqw #000, 0 0.4cqw 0.4cqw #000; }
+  50% { opacity: 0; }
+}
+
+@keyframes word-of-two {
+  0% { opacity: 1; background: var(--accent); color: var(--ink); text-shadow: none; }
+  16.667% { opacity: 1; background: transparent; color: #fff; text-shadow: 0 0 1.2cqw #000, 0 0.4cqw 0.4cqw #000; }
+  33.333% { opacity: 0; }
+}
+
+@keyframes word-of-one {
+  0% { opacity: 1; background: var(--accent); color: var(--ink); text-shadow: none; }
+  16.667% { opacity: 0; }
+}
+
+@keyframes on-first {
+  0% { opacity: 1; }
+  50% { opacity: 0; }
+}
+
+@keyframes on-second {
+  0% { opacity: 0; }
+  50% { opacity: 1; }
+}
+
+@keyframes closer-first {
+  0%, 44% { scale: 1.12; }
+  56%, 94% { scale: 1; }
+  100% { scale: 1.12; }
+}
+
+@keyframes closer-second {
+  0%, 44% { scale: 1; }
+  56%, 94% { scale: 1.12; }
+  100% { scale: 1; }
+}
+
+@keyframes bar {
+  from { scale: 1 0.3; }
+  to { scale: 1 1; }
+}
+
+@keyframes progress {
+  from { scale: 0 1; }
+  to { scale: 1 1; }
+}
+
+/* Without motion: the first moment, first speaker talking, first word marked. */
+@media (prefers-reduced-motion: reduce) {
+  .clip-anim *,
+  .clip-anim *::before,
+  .clip-anim *::after {
+    animation: none !important;
+  }
+
+  .spk-a .person {
+    scale: 1.12;
+  }
+
+  .spk-b .bars {
+    opacity: 0;
+  }
+
+  .d0,
+  .d1,
+  .d2 {
+    opacity: 1;
+  }
+
+  .d0 {
+    background: var(--accent);
+    color: var(--ink);
+    text-shadow: none;
+  }
+
+  .scrub span {
+    scale: 0.3 1;
+  }
 }
 
 .phone figcaption {

@@ -40,8 +40,14 @@ export const sr = {
     kicker: 'Besplatno · open source · Windows',
     h1: 'Besplatan program za klipove iz podkasta',
     lead: 'Rezzo ispiše epizodu u transkript. Ti izabereš rečenice, a on iseče klip u 9:16, drži u kadru onoga ko govori i doda titlove reč po reč.',
-    clipAlt: 'Gotov vertikalni klip: dvoje govornika jedno iznad drugog i titl između njih',
+    clipAlt:
+      'Nacrtan vertikalni klip: dvoje govornika jedno iznad drugog, kadar se primiče onome ko govori, a titl između njih se pojavljuje reč po reč',
     clipCaption: '1080×1920, bez watermarka',
+    // The drawn clip's captions: three words for each speaker, upper case on screen.
+    captionLines: [
+      ['Od', 'cele', 'epizode'],
+      ['do', 'vertikalnih', 'klipova'],
+    ],
     noneLabel: 'Čega u Rezzu nema',
     none: ['Watermark: nema', 'Pretplata: nema', 'Plaćena verzija: nema'],
     editorCaption: 'Editor klipa. Ono što vidiš u pregledu je ono što izađe u fajlu.',
@@ -95,7 +101,7 @@ export const sr = {
       'Kačim klipove iz podkasta i posao je svaki put isti: nađi dobar momenat, iseci široki kadar na 9:16, drži u kadru onoga ko govori, dodaj titlove.',
       'Programi koji to rade dobro ili lepe watermark na video ili korisne stvari drže iza mesečne pretplate. Rezzo radi isti posao besplatno, i sve je u besplatnoj verziji jer druge verzije nema.',
     ],
-    signature: 'Nikola, autor. Kod je na',
+    signature: 'Autor',
     faqId: 'pitanja',
     faqTitle: 'Pitanja',
     faq: [
