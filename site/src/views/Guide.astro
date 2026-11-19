@@ -11,7 +11,8 @@ interface Props {
 const { lang } = Astro.props;
 const t = text[lang].guide;
 const c = text[lang].common;
-const alt = { clip: c.editorAlt, episode: c.episodeAlt };
+const alt = { clip: c.editorAlt, follow: c.followAlt, episode: c.episodeAlt };
+type Image = keyof typeof alt;
 ---
 
 <Base lang={lang} page="uputstvo" title={t.title} description={t.description}>
@@ -35,7 +36,7 @@ const alt = { clip: c.editorAlt, episode: c.episodeAlt };
         <section id={s.id} aria-labelledby={`${s.id}-naslov`}>
           <h2 id={`${s.id}-naslov`} class="display">{s.title}</h2>
           {s.text.map((p) => <p>{p}</p>)}
-          {s.image && <Shot which={s.image as 'clip' | 'episode'} alt={alt[s.image as 'clip' | 'episode']} />}
+          {s.image && <Shot which={s.image as Image} alt={alt[s.image as Image]} />}
         </section>
       ))
     }

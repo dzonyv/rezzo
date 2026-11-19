@@ -1,10 +1,13 @@
 ---
 import { Picture } from 'astro:assets';
+import clipFollow from '../../../docs/screenshots/clip-follow.png';
 import clip from '../../../docs/screenshots/clip.png';
 import episode from '../../../docs/screenshots/episode.png';
 
+const sources = { clip, follow: clipFollow, episode };
+
 interface Props {
-  which: 'clip' | 'episode';
+  which: keyof typeof sources;
   alt: string;
   caption?: string;
   /** The first big picture on the page loads right away; the rest wait until they're near. */
@@ -12,7 +15,7 @@ interface Props {
 }
 
 const { which, alt, caption, eager = false } = Astro.props;
-const src = which === 'clip' ? clip : episode;
+const src = sources[which];
 // WebP only: for these flat UI screenshots it came out smaller than AVIF at the same look.
 ---
 

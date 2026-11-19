@@ -30,6 +30,8 @@ export const en: Text = {
     megabytes: (mb: number) => `${mb.toLocaleString('en')} MB`,
     editorAlt:
       'A clip in the Rezzo editor: the transcript on the left, a vertical preview with two people stacked in the middle, and the timeline with its layers below',
+    followAlt:
+      'A clip in the Rezzo editor: a close-up in Follow with a caption marking the spoken word, the caption styles drawer open on the left, and the timeline with its words below',
     episodeAlt:
       'The episode screen: the video and the voices found on the left, the transcript in the middle, the clips on the right, and the whole episode in a strip along the bottom',
   },
@@ -211,6 +213,7 @@ export const en: Text = {
           'Every clip gets captions that appear word by word and mark the word being spoken. There are a few built-in styles, and you can change the font, colours, outline, size and how many words fit on a line, then keep the result as your own style.',
           'Poppins, Montserrat and Anton come with the app, and you can add any TTF or OTF font you have.',
         ],
+        image: 'follow',
       },
       {
         id: 'pauses',

@@ -29,6 +29,8 @@ export const sr = {
     megabytes: (mb: number) => `${mb.toLocaleString('sr-Latn')} MB`,
     editorAlt:
       'Klip u Rezzo editoru: transkript levo, vertikalni pregled sa dvoje govornika jedno iznad drugog u sredini i vremenska linija sa slojevima ispod',
+    followAlt:
+      'Klip u Rezzo editoru: krupni kadar u rasporedu Praćenje sa titlom u kom je označena izgovorena reč, levo otvorena fioka sa stilovima titlova, ispod vremenska linija sa rečima',
     episodeAlt:
       'Ekran epizode: video i pronađeni glasovi levo, transkript u sredini, klipovi desno i cela epizoda u traci na dnu',
   },
@@ -211,6 +213,7 @@ export const sr = {
           'Svaki klip dobija titlove koji se pojavljuju reč po reč i označavaju reč koja se izgovara. Ima nekoliko gotovih stilova, a font, boje, obrub, veličinu i broj reči u redu menjaš sam i čuvaš kao svoj stil.',
           'Poppins, Montserrat i Anton dolaze uz program, a možeš da dodaš bilo koji TTF ili OTF font.',
         ],
+        image: 'follow',
       },
       {
         id: 'pauze',
