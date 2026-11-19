@@ -71,7 +71,7 @@ Lottie animations are drawn by dotLottie Web 0.81.0 (`@lottiefiles/dotlottie-web
 ## Telling voices apart
 
 - sherpa-onnx 2.0.1 (Apache-2.0, the k2-fsa project), https://github.com/k2-fsa/sherpa-onnx. The prebuilt Node addon for Windows x64 from the npm package `sherpa-onnx-win-x64` ships in `tools/sherpa-onnx`, with the ONNX Runtime 1.28.2 DLLs it needs (MIT, Copyright (c) Microsoft Corporation, https://github.com/microsoft/onnxruntime).
-- The 3D-Speaker CAM++ speaker embedding model (`3dspeaker_speech_campplus_sv_zh_en_16k-common_advanced`, Apache-2.0, the 3D-Speaker project, https://github.com/modelscope/3D-Speaker), as converted to ONNX by the sherpa-onnx project. It ships in `tools/voice-embeddings`.
+- The 3D-Speaker CAM++ speaker embedding model (`3dspeaker_speech_campplus_sv_zh_en_16k-common_advanced`, Apache-2.0, the 3D-Speaker project, https://github.com/modelscope/3D-Speaker), as converted to ONNX by the sherpa-onnx project. It ships in `tools/voice-embeddings`. This is the sherpa-onnx export from before 2026-11-19, when sherpa-onnx replaced the file under the same URL with a new export. Rezzo keeps a copy of the older one, the one it was tested with, in its own GitHub release `models-voice-embeddings-1` (https://github.com/dzonyv/rezzo/releases/tag/models-voice-embeddings-1).
 
 ## Ekavian words
 
