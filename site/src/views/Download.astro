@@ -2,8 +2,9 @@
 import DownloadMeta from '../components/DownloadMeta.astro';
 import Slab from '../components/Slab.astro';
 import Base from '../layouts/Base.astro';
-import type { Lang } from '../i18n.ts';
+import { href, type Lang } from '../i18n.ts';
 import { latestRelease, repoUrl } from '../release.ts';
+import { signed } from '../signing.ts';
 import { text } from '../text/index.ts';
 
 interface Props {
@@ -14,9 +15,11 @@ const { lang } = Astro.props;
 const t = text[lang].download;
 const c = text[lang].common;
 const release = await latestRelease();
+// While it isn't signed, the SmartScreen step goes second, right after running the installer.
+const install = signed ? t.install : [t.install[0], t.installUnsigned, ...t.install.slice(1)];
 ---
 
-<Base lang={lang} page="preuzmi" title={t.title} description={t.description}>
+<Base lang={lang} page="preuzmi" title={t.title} description={signed ? t.description : t.descriptionUnsigned}>
   <div class="download-box">
     <Slab labelledby="naslov">
       <Fragment slot="top">
@@ -39,7 +42,7 @@ const release = await latestRelease();
     <ul>{t.needs.map((n) => <li>{n}</li>)}</ul>
 
     <h2 class="display">{t.installTitle}</h2>
-    <ol>{t.install.map((n) => <li>{n}</li>)}</ol>
+    <ol>{install.map((n) => <li>{n}</li>)}</ol>
 
     <h2 class="display">{t.removeTitle}</h2>
     <p>{t.remove}</p>
@@ -50,5 +53,8 @@ const release = await latestRelease();
 npm run fetch-tools
 npm run dev</code></pre>
     <p><a href={`${repoUrl}#readme`}>{t.readme}</a></p>
+
+    <h2 class="display">{c.signing}</h2>
+    <p>{signed ? t.signingText : t.signingTextUnsigned} <a href={href(lang, 'potpisivanje')}>{c.signing}</a></p>
   </div>
 </Base>

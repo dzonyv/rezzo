@@ -21,6 +21,7 @@ export const en: Text = {
     report: 'Report a problem',
     changes: 'Changes',
     licenses: 'Licenses',
+    signing: 'Code signing policy',
     credit:
       'The screenshots show frames from Tears of Steel, (CC) Blender Foundation | mango.blender.org, under CC BY 3.0.',
     downloadButton: 'Download the installer',
@@ -127,11 +128,11 @@ export const en: Text = {
         q: 'Does it run on a Mac or Linux?',
         a: 'Not yet. Windows only for now; macOS and Linux are on the roadmap.',
       },
-      {
-        q: 'Why does Windows warn me when I run the installer?',
-        a: 'The installer isn\'t signed yet, so SmartScreen warns you the first time. Click "More info", then "Run anyway".',
-      },
     ],
+    faqUnsigned: {
+      q: 'Why does Windows warn me when I run the installer?',
+      a: 'The installer isn\'t signed yet, so SmartScreen warns you the first time. Click "More info", then "Run anyway".',
+    },
     downloadId: 'download',
     downloadTitle: 'Download Rezzo',
     downloadNotes: [
@@ -145,7 +146,8 @@ export const en: Text = {
 
   download: {
     title: 'Download Rezzo for Windows',
-    description:
+    description: 'The Windows installer and what your computer needs. Rezzo is free and adds no watermark.',
+    descriptionUnsigned:
       'The Windows installer, what your computer needs, and how to get past the SmartScreen warning. Rezzo is free and adds no watermark.',
     h1: 'Download Rezzo',
     lead: 'One installer for Windows. No account, no trial, no paid version.',
@@ -160,16 +162,19 @@ export const en: Text = {
     installTitle: 'Installing',
     install: [
       'Download the installer and run it.',
-      'Windows SmartScreen warns you the first time because the installer isn\'t signed yet. Click "More info", then "Run anyway".',
       "Rezzo installs for your user and doesn't need administrator rights.",
       'The first time you press Transcribe, Rezzo downloads whisper.cpp and the speech model into %LOCALAPPDATA%\\Rezzo.',
     ],
+    installUnsigned:
+      'Windows SmartScreen warns you the first time because the installer isn\'t signed yet. Click "More info", then "Run anyway".',
     removeTitle: 'Uninstalling',
     remove:
       'Uninstalling leaves the model in %LOCALAPPDATA%\\Rezzo, so a reinstall doesn\'t download it again. "Disk space" on the home screen shows what Rezzo keeps there and lets you delete it.',
     buildTitle: 'Building it yourself',
     build: 'You need Windows and Node 24. These three steps run the app from source; the README has the rest.',
     readme: 'README on GitHub',
+    signingText: 'The installer is signed. How it is signed, who approves it and what the app sends over the network:',
+    signingTextUnsigned: "The installer isn't signed yet. How it will be signed, who approves it and what the app sends over the network:",
   },
 
   guide: {
@@ -280,6 +285,32 @@ export const en: Text = {
       'The screenshots show frames from Tears of Steel, (CC) Blender Foundation | mango.blender.org, under CC BY 3.0. The transcript in them is our translation of the film\'s English subtitles.',
     siteShotsLink: 'Where the screenshots come from',
     siteBuilt: 'The site is made with Astro (MIT), and its code is in the same repository as the app.',
+  },
+
+  signing: {
+    title: 'Code signing policy | Rezzo',
+    description: "How Rezzo's installer is signed, who approves the signing, and what the app sends over the network.",
+    h1: 'Code signing policy',
+    lead: 'The rules Rezzo is signed by: what gets signed, who approves it, and what the app sends over the network.',
+    status: 'The installers are signed through SignPath Foundation, by these rules:',
+    statusUnsigned: "The installers aren't signed yet. Signing through SignPath Foundation is being set up, and from the first signed release this applies:",
+    whatTitle: 'What gets signed',
+    what: [
+      'Only what GitHub Actions builds from the code in this repository is signed: the installer and the app itself. Every release is approved by hand by the approver before it is signed.',
+      "The app ships with other people's open source programs, like FFmpeg and Electron. They stay as their authors published them, and the licenses page lists them.",
+    ],
+    rolesTitle: 'Roles',
+    roles: [
+      { role: 'Committers and reviewers', who: 'Nikola', handle: 'dzonyv', note: 'Changes from other people come in as pull requests, and he reviews them before they are merged.' },
+      { role: 'Approver', who: 'Nikola', handle: 'dzonyv', note: 'Approves the signing of every release.' },
+    ],
+    privacyTitle: 'Privacy',
+    privacy: [
+      "The only thing the app downloads by itself is the transcription tools, the first time you press Transcribe: whisper.cpp from GitHub and the speech model from Hugging Face. Those services' privacy policies apply to those downloads. Your video, transcript and clips stay on your computer.",
+    ],
+    privacyEnglish: '',
+    githubPrivacy: "GitHub's privacy statement",
+    hfPrivacy: "Hugging Face's privacy policy",
   },
 
   notFound: {

@@ -1,4 +1,9 @@
 import { CHANGELOG } from '../shared/changelog.ts';
+import { websiteUrl } from '../shared/website.ts';
+
+// SignPath Foundation asks for a link to the code signing policy on every release page.
+const signingPolicy = `[Code signing policy](${websiteUrl('en/potpisivanje/')})`;
+const signingPolicySh = `[Code signing policy](${websiteUrl('potpisivanje/')})`;
 
 export interface InstallerFacts {
   /** The installer's file name, as attached to the release. */
@@ -18,6 +23,8 @@ export interface InstallerFacts {
  *
  * The checksum is in SHA256SUMS.txt next to the installer, not here: a
  * rebuild replaces that file but leaves this text as it was.
+ *
+ * Both parts end with a link to the code signing policy.
  */
 export function releaseNotes(version: string, { installer, signed }: InstallerFacts): string {
   const release = CHANGELOG.find((r) => r.version === version);
@@ -34,6 +41,8 @@ export function releaseNotes(version: string, { installer, signed }: InstallerFa
     `Download \`${installer}\` and run it. It installs for your user and doesn't need administrator rights. \`SHA256SUMS.txt\` has its SHA-256, to check the download by.`,
     '',
     ...unsigned("The installer isn't signed yet, so Windows SmartScreen warns you the first time. The [README](https://github.com/dzonyv/rezzo#download) says what to click."),
+    signingPolicy,
+    '',
     '## Šta donosi',
     '',
     list(release.changes.sh),
@@ -46,5 +55,6 @@ export function releaseNotes(version: string, { installer, signed }: InstallerFa
     ...unsigned(
       'Instaler još nije potpisan, pa Windows SmartScreen prvi put upozori na njega. Klikni na link ispod teksta upozorenja („More info” na engleskom Windowsu), pa na dugme koje se pojavi dole desno („Run anyway”).',
     ),
+    signingPolicySh,
   ].join('\n');
 }

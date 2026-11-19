@@ -1,7 +1,7 @@
 import type { APIRoute } from 'astro';
 import { absolute, href, htmlLang, langs, type Page } from '../i18n.ts';
 
-const pages: Page[] = ['', 'preuzmi', 'uputstvo', 'izmene', 'licence'];
+const pages: Page[] = ['', 'preuzmi', 'uputstvo', 'izmene', 'licence', 'potpisivanje'];
 
 /** Every page in both languages, each listing its other language for search engines. */
 export const GET: APIRoute = () => {

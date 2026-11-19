@@ -6,6 +6,7 @@ import Slab from '../components/Slab.astro';
 import Base from '../layouts/Base.astro';
 import { absolute, asset, href, htmlLang, type Lang } from '../i18n.ts';
 import { latestRelease, repoUrl } from '../release.ts';
+import { signed } from '../signing.ts';
 import { text } from '../text/index.ts';
 
 interface Props {
@@ -16,6 +17,7 @@ const { lang } = Astro.props;
 const t = text[lang].home;
 const c = text[lang].common;
 const release = await latestRelease();
+const faq = signed ? t.faq : [...t.faq, t.faqUnsigned];
 
 const jsonLd = {
   '@context': 'https://schema.org',
@@ -104,7 +106,7 @@ const jsonLd = {
   <section class="wrap section faq" id={t.faqId} aria-labelledby="pitanja-naslov">
     <h2 id="pitanja-naslov" class="display">{t.faqTitle}</h2>
     {
-      t.faq.map((item) => (
+      faq.map((item) => (
         <details>
           <summary>{item.q}</summary>
           <p>{item.a}</p>

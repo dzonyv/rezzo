@@ -13,6 +13,14 @@ function parts(notes: string): [string, string] {
 }
 
 describe('release notes', () => {
+  it('links the code signing policy in both languages, signed or not', () => {
+    for (const signed of [false, true]) {
+      const [en, sh] = parts(releaseNotes(release.version, { installer, signed }));
+      expect(en).toContain('[Code signing policy](https://dzonyv.github.io/rezzo/en/potpisivanje/)');
+      expect(sh).toContain('[Code signing policy](https://dzonyv.github.io/rezzo/potpisivanje/)');
+    }
+  });
+
   it('says what the version brings and how to install it, in both languages', () => {
     const [en, sh] = parts(releaseNotes(release.version, { installer, signed: false }));
     expect(en).toContain(`- ${release.changes.en[0]}`);

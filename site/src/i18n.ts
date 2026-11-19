@@ -6,7 +6,7 @@ export const htmlLang: Record<Lang, string> = { sr: 'sr-Latn', en: 'en' };
 export const ogLocale: Record<Lang, string> = { sr: 'sr_RS', en: 'en_US' };
 
 /** Every page, by the path it has in Serbian. English pages have the same path under /en/. */
-export type Page = '' | 'preuzmi' | 'uputstvo' | 'izmene' | 'licence' | '404';
+export type Page = '' | 'preuzmi' | 'uputstvo' | 'izmene' | 'licence' | 'potpisivanje' | '404';
 
 const base = import.meta.env.BASE_URL.replace(/\/$/, '');
 

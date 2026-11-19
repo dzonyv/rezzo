@@ -1,0 +1,60 @@
+---
+import Base from '../layouts/Base.astro';
+import { href, type Lang } from '../i18n.ts';
+import { signPathPrivacy, signPathStatement, signed } from '../signing.ts';
+import { text } from '../text/index.ts';
+
+// The code signing policy SignPath Foundation asks for: what is signed, the
+// team's roles, and the privacy statement in their words.
+
+interface Props {
+  lang: Lang;
+}
+
+const { lang } = Astro.props;
+const t = text[lang].signing;
+const c = text[lang].common;
+---
+
+<Base lang={lang} page="potpisivanje" title={t.title} description={t.description}>
+  <div class="wrap narrow page-head">
+    <h1 class="display">{t.h1}</h1>
+    <p class="lead">{t.lead}</p>
+  </div>
+  <div class="wrap narrow prose">
+    <p class="signing-status">{signed ? t.status : t.statusUnsigned}</p>
+    <p class="statement" lang="en">
+      {signPathStatement.map((part) => (part.href ? <a href={part.href}>{part.text}</a> : part.text))}
+    </p>
+
+    <h2 class="display">{t.whatTitle}</h2>
+    {t.what.map((p) => <p>{p}</p>)}
+    <p><a href={href(lang, 'licence')}>{c.licenses}</a></p>
+
+    <h2 class="display">{t.rolesTitle}</h2>
+    <ul>
+      {
+        t.roles.map((r) => (
+          <li>
+            <strong>{r.role}:</strong> <a href={`https://github.com/${r.handle}`}>{r.who} ({r.handle})</a>. {r.note}
+          </li>
+        ))
+      }
+    </ul>
+
+    <h2 class="display">{t.privacyTitle}</h2>
+    {!t.privacyEnglish && <p>{signPathPrivacy}</p>}
+    {t.privacy.map((p) => <p>{p}</p>)}
+    {
+      t.privacyEnglish && (
+        <p>
+          {t.privacyEnglish} <q lang="en">{signPathPrivacy}</q>
+        </p>
+      )
+    }
+    <ul>
+      <li><a href="https://docs.github.com/site-policy/privacy-policies/github-general-privacy-statement">{t.githubPrivacy}</a></li>
+      <li><a href="https://huggingface.co/privacy">{t.hfPrivacy}</a></li>
+    </ul>
+  </div>
+</Base>

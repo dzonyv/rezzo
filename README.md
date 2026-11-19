@@ -4,15 +4,15 @@ Rezzo is a desktop app for cutting vertical clips out of podcasts and talk shows
 
 I post podcast clips on social media, and the work is the same every time: find a good moment, crop a wide shot down to 9:16, keep whoever is talking in frame, add captions. The apps that handle this well either stamp a watermark on the video or put the useful parts behind a monthly subscription. Rezzo does the same job for free, and every feature is in the free version because there is no other version.
 
-It's made for shows in Serbian first, since that's what I work with.
+It's made for shows in Serbian first, since that's what I work with. The website is at [dzonyv.github.io/rezzo](https://dzonyv.github.io/rezzo/en/).
 
 ![A clip in the editor: two people stacked in Split, captions on the line between them, and the timeline below](docs/screenshots/clip.png)
 
 ## Download
 
-Windows only for now. Get the installer from the [Releases page](https://github.com/dzonyv/rezzo/releases/latest) and run it. It installs for your user and doesn't need administrator rights.
+Windows only for now. Get the installer from the [download page](https://dzonyv.github.io/rezzo/en/preuzmi/) and run it. It installs for your user and doesn't need administrator rights.
 
-The installer isn't signed yet, so Windows SmartScreen warns you the first time. Click "More info", then "Run anyway".
+The installer isn't signed yet, so Windows SmartScreen warns you the first time. Click "More info", then "Run anyway". The [code signing policy](https://dzonyv.github.io/rezzo/en/potpisivanje/) says how it will be signed.
 
 An NVIDIA graphics card makes transcription and export a lot faster, but it isn't required. Without one, both run on the processor. The first time you transcribe, Rezzo downloads whisper.cpp and the speech model (about 1.3 GB with an NVIDIA card) into `%LOCALAPPDATA%\Rezzo`. Uninstalling leaves them there, so a reinstall doesn't download them again. "Disk space" on the home screen shows what Rezzo keeps there and lets you delete it.
 
