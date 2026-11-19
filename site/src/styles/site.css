@@ -169,79 +169,48 @@ p {
 }
 
 /*
- * The language switch (LangSwitch.astro): the knob sits on the current
- * language, its flag fills the track. Following the link slides the knob
+ * The language switch (LangSwitch.astro): two codes, the current one yellow
+ * and underlined. Following the link to the other language slides the line
  * across with a view transition between the two pages.
  */
-.top nav .lang-switch {
-  gap: 8px;
+.lang-switch {
+  display: inline-flex;
+  align-items: center;
+  gap: 2px;
   font-family: var(--font-mono);
   font-size: 0.85rem;
+  letter-spacing: 0.04em;
 }
 
-.lang-switch .code {
+.top nav .lang-switch .code {
+  position: relative;
+  display: inline-flex;
+  align-items: center;
+  justify-content: center;
+  min-width: 36px;
+  min-height: 44px;
+  padding: 0 4px;
+  text-decoration: none;
   color: var(--text-dim);
 }
 
-.lang-switch .code.current {
+.top nav .lang-switch a.code:hover {
   color: var(--text);
 }
 
-.lang-switch:hover .code:not(.current) {
+.lang-switch .current {
   color: var(--accent);
 }
 
-.track {
-  position: relative;
-  width: 54px;
-  height: 30px;
-  border-radius: 999px;
-  overflow: hidden;
-  background: var(--surface-2);
-  view-transition-name: lang-track;
-}
-
-.track .flag {
+.lang-switch .mark {
   position: absolute;
-  inset: 0;
-  width: 100%;
-  height: 100%;
-}
-
-/* The rim, drawn over the flag so it stays visible. */
-.track::after {
-  content: '';
-  position: absolute;
-  inset: 0;
-  border-radius: inherit;
-  box-shadow: inset 0 0 0 2px var(--line);
-}
-
-.knob {
-  position: absolute;
-  top: 3px;
-  left: 3px;
-  width: 24px;
-  height: 24px;
-  border-radius: 50%;
-  z-index: 1;
-  background: var(--text);
-  box-shadow: 0 1px 4px rgb(0 0 0 / 0.5);
-  transition: translate 0.15s ease;
-  view-transition-name: lang-knob;
-}
-
-.on-en .knob {
-  left: 27px;
-}
-
-/* A hint on hover: the knob leans toward the other language. */
-.on-sr:hover .knob {
-  translate: 3px 0;
-}
-
-.on-en:hover .knob {
-  translate: -3px 0;
+  left: 8px;
+  right: 8px;
+  bottom: 9px;
+  height: 2px;
+  border-radius: 1px;
+  background: var(--accent);
+  view-transition-name: lang-mark;
 }
 
 @media (prefers-reduced-motion: no-preference) {
@@ -249,15 +218,9 @@ p {
     navigation: auto;
   }
 
-  ::view-transition-group(lang-knob) {
+  ::view-transition-group(lang-mark) {
     animation-duration: 0.3s;
     animation-timing-function: cubic-bezier(0.3, 0.7, 0.3, 1);
-  }
-}
-
-@media (max-width: 400px) {
-  .lang-switch .code {
-    display: none;
   }
 }
 
@@ -762,10 +725,64 @@ p {
   margin: 0;
 }
 
-.shot img {
-  width: 100%;
+/*
+ * While a screenshot loads (on a slow connection that can take a while), its
+ * frame shows a playhead sweeping across a dark track, like scrubbing the
+ * timeline. The width and height on the img keep the space, so nothing moves
+ * when the picture arrives and covers it.
+ */
+.shot-frame {
+  container-type: inline-size;
+  position: relative;
+  overflow: hidden;
   border-radius: 16px;
   border: 1px solid var(--line);
+  background:
+    repeating-linear-gradient(90deg, var(--surface-2) 0 46px, transparent 46px 54px) left 24px bottom 24px / calc(100% - 48px) 10px no-repeat,
+    var(--surface);
+}
+
+.shot-frame::before {
+  content: '';
+  position: absolute;
+  top: 0;
+  bottom: 0;
+  left: 0;
+  width: 2px;
+  background: var(--accent);
+  animation: scrub 1.6s cubic-bezier(0.5, 0, 0.5, 1) infinite alternate;
+}
+
+.shot-frame::after {
+  content: '';
+  position: absolute;
+  top: 16px;
+  left: 0;
+  width: 28px;
+  height: 12px;
+  margin-left: -13px;
+  border-radius: 6px;
+  background: var(--accent);
+  animation: scrub 1.6s cubic-bezier(0.5, 0, 0.5, 1) infinite alternate;
+}
+
+.shot img {
+  position: relative;
+  z-index: 1;
+  width: 100%;
+}
+
+@keyframes scrub {
+  from { translate: 24px 0; }
+  to { translate: calc(100cqw - 24px) 0; }
+}
+
+@media (prefers-reduced-motion: reduce) {
+  .shot-frame::before,
+  .shot-frame::after {
+    animation: none;
+    translate: 24px 0;
+  }
 }
 
 .shot figcaption {
@@ -1074,4 +1091,79 @@ p {
 
 .home .foot {
   margin-top: 0;
+}
+
+/* The 404 page: the number cut like the icon's R. */
+.lost {
+  display: flex;
+  flex-wrap: wrap;
+  align-items: center;
+  gap: 24px 64px;
+  padding-block: clamp(32px, 6vw, 72px) 0;
+}
+
+.cut-404 {
+  flex: 1 1 360px;
+  display: grid;
+  font-family: var(--font-display);
+  font-weight: 800;
+  font-size: clamp(7rem, 22vw, 17rem);
+  line-height: 1;
+  letter-spacing: -0.04em;
+  color: var(--accent);
+}
+
+.cut-404 span {
+  grid-area: 1 / 1;
+}
+
+.cut-top {
+  clip-path: polygon(0 0, 100% 0, 100% 44%, 0 60%);
+}
+
+.cut-bottom {
+  clip-path: polygon(0 64%, 100% 48%, 100% 100%, 0 100%);
+  translate: 0.05em 0;
+}
+
+.lost-text {
+  flex: 1 1 380px;
+  min-width: 0;
+}
+
+.lost h1 {
+  font-size: clamp(1.9rem, 4vw, 3rem);
+}
+
+.lost .lead {
+  margin-top: 16px;
+  max-width: 560px;
+  color: var(--text-soft);
+}
+
+.lost-links {
+  margin-top: 28px;
+  display: flex;
+  flex-wrap: wrap;
+  align-items: center;
+  gap: 12px 24px;
+  font-weight: 600;
+}
+
+.lost-en {
+  margin-top: 40px;
+  padding-top: 20px;
+  border-top: 1px solid var(--line);
+  color: var(--text-dim);
+  font-size: 1rem;
+}
+
+.lost-en h2 {
+  font-size: 1.15rem;
+  color: var(--text);
+  margin-bottom: 6px;
+}
+
+.lost-en p + p {
+  margin-top: 8px;
 }

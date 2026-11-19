@@ -285,8 +285,9 @@ export const en: Text = {
   notFound: {
     title: 'Page not found | Rezzo',
     description: "This page doesn't exist.",
-    h1: "This page doesn't exist",
-    text: 'The address may be mistyped, or the page has moved.',
+    kicker: 'Error 404',
+    h1: 'This page got cut',
+    text: 'The address may be mistyped, or the page has moved. Like every cut in Rezzo, this one comes back with a click.',
     back: 'Go to the home page',
   },
 };

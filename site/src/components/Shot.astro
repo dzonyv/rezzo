@@ -20,6 +20,7 @@ const src = sources[which];
 ---
 
 <figure class="shot">
+  <div class="shot-frame">
   <Picture
     src={src}
     alt={alt}
@@ -31,5 +32,6 @@ const src = sources[which];
     loading={eager ? 'eager' : 'lazy'}
     fetchpriority={eager ? 'high' : undefined}
   />
+  </div>
   {caption && <figcaption>{caption}</figcaption>}
 </figure>

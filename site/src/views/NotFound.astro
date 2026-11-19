@@ -1,24 +1,36 @@
 ---
 import Base from '../layouts/Base.astro';
-import { href, type Lang } from '../i18n.ts';
+import { href } from '../i18n.ts';
 import { text } from '../text/index.ts';
 
 // GitHub Pages serves one 404 page for every missing address, so it says
-// the same thing in both languages, Serbian first.
-const other: Lang = 'en';
+// the same thing in both languages, Serbian first. The big 404 is cut the
+// way the icon's R is: a shallow line through it, the lower part shifted.
 const t = text.sr.notFound;
-const o = text[other].notFound;
+const nav = text.sr.common.nav;
+const o = text.en.notFound;
 ---
 
 <Base lang="sr" page="404" title={t.title} description={t.description}>
-  <div class="wrap narrow page-head prose">
-    <h1 class="display">{t.h1}</h1>
-    <p class="lead">{t.text}</p>
-    <p><a class="button" href={href('sr', '')}>{t.back}</a></p>
-    <div lang="en">
-      <h2 class="display">{o.h1}</h2>
-      <p>{o.text}</p>
-      <p><a href={href('en', '')}>{o.back}</a></p>
+  <section class="wrap lost" aria-labelledby="naslov">
+    <div class="cut-404" aria-hidden="true">
+      <span class="cut-top">404</span>
+      <span class="cut-bottom">404</span>
     </div>
-  </div>
+    <div class="lost-text">
+      <p class="kicker">{t.kicker}</p>
+      <h1 id="naslov" class="display">{t.h1}</h1>
+      <p class="lead">{t.text}</p>
+      <p class="lost-links">
+        <a class="button" href={href('sr', '')}>{t.back}</a>
+        <a href={href('sr', 'uputstvo')}>{nav.guide}</a>
+        <a href={href('sr', 'preuzmi')}>{nav.download}</a>
+      </p>
+      <div class="lost-en" lang="en">
+        <h2>{o.h1}</h2>
+        <p>{o.text}</p>
+        <p><a href={href('en', '')}>{o.back}</a></p>
+      </div>
+    </div>
+  </section>
 </Base>

@@ -1,10 +1,9 @@
 ---
-// The language switch in the header: SR and EN on either side of a toggle
-// whose knob sits on the current language, with that language's flag
-// filling the track. It's a link to the same page in the other language;
-// the knob sliding across is a cross-document view transition (site.css),
-// so no JavaScript is involved. Serbian uses the civil flag, without arms.
-import { href, htmlLang, type Lang, type Page } from '../i18n.ts';
+// The language switch in the header: SR and EN, the current one in yellow
+// with a yellow line under it, the other a link to the same page in that
+// language. The line has a view-transition name (site.css), so following
+// the link slides it across to the other code, with no JavaScript.
+import { href, htmlLang, langs, type Lang, type Page } from '../i18n.ts';
 import { text } from '../text/index.ts';
 
 interface Props {
@@ -13,39 +12,23 @@ interface Props {
 }
 
 const { lang, page } = Astro.props;
-const other: Lang = lang === 'sr' ? 'en' : 'sr';
 const t = text[lang].common;
+const target = page === '404' ? '' : page;
 ---
 
-<a
-  class:list={['lang-switch', `on-${lang}`]}
-  href={href(other, page === '404' ? '' : page)}
-  hreflang={htmlLang[other]}
-  aria-label={t.otherLangLabel}
->
-  <span class:list={['code', { current: lang === 'sr' }]} aria-hidden="true">SR</span>
-  <span class="track" aria-hidden="true">
-    {
-      lang === 'sr' ? (
-        <svg class="flag" viewBox="0 0 3 2" preserveAspectRatio="xMidYMid slice">
-          <rect width="3" height="2" fill="#fff" />
-          <rect width="3" height="1.333" fill="#0c4076" />
-          <rect width="3" height="0.667" fill="#c6363c" />
-        </svg>
+<span class="lang-switch">
+  {
+    langs.map((l) =>
+      l === lang ? (
+        <span class="code current" aria-current="true" lang={htmlLang[l]}>
+          {l.toUpperCase()}
+          <span class="mark" aria-hidden="true"></span>
+        </span>
       ) : (
-        <svg class="flag" viewBox="0 0 60 30" preserveAspectRatio="xMidYMid slice">
-          <clipPath id="union-jack">
-            <path d="M30,15 h30 v15 z v15 h-30 z h-30 v-15 z v-15 h30 z" />
-          </clipPath>
-          <rect width="60" height="30" fill="#012169" />
-          <path d="M0,0 L60,30 M60,0 L0,30" stroke="#fff" stroke-width="6" />
-          <path d="M0,0 L60,30 M60,0 L0,30" clip-path="url(#union-jack)" stroke="#c8102e" stroke-width="4" />
-          <path d="M30,0 v30 M0,15 h60" stroke="#fff" stroke-width="10" />
-          <path d="M30,0 v30 M0,15 h60" stroke="#c8102e" stroke-width="6" />
-        </svg>
-      )
-    }
-    <span class="knob"></span>
-  </span>
-  <span class:list={['code', { current: lang === 'en' }]} aria-hidden="true">EN</span>
-</a>
+        <a class="code" href={href(l, target)} hreflang={htmlLang[l]} aria-label={t.otherLangLabel}>
+          {l.toUpperCase()}
+        </a>
+      ),
+    )
+  }
+</span>
