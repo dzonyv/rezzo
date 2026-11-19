@@ -22,6 +22,7 @@
   },
   "devDependencies": {
     "@astrojs/check": "0.9.12",
+    "@types/node": "24.19.2",
     "subset-font": "2.9.0",
     "typescript": "6.0.3"
   }
