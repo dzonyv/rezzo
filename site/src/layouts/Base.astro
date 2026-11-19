@@ -1,5 +1,6 @@
 ---
 import '../styles/site.css';
+import LangSwitch from '../components/LangSwitch.astro';
 import { absolute, asset, href, htmlLang, langs, ogLocale, type Lang, type Page } from '../i18n.ts';
 import { repoUrl } from '../release.ts';
 import { text } from '../text/index.ts';
@@ -91,9 +92,7 @@ const indexable = page !== '404';
         <a class="optional" href={href(lang, '', text[lang].home.howId)}>{t.nav.howItWorks}</a>
         <a class="optional" href={href(lang, 'uputstvo')}>{t.nav.guide}</a>
         <a class="optional" href={repoUrl}>{t.nav.github}</a>
-        <a class="lang" href={href(other, page === '404' ? '' : page)} hreflang={htmlLang[other]} lang={htmlLang[other]} aria-label={t.otherLangLabel}>
-          {t.otherLang}
-        </a>
+        <LangSwitch lang={lang} page={page} />
         <a class="button" href={href(lang, 'preuzmi')}>{t.nav.download}</a>
       </nav>
     </header>

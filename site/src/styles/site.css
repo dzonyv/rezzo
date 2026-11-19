@@ -168,10 +168,97 @@ p {
   text-decoration: none;
 }
 
-.top nav .lang {
+/*
+ * The language switch (LangSwitch.astro): the knob sits on the current
+ * language, its flag fills the track. Following the link slides the knob
+ * across with a view transition between the two pages.
+ */
+.top nav .lang-switch {
+  gap: 8px;
   font-family: var(--font-mono);
   font-size: 0.85rem;
+}
+
+.lang-switch .code {
   color: var(--text-dim);
+}
+
+.lang-switch .code.current {
+  color: var(--text);
+}
+
+.lang-switch:hover .code:not(.current) {
+  color: var(--accent);
+}
+
+.track {
+  position: relative;
+  width: 54px;
+  height: 30px;
+  border-radius: 999px;
+  overflow: hidden;
+  background: var(--surface-2);
+  view-transition-name: lang-track;
+}
+
+.track .flag {
+  position: absolute;
+  inset: 0;
+  width: 100%;
+  height: 100%;
+}
+
+/* The rim, drawn over the flag so it stays visible. */
+.track::after {
+  content: '';
+  position: absolute;
+  inset: 0;
+  border-radius: inherit;
+  box-shadow: inset 0 0 0 2px var(--line);
+}
+
+.knob {
+  position: absolute;
+  top: 3px;
+  left: 3px;
+  width: 24px;
+  height: 24px;
+  border-radius: 50%;
+  z-index: 1;
+  background: var(--text);
+  box-shadow: 0 1px 4px rgb(0 0 0 / 0.5);
+  transition: translate 0.15s ease;
+  view-transition-name: lang-knob;
+}
+
+.on-en .knob {
+  left: 27px;
+}
+
+/* A hint on hover: the knob leans toward the other language. */
+.on-sr:hover .knob {
+  translate: 3px 0;
+}
+
+.on-en:hover .knob {
+  translate: -3px 0;
+}
+
+@media (prefers-reduced-motion: no-preference) {
+  @view-transition {
+    navigation: auto;
+  }
+
+  ::view-transition-group(lang-knob) {
+    animation-duration: 0.3s;
+    animation-timing-function: cubic-bezier(0.3, 0.7, 0.3, 1);
+  }
+}
+
+@media (max-width: 400px) {
+  .lang-switch .code {
+    display: none;
+  }
 }
 
 @media (max-width: 560px) {
